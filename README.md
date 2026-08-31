@@ -92,8 +92,8 @@ A plataforma também incluirá ferramentas comerciais, permitindo a criação de
 |   28 | Média      | **US28 — Assistente IA para consultas**        | Como funcionário da Aliança, quero fazer perguntas à IA sobre solicitações e traduções para obter informações rapidamente |          3 | Sprint 3 |
 |   29 | Média      | **US29 — IA para análise de solicitações**                     | Como funcionário da Aliança, quero utilizar a IA para analisar informações das solicitações e receber um resumo dos dados relevantes |          3 | Sprint 3 |
 |   30 | Média      | **US30 — IA para apoio à gestão**                     | Como funcionário da Aliança, quero receber sugestões da IA sobre o gerenciamento das traduções para auxiliar na tomada de decisões |          8 | Sprint 3 |
-|    31 | Média      | **US29 — Recuperação de senha**            | Como usuário, quero recuperar minha senha para voltar a acessar minha conta                                 |          3 | Sprint 3 |
-|   32 | Média      | **US30 — Perfil profissional**             | Como tradutor, quero informar minhas habilidades para receber trabalhos compatíveis comigo                  |          3 | Sprint 3 |
+|    31 | Média      | **US31 — Recuperação de senha**            | Como usuário, quero recuperar minha senha para voltar a acessar minha conta                                 |          3 | Sprint 3 |
+|   32 | Média      | **US32 — Perfil profissional**             | Como tradutor, quero informar minhas habilidades para receber trabalhos compatíveis comigo                  |          3 | Sprint 3 |
 ---
 
 ## 🚀 MVP - Mínimo Produto Viável
