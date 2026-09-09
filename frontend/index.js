@@ -1,10 +1,8 @@
-const http = require('http');
+import { registerRootComponent } from 'expo';
 
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ mensagem: 'Frontend Node rodando no Docker!' }));
-});
+import App from './App';
 
-server.listen(3000, () => {
-  console.log('Servidor Node rodando na porta 3000');
-});
+// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
+// It also ensures that whether you load the app in Expo Go or in a native build,
+// the environment is set up appropriately
+registerRootComponent(App);

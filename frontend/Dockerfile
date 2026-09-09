@@ -7,4 +7,4 @@ RUN npm install
 
 COPY . .
 
-CMD ["npm", "start"]
+CMD ["npx", "expo", "start", "--clear", "--web", "--port", "8081"]
