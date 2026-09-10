@@ -24,8 +24,9 @@ Se Falhou: Descreva brevemente o comportamento errado observado ou cole o link/I
 Seu arroba ou nome de usuário (ex: @nome.sobrenome).
 
 ### Data
-Data em que a validação foi executada (DD/MM/AAAA).
+Data em que a validação foi executada (DD/MM/AAAA).https://github.com/Ryan53132
 
 ---
 | ID | Cenário / Casos de Teste | Status | Observação / Defeito | Usuario | Data |
 | --- | :--- | :---: | :--- | :----- | :----- |
+| CT-01 | Setup do Docker | ✅  Passou | N/A | @Ryan53132 | 09/09/2026 |
