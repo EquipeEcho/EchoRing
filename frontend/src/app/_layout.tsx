@@ -1,18 +1,28 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { useEffect } from 'react';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+import { SessionProvider, useSession } from '@/features/auth/session';
+import { colors } from '@/constants/design';
+import '@/global.css';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+function Routes() {
+  const { session, ready } = useSession();
+  useEffect(() => { SplashScreen.hideAsync().catch(() => {}); }, []);
+  if (!ready) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator color={colors.green} accessibilityLabel="Carregando" /></View>;
+  return <Stack screenOptions={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: colors.canvas } }}>
+    <Stack.Screen name="index" />
+    <Stack.Protected guard={!session}>
+      <Stack.Screen name="login" />
+      <Stack.Screen name="recuperar-senha" />
+    </Stack.Protected>
+    <Stack.Protected guard={!!session}>
+      <Stack.Screen name="(workspace)" />
+    </Stack.Protected>
+  </Stack>;
+}
 
-SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
-  );
+export default function RootLayout() {
+  return <SessionProvider><StatusBar style="dark" /><Routes /></SessionProvider>;
 }
