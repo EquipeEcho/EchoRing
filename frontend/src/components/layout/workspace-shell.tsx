@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { router, Slot, usePathname, type Href } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bell, CalendarDays, ChartNoAxesCombined, ChevronDown, ChevronRight, CircleHelp, Ellipsis, FolderKanban, House, LayoutGrid, ListTodo, LogOut, Search, Settings2, UsersRound, Wallet, X, type LucideIcon } from 'lucide-react-native';
+import { Bell, ChartNoAxesCombined, ChevronDown, ChevronRight, CircleHelp, Ellipsis, FolderKanban, House, LayoutGrid, ListTodo, LogOut, Search, Settings2, UsersRound, Wallet, X, type LucideIcon } from 'lucide-react-native';
 import { Badge, Brand, Button, IconButton, Txt, common } from '@/components/ui/primitives';
 import { Dialog } from '@/components/ui/dialog';
 import { colors, desktopWidth, font } from '@/constants/design';
@@ -20,12 +20,11 @@ export const modules: { title: string; href: string; icon: LucideIcon; descripti
 ];
 
 function NavItem({ title, href, icon: Icon, active, badge }: { title: string; href: string; icon: LucideIcon; active: boolean; badge?: number }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ selected: active }} onPress={() => router.push(href as Href)}
+  return <Pressable accessibilityRole="button" accessibilityLabel={title} aria-current={active ? 'page' : undefined} accessibilityState={{ selected: active }} onPress={() => router.push(href as Href)}
     style={({ hovered }) => [s.navItem, active && s.navActive, hovered && !active && { backgroundColor: colors.canvas }]}>
     <Icon size={18} color={active ? colors.green : colors.muted} strokeWidth={active ? 2 : 1.6} />
     <Txt style={[s.navLabel, active && { color: colors.green, fontWeight: '600' }]}>{title}</Txt>
     {badge !== undefined && <View style={s.count}><Txt style={s.countText}>{badge}</Txt></View>}
-    {title === 'Operação' && <ChevronRight size={14} color={active ? colors.green : colors.muted} />}
   </Pressable>;
 }
 
@@ -49,17 +48,17 @@ export function WorkspaceShell() {
       {desktop && <View style={s.sidebar}>
         <View style={s.brand}><Brand /></View>
         <ScrollView contentContainerStyle={s.navContent}>
-          <Txt style={s.navSection}>ESPAÇO DE TRABALHO</Txt>
-          {modules.map(item => <NavItem key={item.href} {...item} active={pathname === item.href} />)}
-          <View style={s.separator} />
-          <Txt style={s.navSection}>MEU DIA A DIA</Txt>
+          {modules.slice(0, 2).map(item => <NavItem key={item.href} {...item} active={pathname === item.href} />)}
           <NavItem title="Minhas tarefas" href="/tarefas" icon={ListTodo} active={pathname === '/tarefas'} badge={pending} />
+          <View style={s.separator} />
+          <Txt style={s.navSection}>Gestão</Txt>
+          {modules.slice(2).map(item => <NavItem key={item.href} {...item} active={pathname === item.href} />)}
         </ScrollView>
         <View style={s.sidebarBottom}><Pressable accessibilityRole="button" onPress={() => setHelp(true)} style={s.help}><CircleHelp size={18} color={colors.muted} /><Txt style={s.navLabel}>Central de ajuda</Txt></Pressable><View style={s.separator} />{profileButton}</View>
       </View>}
       <View style={s.main}>
         <View style={[s.header, !desktop && s.mobileHeader]}>
-          {desktop ? <View style={common.row}><House size={15} color={colors.muted} /><ChevronRight size={12} color="#ADB5AF" /><Txt style={s.breadcrumb}>{section}</Txt></View> : <Brand compact />}
+          {desktop ? <View style={common.row}><Txt style={s.breadcrumb}>Aliança Traduções</Txt><ChevronRight size={12} color={colors.muted} /><Txt style={s.breadcrumb}>{section}</Txt></View> : <Brand compact />}
           <View style={[s.headerActions, !desktop && { gap: 2 }]}>
             {desktop && <View style={s.search}><Search size={17} color={colors.muted} /><TextInput accessibilityLabel="Buscar projetos" placeholder="Buscar projeto ou cliente..." placeholderTextColor={colors.muted} value={search} onChangeText={setSearch} onSubmitEditing={() => router.push('/operacao')} style={s.searchInput} />{!!search && <Pressable accessibilityRole="button" accessibilityLabel="Limpar busca" onPress={() => setSearch('')} style={{ padding: 5 }}><X size={14} color={colors.muted} /></Pressable>}</View>}
             {!desktop && <IconButton icon={Search} label="Buscar projetos" onPress={() => setMobileSearch(!mobileSearch)} />}
@@ -73,7 +72,7 @@ export function WorkspaceShell() {
           { title: 'Início', href: '/dashboard', icon: House }, { title: 'Operação', href: '/operacao', icon: FolderKanban },
           { title: 'Tarefas', href: '/tarefas', icon: ListTodo }, { title: 'Mais', href: '/mais', icon: Ellipsis },
         ].map(item => { const active = pathname === item.href || (item.href === '/mais' && pathname.startsWith('/area/')); const Icon = item.icon;
-          return <Pressable key={item.href} accessibilityRole="button" accessibilityLabel={item.title} accessibilityState={{ selected: active }} onPress={() => router.push(item.href as Href)} style={s.bottomItem}><View style={[s.bottomIcon, active && { backgroundColor: colors.greenSoft }]}><Icon size={21} color={active ? colors.green : colors.muted} strokeWidth={active ? 2 : 1.6} /></View><Txt style={[s.bottomLabel, active && { color: colors.green, fontWeight: '600' }]}>{item.title}</Txt></Pressable>;
+          return <Pressable key={item.href} accessibilityRole="button" accessibilityLabel={item.title} aria-current={active ? 'page' : undefined} accessibilityState={{ selected: active }} onPress={() => router.push(item.href as Href)} style={[s.bottomItem, active && { borderTopColor: colors.green }]}><View style={s.bottomIcon}><Icon size={21} color={active ? colors.green : colors.muted} strokeWidth={active ? 2 : 1.6} /></View><Txt style={[s.bottomLabel, active && { color: colors.green, fontWeight: '600' }]}>{item.title}</Txt></Pressable>;
         })}</View>}
       </View>
     </View>
@@ -93,34 +92,34 @@ export function WorkspaceShell() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
   root: { flex: 1, flexDirection: 'row', minHeight: 0 },
-  sidebar: { width: 232, borderRightWidth: 1, borderRightColor: colors.line, backgroundColor: colors.white },
-  brand: { paddingHorizontal: 24, paddingVertical: 28 },
-  navContent: { paddingHorizontal: 14, paddingTop: 18 },
-  navSection: { color: '#8D9790', fontSize: 9, fontWeight: '600', marginHorizontal: 13, marginBottom: 14 },
+  sidebar: { width: 224, borderRightWidth: 1, borderRightColor: colors.line, backgroundColor: colors.canvas },
+  brand: { paddingHorizontal: 24, paddingVertical: 24 },
+  navContent: { paddingHorizontal: 12, paddingTop: 12 },
+  navSection: { color: colors.muted, fontSize: 12, fontWeight: '500', marginHorizontal: 13, marginBottom: 12 },
   navItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, minHeight: 44, borderRadius: 6, gap: 12, marginBottom: 5 },
   navActive: { backgroundColor: colors.greenSoft },
-  navLabel: { fontSize: 12, color: '#637268', flex: 1 },
+  navLabel: { fontSize: 14, color: colors.muted, flex: 1 },
   count: { backgroundColor: '#F0F3F0', paddingHorizontal: 6, borderRadius: 4 },
-  countText: { fontSize: 10, color: colors.muted },
+  countText: { fontSize: 12, color: colors.muted },
   separator: { height: 1, backgroundColor: colors.line, marginVertical: 22 },
   sidebarBottom: { padding: 18 },
   help: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 40, paddingHorizontal: 8 },
-  profileButton: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
+  profileButton: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, minWidth: 44, justifyContent: 'center' },
   avatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#E5EEE5', alignItems: 'center', justifyContent: 'center' },
-  profileName: { fontSize: 12, fontWeight: '600' },
-  profileRole: { fontSize: 10, color: colors.muted, lineHeight: 16 },
-  main: { flex: 1, minWidth: 0, minHeight: 0, backgroundColor: colors.canvas },
-  header: { height: 76, backgroundColor: colors.white, paddingHorizontal: 34, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.line, zIndex: 5 },
-  mobileHeader: { height: 72, paddingHorizontal: 18 },
+  profileName: { fontSize: 13, fontWeight: '600' },
+  profileRole: { fontSize: 11, color: colors.muted, lineHeight: 17 },
+  main: { flex: 1, minWidth: 0, minHeight: 0, backgroundColor: colors.white },
+  header: { height: 64, backgroundColor: colors.white, paddingHorizontal: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.line, zIndex: 5 },
+  mobileHeader: { height: 64, paddingHorizontal: 14 },
   breadcrumb: { fontSize: 12, color: colors.muted },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 20 },
   search: { width: 270, minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderRadius: 6, backgroundColor: colors.canvas },
-  searchInput: { flex: 1, minWidth: 0, minHeight: 40, fontFamily: font, fontSize: 12, color: colors.ink, outlineWidth: 0 },
+  searchInput: { flex: 1, minWidth: 0, minHeight: 44, fontFamily: font, fontSize: 16, color: colors.ink, outlineWidth: 0 },
   notificationDot: { position: 'absolute', top: 8, right: 9, width: 6, height: 6, borderRadius: 3, backgroundColor: '#CA8554', borderWidth: 1, borderColor: colors.white },
   mobileSearch: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.white, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: colors.line },
   content: { flex: 1, minHeight: 0 },
-  bottomNav: { flexDirection: 'row', backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.line, height: 70, paddingTop: 7, paddingBottom: 5 },
-  bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  bottomIcon: { width: 48, height: 29, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
-  bottomLabel: { fontSize: 10, color: colors.muted },
+  bottomNav: { flexDirection: 'row', backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.line, height: 64 },
+  bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, borderTopWidth: 2, borderTopColor: 'transparent' },
+  bottomIcon: { width: 44, height: 27, justifyContent: 'center', alignItems: 'center' },
+  bottomLabel: { fontSize: 11, color: colors.muted },
 });

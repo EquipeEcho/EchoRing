@@ -42,12 +42,12 @@ test('project details, new request and status filters work', async ({ page }) =>
   await expect(page.getByText('Português → Inglês', { exact: true }).last()).toBeVisible();
   await page.getByRole('button', { name: 'Fechar detalhes' }).click();
   await page.getByRole('button', { name: 'Nova requisição', exact: true }).click();
-  await page.getByRole('button', { name: 'Criar requisição de demonstração' }).click();
+  await page.getByRole('button', { name: 'Criar requisição', exact: true }).click();
   await expect(page.getByText('Preencha o título, o cliente e os idiomas.')).toBeVisible();
   await page.getByLabel('Título do projeto', { exact: true }).fill('Contrato de teste');
   await page.getByLabel('Cliente', { exact: true }).fill('Cliente de teste');
   await page.getByLabel('Idiomas', { exact: true }).fill('Português → Inglês');
-  await page.getByRole('button', { name: 'Criar requisição de demonstração' }).click();
+  await page.getByRole('button', { name: 'Criar requisição', exact: true }).click();
   await expect(page.getByRole('button', { name: /Abrir REQ-007: Contrato de teste/ })).toBeVisible();
   await page.getByRole('button', { name: 'Ver toda a operação' }).click();
   await page.getByRole('tab', { name: 'Nova requisição', exact: true }).click();
@@ -77,7 +77,7 @@ test('login and workspace fit the viewport without horizontal overflow', async (
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/login');
-  await expect(page.getByRole('heading', { name: 'Bem-vindo de volta' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Acesse sua conta' })).toBeVisible();
   await expect.poll(() => page.locator('img').evaluateAll(images => images.length > 0 && images.every(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0))).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1)).toBe(true);
@@ -91,13 +91,30 @@ test('login and workspace fit the viewport without horizontal overflow', async (
   await enterDemo(page);
   await page.screenshot({ path: testInfo.outputPath('dashboard.png'), fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  if (testInfo.project.name === 'desktop') {
+    for (const width of [768, 1024, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      const currentNav = page.getByRole('button', { name: width < 1000 ? 'Início' : 'Visão geral', exact: true });
+      await expect(currentNav).toHaveAttribute('aria-current', 'page');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const projects = page.getByRole('button', { name: /^Abrir OS-/ });
+      expect(await projects.evaluateAll(elements => elements.every(element => {
+        const row = element.getBoundingClientRect();
+        return [...element.children].every(child => {
+          const bounds = child.getBoundingClientRect();
+          return bounds.left >= row.left - 1 && bounds.right <= row.right + 1;
+        });
+      }))).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`dashboard-${width}.png`), fullPage: true });
+    }
+  }
   if (testInfo.project.name === 'mobile') {
     await page.setViewportSize({ width: 320, height: 740 });
     await expect(page.getByRole('button', { name: 'Início', exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('dashboard-small.png'), fullPage: true });
     await page.getByRole('button', { name: 'Nova requisição', exact: true }).click();
-    const create = page.getByRole('button', { name: 'Criar requisição de demonstração' });
+    const create = page.getByRole('button', { name: 'Criar requisição', exact: true });
     await expect(create).toBeVisible();
     expect(await create.evaluate(element => {
       const parent = element.getBoundingClientRect();

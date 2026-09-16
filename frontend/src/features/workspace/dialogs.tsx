@@ -33,7 +33,7 @@ export function WorkspaceDialogs() {
       <Txt style={common.caption}>O registro ficará disponível apenas durante esta sessão, sem envio à empresa.</Txt>
       {[{ label: 'Título do projeto', value: title, set: setTitle, placeholder: 'Ex.: Tradução de contrato' }, { label: 'Cliente', value: client, set: setClient, placeholder: 'Nome do cliente ou empresa' }, { label: 'Idiomas', value: languages, set: setLanguages, placeholder: 'Ex.: Português → Inglês' }].map(field => <View key={field.label} style={{ gap: 7 }}><Txt style={s.label}>{field.label}</Txt><TextInput accessibilityLabel={field.label} style={s.input} placeholder={field.placeholder} placeholderTextColor={colors.muted} value={field.value} onChangeText={field.set} maxLength={120} /></View>)}
       {!!error && <Txt accessibilityRole="alert" style={{ color: colors.red, fontSize: 12 }}>{error}</Txt>}
-      <Button onPress={submit} icon={Plus}>Criar requisição de demonstração</Button>
+      <Button onPress={submit} icon={Plus}>Criar requisição</Button>
     </Dialog>
   </>;
 }
@@ -41,6 +41,6 @@ const s = StyleSheet.create({
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 20, alignItems: 'center' },
   track: { height: 5, backgroundColor: colors.line, borderRadius: 3, overflow: 'hidden' },
   progress: { height: 5, backgroundColor: colors.green, borderRadius: 3 },
-  label: { fontSize: 12, fontWeight: '600' },
-  input: { minHeight: 46, borderWidth: 1, borderColor: colors.line, borderRadius: 6, paddingHorizontal: 12, fontFamily: font, fontSize: 13, color: colors.ink },
+  label: { fontSize: 14, fontWeight: '500' },
+  input: { minHeight: 48, borderWidth: 1, borderColor: '#BDC2C7', borderRadius: 4, paddingHorizontal: 12, fontFamily: font, fontSize: 16, color: colors.ink },
 });
