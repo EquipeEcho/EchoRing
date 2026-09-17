@@ -18,7 +18,7 @@ function ProjectList({ projects }: { projects: Project[] }) {
   const wide = width >= 800;
   if (!projects.length) return <EmptyState icon={SearchX} title="Nenhum projeto encontrado" text={search ? 'Tente outro nome de cliente, título ou código.' : 'Não há registros com o status selecionado.'} action={search ? <Button variant="secondary" onPress={() => setSearch('')}>Limpar busca</Button> : undefined} />;
   return <View>
-    {wide && <View style={s.tableHead}><Txt style={[s.columnLabel, { flex: 1 }]}>PROJETO / CLIENTE</Txt><Txt style={[s.columnLabel, s.statusColumn]}>STATUS</Txt><Txt style={[s.columnLabel, s.deadlineColumn]}>PRAZO</Txt><View style={{ width: 16 }} /></View>}
+    {wide && <View style={s.tableHead}><Txt style={[s.columnLabel, { flex: 1 }]}>Projeto / Cliente</Txt><Txt style={[s.columnLabel, s.statusColumn]}>Status</Txt><Txt style={[s.columnLabel, s.deadlineColumn]}>Prazo</Txt><View style={{ width: 16 }} /></View>}
     {projects.map(project => <Pressable key={project.id} accessibilityRole="button" accessibilityLabel={`Abrir ${project.id}: ${project.title}`} onPress={() => setSelected(project)}
       style={({ hovered }) => [s.projectRow, !wide && s.projectMobile, hovered && { backgroundColor: colors.canvas }]}>
       <View style={s.projectMain}>
@@ -44,7 +44,7 @@ function TaskRow({ task }: { task: Task }) {
 
 function Metric({ title, value, color }: { title: string; value: number; color: string }) {
   return <View style={s.metric}>
-    <Txt style={[s.metricValue, { color }]}>{value}</Txt><Txt style={s.metricLabel}>{title}</Txt>
+    <Txt style={s.metricLabel}>{title}</Txt><Txt style={[s.metricValue, { color }]}>{value}</Txt>
   </View>;
 }
 
@@ -132,38 +132,38 @@ export function AreaScreen() {
 const s = StyleSheet.create({
   page: { padding: 36, paddingTop: 32, flexGrow: 1 },
   pageInner: { width: '100%', maxWidth: 1400, alignSelf: 'center' },
-  metrics: { flexDirection: 'row', gap: 16, paddingBottom: 24, borderBottomWidth: 1, borderBottomColor: colors.line, marginBottom: 30 },
-  metric: { flex: 1, minWidth: 0, gap: 4 },
-  metricLabel: { fontSize: 12, color: colors.muted, lineHeight: 18 },
-  metricValue: { fontSize: 28, lineHeight: 34, fontWeight: '600' },
+  metrics: { flexDirection: 'row', paddingVertical: 20, backgroundColor: colors.canvas, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.line, marginBottom: 32 },
+  metric: { flex: 1, minWidth: 0, gap: 8, paddingHorizontal: 8 },
+  metricLabel: { fontSize: 13, color: colors.muted, lineHeight: 18, minHeight: 36, fontWeight: '500' },
+  metricValue: { fontSize: 32, lineHeight: 38, fontWeight: '600', fontVariant: ['tabular-nums'] },
   workGrid: { flexDirection: 'row', gap: 32 },
   projectsSection: { flex: 1, minWidth: 0 },
   sectionHeader: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 14 },
   tabs: { flexDirection: 'row', gap: 24, borderBottomWidth: 1, borderBottomColor: colors.line, marginTop: 16 },
   tab: { paddingTop: 10, paddingBottom: 13, borderBottomWidth: 2, borderBottomColor: 'transparent', minHeight: 44 },
   tabActive: { borderBottomColor: colors.green },
-  tabText: { color: colors.muted, fontSize: 13 },
-  tableHead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 8, height: 40, backgroundColor: colors.canvas, borderBottomWidth: 1, borderBottomColor: colors.line },
-  columnLabel: { fontSize: 10, color: colors.muted, fontWeight: '600' },
+  tabText: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  tableHead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, height: 44, backgroundColor: colors.canvas, borderBottomWidth: 1, borderBottomColor: colors.line },
+  columnLabel: { fontSize: 13, lineHeight: 18, color: colors.muted, fontWeight: '600' },
   statusColumn: { width: 164 },
   deadlineColumn: { width: 68 },
-  projectRow: { minHeight: 84, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 17, paddingHorizontal: 8 },
+  projectRow: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 18, paddingHorizontal: 12 },
   projectMobile: { flexDirection: 'column', alignItems: 'stretch', paddingHorizontal: 0, gap: 12 },
   projectMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 11, minWidth: 0 },
-  projectTitle: { fontSize: 14, fontWeight: '600', lineHeight: 21 },
-  projectMeta: { fontSize: 12, color: colors.muted, lineHeight: 19 },
-  languages: { fontSize: 12, color: colors.muted, lineHeight: 18 },
+  projectTitle: { fontSize: 16, fontWeight: '600', lineHeight: 23 },
+  projectMeta: { fontSize: 13, color: colors.muted, lineHeight: 19 },
+  languages: { fontSize: 13, color: colors.muted, lineHeight: 19 },
   rowStatus: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   mobileStatus: { justifyContent: 'space-between', flexWrap: 'wrap' },
-  deadline: { fontSize: 12, color: colors.muted },
+  deadline: { fontSize: 13, lineHeight: 19, fontWeight: '500', color: colors.muted },
   viewAll: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-start' },
-  viewAllText: { fontSize: 13, color: colors.green, fontWeight: '600' },
+  viewAllText: { fontSize: 14, lineHeight: 20, color: colors.green, fontWeight: '600' },
   tasksSection: { width: 300, borderLeftWidth: 1, borderColor: colors.line, paddingLeft: 26 },
   task: { flexDirection: 'row', gap: 11, paddingVertical: 17, paddingHorizontal: 2, borderBottomWidth: 1, borderBottomColor: colors.line, alignItems: 'flex-start', minHeight: 72 },
   checkbox: { marginTop: 2, width: 19, height: 19, borderWidth: 1, borderColor: '#A0A6AD', borderRadius: 3, justifyContent: 'center', alignItems: 'center' },
   checked: { backgroundColor: colors.green, borderColor: colors.green },
-  taskTitle: { fontSize: 14, lineHeight: 21 },
-  taskMeta: { fontSize: 12, color: colors.muted, lineHeight: 19 },
+  taskTitle: { fontSize: 15, lineHeight: 22, fontWeight: '500' },
+  taskMeta: { fontSize: 13, color: colors.muted, lineHeight: 19 },
   listCaption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18 },
   moduleRow: { flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 22 },
   moduleIcon: { backgroundColor: colors.greenSoft, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },

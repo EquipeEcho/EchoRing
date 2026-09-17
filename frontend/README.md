@@ -70,6 +70,11 @@ devem conter credenciais. O perfil demonstrativo atual e de funcionario.
 
 ## Recursos visuais
 
+Tipografia: Source Sans 3, incluida no bundle pelo pacote
+`@expo-google-fonts/source-sans-3` (OFL-1.1). Os pesos regular, medio, semibold e bold
+sao carregados localmente por `expo-font`, sem requisicoes a servicos de fontes externos.
+Os tamanhos compartilhados e as cores ficam em `src/constants/design.ts`.
+
 Icones: Lucide. Fotografia de escritorio usada como fundo decorativo de acesso:
 [Unsplash](https://images.unsplash.com/photo-1497366754035-f200968a6e72).
 A fotografia nao representa as instalacoes da Alianca Traducoes.

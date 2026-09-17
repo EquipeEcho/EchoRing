@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { Image } from 'expo-image';
 import { ArrowLeft, CheckCircle2, Eye, EyeOff, Mail } from 'lucide-react-native';
 import { Brand, Button, IconButton, Txt } from '@/components/ui/primitives';
-import { colors, font } from '@/constants/design';
+import { colors, font, fonts, typeScale } from '@/constants/design';
 import { useSession } from './session';
 
 function AuthFrame({ children }: { children: ReactNode }) {
@@ -24,7 +24,7 @@ function AuthFrame({ children }: { children: ReactNode }) {
 }
 
 function EmailField({ value, onChange, error, onSubmit }: { value: string; onChange: (value: string) => void; error?: string; onSubmit?: () => void }) {
-  return <View style={s.field}><Txt style={s.label}>E-mail</Txt><View style={[s.inputWrap, !!error && s.invalid]}><TextInput
+  return <View style={s.field}><Txt style={s.label}>E-mail</Txt><View testID="auth-input" style={[s.inputWrap, !!error && s.invalid]}><TextInput
     accessibilityLabel="E-mail" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email"
     placeholder="seu@email.com" placeholderTextColor="#98A19B" value={value} onChangeText={onChange} onSubmitEditing={onSubmit} style={s.input} /></View>
     {!!error && <Txt accessibilityRole="alert" style={s.error}>{error}</Txt>}</View>;
@@ -52,7 +52,7 @@ export function LoginScreen() {
     <View style={s.fields}>
       <EmailField value={email} onChange={v => { setEmail(v); setEmailError(''); }} error={emailError} onSubmit={submit} />
       <View style={s.field}><View style={s.labelRow}><Txt style={s.label}>Senha</Txt><Link href="/recuperar-senha" style={s.link}>Esqueci minha senha</Link></View>
-        <View style={[s.inputWrap, !!error && s.invalid]}><TextInput accessibilityLabel="Senha" value={password}
+        <View testID="auth-input" style={[s.inputWrap, !!error && s.invalid]}><TextInput accessibilityLabel="Senha" value={password}
           onChangeText={v => { setPassword(v); setError(''); }} secureTextEntry={!visible} autoCapitalize="none" autoCorrect={false} autoComplete="current-password" placeholder="Digite sua senha"
           placeholderTextColor="#98A19B" style={s.input} onSubmitEditing={submit} />
           <IconButton icon={visible ? EyeOff : Eye} label={visible ? 'Ocultar senha' : 'Mostrar senha'} onPress={() => setVisible(!visible)} />
@@ -91,24 +91,24 @@ const s = StyleSheet.create({
   pageSmall: { paddingHorizontal: 22, paddingTop: 24, paddingBottom: 18 },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 38 },
-  form: { width: '100%', maxWidth: 420, backgroundColor: colors.white, borderRadius: 4, borderWidth: 1, borderColor: colors.line, padding: 32 },
-  formSmall: { paddingHorizontal: 0, paddingVertical: 16, backgroundColor: 'transparent', borderWidth: 0 },
+  form: { width: '100%', maxWidth: 440, backgroundColor: colors.white, borderRadius: 8, borderWidth: 1, borderColor: colors.line, padding: 36, boxShadow: '0 8px 32px rgba(32,38,44,0.05)' },
+  formSmall: { paddingHorizontal: 0, paddingVertical: 16, backgroundColor: 'transparent', borderWidth: 0, boxShadow: 'none' },
   lock: { width: 46, height: 46, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center', borderRadius: 8, marginBottom: 24 },
-  title: { fontSize: 24, lineHeight: 32, fontWeight: '600', marginBottom: 8 },
-  subtitle: { fontSize: 14, color: colors.muted, lineHeight: 22 },
+  title: { ...typeScale.title, fontWeight: '600', marginBottom: 8 },
+  subtitle: { ...typeScale.body, color: colors.muted },
   fields: { gap: 22, marginTop: 28 },
   field: { gap: 8 },
   label: { fontSize: 14, fontWeight: '500' },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  inputWrap: { minHeight: 48, backgroundColor: colors.white, borderWidth: 1, borderColor: '#BDC2C7', borderRadius: 4, paddingLeft: 12, paddingRight: 4, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  inputWrap: { minHeight: 50, backgroundColor: colors.white, borderWidth: 1, borderColor: '#BFC8D0', borderRadius: 6, paddingLeft: 14, paddingRight: 4, flexDirection: 'row', alignItems: 'center', gap: 10 },
   input: { flex: 1, minWidth: 0, minHeight: 46, fontSize: 16, fontFamily: font, color: colors.ink, outlineWidth: 0 },
   invalid: { borderColor: colors.red },
   error: { fontSize: 12, color: colors.red, lineHeight: 18 },
-  link: { fontSize: 13, fontFamily: font, color: colors.green, fontWeight: '500' },
+  link: { fontSize: 14, lineHeight: 20, fontFamily: fonts.medium, color: colors.green, fontWeight: 'normal' },
   demo: { flexDirection: 'row', marginTop: 24, marginBottom: 24 },
   divider: { flex: 1, height: 1, backgroundColor: colors.line },
   demoNote: { marginTop: 12, textAlign: 'center', fontSize: 12, color: colors.muted },
   footer: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  footerText: { fontSize: 10, color: '#5B6A60' },
+  footerText: { fontSize: 12, lineHeight: 18, color: colors.muted },
   back: { marginTop: 24, minHeight: 44, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
 });

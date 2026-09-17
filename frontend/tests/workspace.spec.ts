@@ -7,6 +7,22 @@ async function enterDemo(page: Page) {
   await expect(page.getByRole('heading', { name: 'Visão geral', exact: true })).toBeVisible();
 }
 
+test('bundled font weights render consistently and fields show keyboard focus', async ({ page }) => {
+  await page.goto('/login');
+  const heading = page.getByRole('heading', { name: 'Acesse sua conta' });
+  await expect(heading).toBeVisible();
+  const families = ['SourceSans3Regular', 'SourceSans3Medium', 'SourceSans3Semibold', 'SourceSans3Bold'];
+  const loaded = await page.evaluate(() => [...document.fonts].filter(face => face.status === 'loaded').map(face => face.family.replaceAll('"', '')));
+  for (const family of families) expect(loaded).toContain(family);
+  expect(await heading.evaluate(element => getComputedStyle(element).fontFamily)).toContain('SourceSans3Semibold');
+  const email = page.getByRole('textbox', { name: 'E-mail', exact: true });
+  expect(await email.evaluate(element => getComputedStyle(element).fontFamily)).toContain('SourceSans3Regular');
+  await email.focus();
+  await expect(page.getByTestId('auth-input').first()).toHaveCSS('border-color', 'rgb(34, 102, 80)');
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: 'Esqueci minha senha' })).toBeFocused();
+});
+
 test('login validates input and password visibility; recovery is explicitly simulated', async ({ page }) => {
   await page.goto('/login');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
@@ -122,6 +138,14 @@ test('login and workspace fit the viewport without horizontal overflow', async (
         const bounds = child.getBoundingClientRect();
         return bounds.left >= parent.left && bounds.right <= parent.right;
       });
+    })).toBe(true);
+    await expect.poll(() => create.evaluate(element => {
+      let current: Element | null = element;
+      while (current) {
+        if (Number(getComputedStyle(current).opacity) < 1) return false;
+        current = current.parentElement;
+      }
+      return true;
     })).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('request-small.png'), fullPage: true });
   }

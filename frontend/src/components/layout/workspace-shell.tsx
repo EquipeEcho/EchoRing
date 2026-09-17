@@ -21,9 +21,9 @@ export const modules: { title: string; href: string; icon: LucideIcon; descripti
 
 function NavItem({ title, href, icon: Icon, active, badge }: { title: string; href: string; icon: LucideIcon; active: boolean; badge?: number }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} aria-current={active ? 'page' : undefined} accessibilityState={{ selected: active }} onPress={() => router.push(href as Href)}
-    style={({ hovered }) => [s.navItem, active && s.navActive, hovered && !active && { backgroundColor: colors.canvas }]}>
-    <Icon size={18} color={active ? colors.green : colors.muted} strokeWidth={active ? 2 : 1.6} />
-    <Txt style={[s.navLabel, active && { color: colors.green, fontWeight: '600' }]}>{title}</Txt>
+    style={({ hovered }) => [s.navItem, active && s.navActive, hovered && !active && { backgroundColor: colors.navigationHover }]}>
+    <Icon size={18} color={active ? '#A4D7BD' : colors.navigationMuted} strokeWidth={active ? 2 : 1.7} />
+    <Txt style={[s.navLabel, active && { color: colors.white, fontWeight: '600' }]}>{title}</Txt>
     {badge !== undefined && <View style={s.count}><Txt style={s.countText}>{badge}</Txt></View>}
   </Pressable>;
 }
@@ -46,7 +46,7 @@ export function WorkspaceShell() {
   return <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
     <View style={s.root}>
       {desktop && <View style={s.sidebar}>
-        <View style={s.brand}><Brand /></View>
+        <View style={s.brand}><Brand inverse /></View>
         <ScrollView contentContainerStyle={s.navContent}>
           {modules.slice(0, 2).map(item => <NavItem key={item.href} {...item} active={pathname === item.href} />)}
           <NavItem title="Minhas tarefas" href="/tarefas" icon={ListTodo} active={pathname === '/tarefas'} badge={pending} />
@@ -54,7 +54,7 @@ export function WorkspaceShell() {
           <Txt style={s.navSection}>Gestão</Txt>
           {modules.slice(2).map(item => <NavItem key={item.href} {...item} active={pathname === item.href} />)}
         </ScrollView>
-        <View style={s.sidebarBottom}><Pressable accessibilityRole="button" onPress={() => setHelp(true)} style={s.help}><CircleHelp size={18} color={colors.muted} /><Txt style={s.navLabel}>Central de ajuda</Txt></Pressable><View style={s.separator} />{profileButton}</View>
+        <View style={s.sidebarBottom}><Pressable accessibilityRole="button" onPress={() => setHelp(true)} style={s.help}><CircleHelp size={18} color={colors.navigationMuted} /><Txt style={s.navLabel}>Central de ajuda</Txt></Pressable><View style={s.separator} />{profileButton}</View>
       </View>}
       <View style={s.main}>
         <View style={[s.header, !desktop && s.mobileHeader]}>
@@ -92,28 +92,28 @@ export function WorkspaceShell() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
   root: { flex: 1, flexDirection: 'row', minHeight: 0 },
-  sidebar: { width: 224, borderRightWidth: 1, borderRightColor: colors.line, backgroundColor: colors.canvas },
-  brand: { paddingHorizontal: 24, paddingVertical: 24 },
-  navContent: { paddingHorizontal: 12, paddingTop: 12 },
-  navSection: { color: colors.muted, fontSize: 12, fontWeight: '500', marginHorizontal: 13, marginBottom: 12 },
-  navItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, minHeight: 44, borderRadius: 6, gap: 12, marginBottom: 5 },
-  navActive: { backgroundColor: colors.greenSoft },
-  navLabel: { fontSize: 14, color: colors.muted, flex: 1 },
-  count: { backgroundColor: '#F0F3F0', paddingHorizontal: 6, borderRadius: 4 },
-  countText: { fontSize: 12, color: colors.muted },
-  separator: { height: 1, backgroundColor: colors.line, marginVertical: 22 },
+  sidebar: { width: 232, backgroundColor: colors.navigation },
+  brand: { paddingHorizontal: 24, paddingVertical: 28 },
+  navContent: { paddingHorizontal: 14, paddingTop: 18 },
+  navSection: { color: colors.navigationMuted, fontSize: 12, lineHeight: 18, fontWeight: '600', marginHorizontal: 13, marginBottom: 12 },
+  navItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, minHeight: 46, borderRadius: 4, gap: 12, marginBottom: 4, borderLeftWidth: 2, borderLeftColor: 'transparent' },
+  navActive: { backgroundColor: colors.navigationActive, borderLeftColor: '#A4D7BD' },
+  navLabel: { fontSize: 15, lineHeight: 22, color: colors.navigationText, flex: 1 },
+  count: { backgroundColor: colors.navigationLine, paddingHorizontal: 7, borderRadius: 4 },
+  countText: { fontSize: 12, lineHeight: 20, color: colors.navigationText },
+  separator: { height: 1, backgroundColor: colors.navigationLine, marginVertical: 24 },
   sidebarBottom: { padding: 18 },
   help: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 40, paddingHorizontal: 8 },
   profileButton: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, minWidth: 44, justifyContent: 'center' },
   avatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#E5EEE5', alignItems: 'center', justifyContent: 'center' },
-  profileName: { fontSize: 13, fontWeight: '600' },
-  profileRole: { fontSize: 11, color: colors.muted, lineHeight: 17 },
+  profileName: { fontSize: 14, lineHeight: 21, fontWeight: '600', color: colors.white },
+  profileRole: { fontSize: 12, color: colors.navigationMuted, lineHeight: 18 },
   main: { flex: 1, minWidth: 0, minHeight: 0, backgroundColor: colors.white },
-  header: { height: 64, backgroundColor: colors.white, paddingHorizontal: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.line, zIndex: 5 },
+  header: { height: 72, backgroundColor: colors.white, paddingHorizontal: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.line, zIndex: 5 },
   mobileHeader: { height: 64, paddingHorizontal: 14 },
-  breadcrumb: { fontSize: 12, color: colors.muted },
+  breadcrumb: { fontSize: 14, lineHeight: 20, color: colors.muted },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 20 },
-  search: { width: 270, minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderRadius: 6, backgroundColor: colors.canvas },
+  search: { width: 270, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 6, backgroundColor: colors.canvas },
   searchInput: { flex: 1, minWidth: 0, minHeight: 44, fontFamily: font, fontSize: 16, color: colors.ink, outlineWidth: 0 },
   notificationDot: { position: 'absolute', top: 8, right: 9, width: 6, height: 6, borderRadius: 3, backgroundColor: '#CA8554', borderWidth: 1, borderColor: colors.white },
   mobileSearch: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.white, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: colors.line },
@@ -121,5 +121,5 @@ const s = StyleSheet.create({
   bottomNav: { flexDirection: 'row', backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.line, height: 64 },
   bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, borderTopWidth: 2, borderTopColor: 'transparent' },
   bottomIcon: { width: 44, height: 27, justifyContent: 'center', alignItems: 'center' },
-  bottomLabel: { fontSize: 11, color: colors.muted },
+  bottomLabel: { fontSize: 12, lineHeight: 18, color: colors.muted },
 });

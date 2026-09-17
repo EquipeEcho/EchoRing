@@ -1,16 +1,21 @@
 import { useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Orbit, type LucideIcon } from 'lucide-react-native';
-import { colors, font } from '@/constants/design';
+import { colors, fonts, typeScale } from '@/constants/design';
 
 export function Txt({ children, style, ...props }: React.ComponentProps<typeof Text>) {
-  return <Text {...props} style={[s.text, style]}>{children}</Text>;
+  const resolved = StyleSheet.flatten(style);
+  const weight = resolved?.fontWeight;
+  const family = weight === 'bold' || Number(weight) >= 700 ? fonts.bold
+    : Number(weight) >= 600 ? fonts.semibold : Number(weight) >= 500 ? fonts.medium : fonts.regular;
+  // Each bundled weight has its own family name on both web and native.
+  return <Text {...props} style={[s.text, style, { fontFamily: resolved?.fontFamily ?? family, fontWeight: 'normal' }]}>{children}</Text>;
 }
 
-export function Brand({ compact = false }: { compact?: boolean }) {
-  return <View style={s.brand}><View style={s.brandMark}><Orbit size={26} color={colors.green} strokeWidth={1.8} /></View>
-    <View><Txt style={s.brandName}>Echo Ring</Txt>
-      {!compact && <Txt style={s.brandCaption}>ALIANÇA TRADUÇÕES</Txt>}
+export function Brand({ compact = false, inverse = false }: { compact?: boolean; inverse?: boolean }) {
+  return <View style={s.brand}><View style={s.brandMark}><Orbit size={27} color={inverse ? '#A4D7BD' : colors.green} strokeWidth={1.8} /></View>
+    <View><Txt style={[s.brandName, inverse && { color: colors.white }]}>Echo Ring</Txt>
+      {!compact && <Txt style={[s.brandCaption, inverse && { color: colors.navigationMuted }]}>Aliança Traduções</Txt>}
     </View></View>;
 }
 
@@ -42,7 +47,7 @@ export function IconButton({ icon: Icon, label, onPress, active = false }: { ico
 
 export function Badge({ children, tone = 'green' }: { children: ReactNode; tone?: 'green' | 'amber' | 'red' | 'blue' | 'neutral' }) {
   const tones = { green: [colors.green, colors.greenSoft], amber: [colors.amber, colors.amberSoft], red: [colors.red, colors.redSoft], blue: [colors.blue, colors.blueSoft], neutral: [colors.muted, colors.canvas] };
-  return <View style={[s.badge, { backgroundColor: tones[tone][1] }]}><Txt style={{ fontSize: 12, fontWeight: '500', color: tones[tone][0] }}>{children}</Txt></View>;
+  return <View style={[s.badge, { backgroundColor: tones[tone][1] }]}><Txt style={{ ...typeScale.caption, fontWeight: '600', color: tones[tone][0] }}>{children}</Txt></View>;
 }
 
 export function PageHeading({ title, subtitle, action }: { title: string; subtitle: string; action?: ReactNode }) {
@@ -55,27 +60,27 @@ export function EmptyState({ icon: Icon, title, text, action }: { icon: LucideIc
 
 export const common = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  sectionTitle: { fontSize: 17, fontWeight: '600', color: colors.ink },
-  caption: { fontSize: 12, color: colors.muted },
+  sectionTitle: { ...typeScale.section, fontWeight: '600', color: colors.ink },
+  caption: { ...typeScale.caption, color: colors.muted },
 });
 const s = StyleSheet.create({
-  text: { fontFamily: font, fontSize: 14, color: colors.ink, lineHeight: 21, letterSpacing: 0 },
+  text: { ...typeScale.body, color: colors.ink, letterSpacing: 0 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brandMark: { width: 30, height: 36, alignItems: 'center', justifyContent: 'center' },
-  brandName: { fontSize: 20, fontWeight: '700', lineHeight: 26 },
-  brandCaption: { fontSize: 9, color: colors.muted, lineHeight: 15, fontWeight: '500' },
+  brandName: { fontSize: 23, fontWeight: '600', lineHeight: 27 },
+  brandCaption: { fontSize: 12, color: colors.muted, lineHeight: 18 },
   button: { minHeight: 44, borderRadius: 6, paddingHorizontal: 16, flexDirection: 'row', gap: 9, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
-  primary: { backgroundColor: colors.green, borderColor: colors.green },
-  secondary: { backgroundColor: colors.white, borderColor: colors.line },
+  primary: { backgroundColor: colors.green, borderColor: colors.greenDark },
+  secondary: { backgroundColor: colors.white, borderColor: '#CCD3DA' },
   ghost: { borderColor: 'transparent', backgroundColor: 'transparent' },
-  buttonText: { fontSize: 14, fontWeight: '600', flexShrink: 1, textAlign: 'center' },
+  buttonText: { fontSize: 15, lineHeight: 22, fontWeight: '600', flexShrink: 1, textAlign: 'center' },
   iconButton: { width: 44, height: 44, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
   tooltip: { position: 'absolute', top: 43, right: 0, paddingVertical: 5, paddingHorizontal: 9, backgroundColor: colors.ink, borderRadius: 4, minWidth: 100 },
   tooltipText: { color: colors.white, fontSize: 11, textAlign: 'center' },
   badge: { paddingHorizontal: 8, paddingVertical: 3, flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 4, alignSelf: 'flex-start' },
   heading: { flexDirection: 'row', flexWrap: 'wrap', gap: 18, alignItems: 'center', justifyContent: 'space-between', marginBottom: 30 },
-  title: { fontSize: 26, lineHeight: 34, fontWeight: '600' },
-  subtitle: { fontSize: 14, color: colors.muted },
+  title: { ...typeScale.title, fontWeight: '600' },
+  subtitle: { fontSize: 15, lineHeight: 22, color: colors.muted },
   empty: { paddingVertical: 56, paddingHorizontal: 22, alignItems: 'center', gap: 12 },
   emptyIcon: { width: 60, height: 60, backgroundColor: colors.greenSoft, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   emptyTitle: { fontWeight: '600', fontSize: 17, textAlign: 'center' },
