@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { router, Slot, usePathname, type Href } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bell, ChartNoAxesCombined, ChevronDown, ChevronRight, CircleHelp, Ellipsis, FolderKanban, House, Inbox, LayoutGrid, ListTodo, LogOut, Search, Settings2, UserPlus, UsersRound, Wallet, X, type LucideIcon } from 'lucide-react-native';
+import { Bell, ChartNoAxesCombined, ChevronDown, ChevronRight, CircleHelp, Ellipsis, FolderKanban, House, Inbox, LayoutGrid, ListTodo, LogOut, Search, Settings2, UploadCloud, UserPlus, UsersRound, Wallet, X, type LucideIcon } from 'lucide-react-native';
 import { Badge, Brand, Button, IconButton, Txt, common } from '@/components/ui/primitives';
 import { Dialog } from '@/components/ui/dialog';
 import { colors, desktopWidth, font } from '@/constants/design';
@@ -14,6 +14,7 @@ import { WorkspaceDialogs } from '@/features/workspace/dialogs';
 export const modules: { title: string; href: string; icon: LucideIcon; description: string }[] = [
   { title: 'Visão geral', href: '/dashboard', icon: LayoutGrid, description: 'Pendências e projetos em andamento' },
   { title: 'Operação', href: '/operacao', icon: FolderKanban, description: 'Requisições, orçamentos e ordens de serviço' },
+  { title: 'Entregas', href: '/entregas', icon: UploadCloud, description: 'Envio de traduções concluídas para revisão' },
   { title: 'Solicitações', href: '/solicitacoes', icon: Inbox, description: 'Pedidos do site, análise e orçamentos por e-mail' },
   { title: 'Usuários', href: '/usuarios', icon: UserPlus, description: 'Contas, perfis e acessos à plataforma' },
   { title: 'Cadastros', href: '/area/cadastros', icon: UsersRound, description: 'Clientes, profissionais e parceiros' },
@@ -23,10 +24,10 @@ export const modules: { title: string; href: string; icon: LucideIcon; descripti
 ];
 
 export function modulesFor(role: UserRole) {
-  if (role === 'admin') return modules;
-  if (role === 'employee') return modules.filter(item => !['/usuarios', '/area/administracao'].includes(item.href));
+  if (role === 'admin') return modules.filter(item => item.href !== '/entregas');
+  if (role === 'employee') return modules.filter(item => !['/entregas', '/usuarios', '/area/administracao'].includes(item.href));
   if (role === 'hr') return modules.filter(item => ['/dashboard', '/area/cadastros'].includes(item.href));
-  return modules.filter(item => ['/dashboard', '/operacao'].includes(item.href));
+  return modules.filter(item => ['/dashboard', '/operacao', '/entregas'].includes(item.href));
 }
 
 function NavItem({ title, href, icon: Icon, active, badge }: { title: string; href: string; icon: LucideIcon; active: boolean; badge?: number }) {
@@ -64,7 +65,7 @@ export function WorkspaceShell() {
       {desktop && <View style={s.sidebar}>
         <View style={s.brand}><Brand inverse /></View>
         <ScrollView contentContainerStyle={s.navContent}>
-          {visibleModules.filter(item => ['/dashboard', '/operacao', '/solicitacoes'].includes(item.href)).map(item => <NavItem key={item.href} {...item} active={pathname === item.href} badge={item.href === '/solicitacoes' ? received : undefined} />)}
+          {visibleModules.filter(item => ['/dashboard', '/operacao', '/entregas', '/solicitacoes'].includes(item.href)).map(item => <NavItem key={item.href} {...item} active={pathname === item.href} badge={item.href === '/solicitacoes' ? received : undefined} />)}
           <NavItem title="Minhas tarefas" href="/tarefas" icon={ListTodo} active={pathname === '/tarefas'} badge={pending} />
           {visibleModules.some(item => item.href === '/usuarios' || item.href.startsWith('/area/')) && <><View style={s.separator} /><Txt style={s.navSection}>Gestão</Txt>
             {visibleModules.filter(item => item.href === '/usuarios' || item.href.startsWith('/area/')).map(item => <NavItem key={item.href} {...item} active={pathname === item.href} />)}</>}
@@ -85,6 +86,7 @@ export function WorkspaceShell() {
         <View style={s.content}><Slot /></View>
         {!desktop && <View style={s.bottomNav}>{[
           { title: 'Início', href: '/dashboard', icon: House }, { title: 'Operação', href: '/operacao', icon: FolderKanban },
+          ...(session?.role === 'translator' ? [{ title: 'Entregas', href: '/entregas', icon: UploadCloud }] : []),
           ...(staffMember ? [{ title: 'Pedidos', href: '/solicitacoes', icon: Inbox }] : []), { title: 'Tarefas', href: '/tarefas', icon: ListTodo },
           ...(showMore ? [{ title: 'Mais', href: '/mais', icon: Ellipsis }] : []),
         ].map(item => { const active = pathname === item.href || (item.href === '/mais' && pathname.startsWith('/area/')); const Icon = item.icon;

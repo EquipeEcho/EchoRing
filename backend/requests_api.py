@@ -417,6 +417,17 @@ def delivery_record(delivery):
     return record
 
 
+def service_record(service):
+    record = {
+        'id': service['id'], 'requestId': service['request_id'], 'title': service['title'],
+        'status': service['status'], 'deadline': service['deadline'],
+        'createdAt': service['created_at'], 'lastVersion': service['last_version'] or 0,
+    }
+    if service['last_feedback']:
+        record['lastFeedback'] = service['last_feedback']
+    return record
+
+
 def validate_delivery_document(name, content):
     if not name or len(name) > 160 or any(char in name for char in ('/', '\\', '\r', '\n', '\x00')):
         raise HTTPException(422, 'Nome de documento inválido.')
@@ -441,6 +452,24 @@ def validate_delivery_document(name, content):
     except (ValueError, zipfile.BadZipFile, UnicodeDecodeError) as error:
         raise HTTPException(422, 'Documento inválido. Use PDF, DOCX ou TXT, com até 5 MB.') from error
     raise HTTPException(422, 'Documento inválido. Use PDF, DOCX ou TXT, com até 5 MB.')
+
+
+@router.get('/services')
+def list_assigned_services(user: dict = Depends(translator)):
+    with database() as connection:
+        services = connection.execute(
+            '''SELECT services.*,
+                      latest.version AS last_version, latest.feedback AS last_feedback
+               FROM services
+               LEFT JOIN deliveries AS latest ON latest.id = (
+                   SELECT id FROM deliveries WHERE service_id = services.id
+                   ORDER BY version DESC LIMIT 1
+               )
+               WHERE services.translator_id = ?
+               ORDER BY services.created_at DESC''',
+            (user['id'],),
+        ).fetchall()
+    return [service_record(service) for service in services]
 
 
 @router.post('/services/{service_id}/deliveries', status_code=201)

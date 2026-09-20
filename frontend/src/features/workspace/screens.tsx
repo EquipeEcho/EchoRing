@@ -126,7 +126,7 @@ export function TasksScreen() {
 export function MoreScreen() {
   const { session } = useSession();
   return <Page><PageHeading title="Mais" subtitle="Áreas da Aliança Traduções" />
-    {modulesFor(session?.role ?? 'translator').filter(item => !['/dashboard', '/operacao', '/solicitacoes'].includes(item.href)).map(item => <Pressable key={item.href} accessibilityRole="button" onPress={() => router.push(item.href as Href)} style={s.moduleRow}><View style={s.moduleIcon}><item.icon size={22} color={colors.accent} /></View><View style={{ flex: 1, gap: 4 }}><Txt style={{ fontWeight: '600' }}>{item.title}</Txt><Txt style={common.caption}>{item.description}</Txt></View><ChevronRight size={18} color={colors.muted} /></Pressable>)}
+    {modulesFor(session?.role ?? 'translator').filter(item => !['/dashboard', '/operacao', '/entregas', '/solicitacoes'].includes(item.href)).map(item => <Pressable key={item.href} accessibilityRole="button" onPress={() => router.push(item.href as Href)} style={s.moduleRow}><View style={s.moduleIcon}><item.icon size={22} color={colors.accent} /></View><View style={{ flex: 1, gap: 4 }}><Txt style={{ fontWeight: '600' }}>{item.title}</Txt><Txt style={common.caption}>{item.description}</Txt></View><ChevronRight size={18} color={colors.muted} /></Pressable>)}
   </Page>;
 }
 

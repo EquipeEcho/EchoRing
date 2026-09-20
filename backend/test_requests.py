@@ -188,6 +188,13 @@ class RequestsTests(unittest.TestCase):
         endpoint = f'/services/{service_id}/deliveries'
         document = {'file': ('translated.txt', b'Translated document', 'text/plain')}
 
+        self.assertEqual(self.client.get('/services').status_code, 401)
+        self.assertEqual(self.client.get('/services', headers=self.headers).status_code, 403)
+        services = self.client.get('/services', headers=translator_headers)
+        self.assertEqual(services.status_code, 200)
+        self.assertEqual(services.json()[0]['id'], service_id)
+        self.assertEqual(services.json()[0]['status'], 'Em tradução')
+        self.assertEqual(services.json()[0]['lastVersion'], 0)
         self.assertEqual(self.client.post(endpoint, files=document).status_code, 401)
         self.assertEqual(self.client.post(endpoint, headers=self.headers, files=document).status_code, 403)
         result = self.client.post(endpoint, headers=translator_headers, files=document)
@@ -204,6 +211,9 @@ class RequestsTests(unittest.TestCase):
             service = connection.execute('SELECT status FROM services WHERE id = ?', (service_id,)).fetchone()
         self.assertEqual(bytes(stored['content']), b'Translated document')
         self.assertEqual(service['status'], 'Em revisão')
+        assigned = self.client.get('/services', headers=translator_headers).json()[0]
+        self.assertEqual(assigned['status'], 'Em revisão')
+        self.assertEqual(assigned['lastVersion'], 1)
         self.assertEqual(self.client.post(endpoint, headers=translator_headers, files=document).status_code, 409)
 
         other_service = self.create_service('another-translator', service_id='OS-TEST-002')

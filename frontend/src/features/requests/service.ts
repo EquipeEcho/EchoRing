@@ -18,8 +18,10 @@ export async function api<T>(path: string, options: RequestInit = {}, token?: st
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20000);
   try {
+    const multipart = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const response = await fetch(baseURL + path, { ...options, signal: controller.signal, headers: {
-      'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options.headers,
+      ...(multipart ? {} : { 'Content-Type': 'application/json' }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options.headers,
     } });
     const body = await response.json().catch(() => null);
     if (!response.ok) throw new Error(typeof body?.detail === 'string' ? body.detail : 'Não foi possível concluir. Confira os dados e tente novamente.');
