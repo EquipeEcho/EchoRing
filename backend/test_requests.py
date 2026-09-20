@@ -28,7 +28,8 @@ class RequestsTests(unittest.TestCase):
         requests_api._attempts.clear()
         self.client = TestClient(app)
         response = self.client.post('/staff/login', json={'email': 'staff@example.test', 'password': 'test-password-long-enough'})
-        self.token = response.json()['token']
+        self.staff_user = response.json()
+        self.token = self.staff_user['token']
         self.headers = {'Authorization': 'Bearer ' + self.token}
         raw = b'Test translation document'
         self.intake = {
@@ -53,6 +54,25 @@ class RequestsTests(unittest.TestCase):
         result = self.client.patch('/requests/' + request_id, headers=self.headers, json={'quote': self.quote})
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json()['status'], 'Em análise')
+
+    def translator_session(self):
+        response = self.client.post('/auth/login', json={
+            'email': 'translator@example.test', 'password': 'translator-password-long-enough',
+        })
+        self.assertEqual(response.status_code, 200)
+        session = response.json()
+        with requests_api.database() as connection:
+            translator = connection.execute('SELECT id FROM users WHERE email = ?', (session['email'],)).fetchone()
+        return {**session, 'id': translator['id']}, {'Authorization': 'Bearer ' + session['token']}
+
+    def create_service(self, translator_id, service_id='OS-TEST-001', status='Em tradução'):
+        with requests_api.database() as connection:
+            connection.execute(
+                '''INSERT INTO services (id, request_id, title, translator_id, status, deadline, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                (service_id, 'SOL-TEST', 'Test manual', translator_id, status, '2026-10-01', requests_api.now()),
+            )
+        return service_id
 
     def test_public_intake_is_persistent_and_staff_only(self):
         request_id = self.create()
@@ -161,6 +181,99 @@ class RequestsTests(unittest.TestCase):
             'ADMIN_PASSWORD': '', 'STAFF_PASSWORD': '', 'TRANSLATOR_PASSWORD': '',
         }):
             self.assertEqual(self.client.post('/staff/login', json={'email': 'staff@example.test', 'password': 'test-password-long-enough'}).status_code, 401)
+
+    def test_delivery_upload_requires_the_assigned_translator_and_valid_document(self):
+        translator, translator_headers = self.translator_session()
+        service_id = self.create_service(translator['id'])
+        endpoint = f'/services/{service_id}/deliveries'
+        document = {'file': ('translated.txt', b'Translated document', 'text/plain')}
+
+        self.assertEqual(self.client.post(endpoint, files=document).status_code, 401)
+        self.assertEqual(self.client.post(endpoint, headers=self.headers, files=document).status_code, 403)
+        result = self.client.post(endpoint, headers=translator_headers, files=document)
+        self.assertEqual(result.status_code, 201)
+        delivery = result.json()
+        self.assertEqual(delivery['serviceId'], service_id)
+        self.assertEqual(delivery['version'], 1)
+        self.assertEqual(delivery['status'], 'Em revisão')
+        self.assertEqual(delivery['translatorName'], 'Test Translator')
+        self.assertNotIn('content', delivery)
+
+        with requests_api.database() as connection:
+            stored = connection.execute('SELECT content FROM deliveries WHERE id = ?', (delivery['id'],)).fetchone()
+            service = connection.execute('SELECT status FROM services WHERE id = ?', (service_id,)).fetchone()
+        self.assertEqual(bytes(stored['content']), b'Translated document')
+        self.assertEqual(service['status'], 'Em revisão')
+        self.assertEqual(self.client.post(endpoint, headers=translator_headers, files=document).status_code, 409)
+
+        other_service = self.create_service('another-translator', service_id='OS-TEST-002')
+        self.assertEqual(self.client.post(f'/services/{other_service}/deliveries', headers=translator_headers, files=document).status_code, 403)
+
+    def test_delivery_upload_rejects_unsafe_or_invalid_documents(self):
+        translator, translator_headers = self.translator_session()
+        service_id = self.create_service(translator['id'])
+        endpoint = f'/services/{service_id}/deliveries'
+        invalid_documents = [
+            ('../translated.txt', b'Translated document', 'text/plain'),
+            ('translated.pdf', b'not a pdf', 'application/pdf'),
+            ('translated.exe', b'MZ', 'application/octet-stream'),
+            ('empty.txt', b'', 'text/plain'),
+        ]
+        for document in invalid_documents:
+            with self.subTest(document=document[0]):
+                response = self.client.post(endpoint, headers=translator_headers, files={'file': document})
+                self.assertEqual(response.status_code, 422)
+
+    def test_staff_review_preserves_versions_and_protects_the_file(self):
+        translator, translator_headers = self.translator_session()
+        service_id = self.create_service(translator['id'])
+        endpoint = f'/services/{service_id}/deliveries'
+        first = self.client.post(
+            endpoint, headers=translator_headers,
+            files={'file': ('translated-v1.txt', b'First version', 'text/plain')},
+        ).json()
+
+        self.assertEqual(self.client.get('/deliveries').status_code, 401)
+        self.assertEqual(self.client.get('/deliveries', headers=translator_headers).status_code, 403)
+        listing = self.client.get('/deliveries', headers=self.headers)
+        self.assertEqual(listing.status_code, 200)
+        self.assertEqual(listing.json()[0]['id'], first['id'])
+        self.assertNotIn('content', listing.json()[0])
+
+        file_endpoint = f"/deliveries/{first['id']}/file"
+        self.assertEqual(self.client.get(file_endpoint).status_code, 401)
+        self.assertEqual(self.client.get(file_endpoint, headers=translator_headers).status_code, 403)
+        download = self.client.get(file_endpoint, headers=self.headers)
+        self.assertEqual(download.status_code, 200)
+        self.assertEqual(download.content, b'First version')
+        self.assertEqual(download.headers['x-content-type-options'], 'nosniff')
+
+        review_endpoint = f"/deliveries/{first['id']}/review"
+        self.assertEqual(self.client.post(review_endpoint, headers=translator_headers, json={'decision': 'approve'}).status_code, 403)
+        self.assertEqual(self.client.post(review_endpoint, headers=self.headers, json={'decision': 'request_adjustment'}).status_code, 422)
+        adjustment = self.client.post(
+            review_endpoint, headers=self.headers,
+            json={'decision': 'request_adjustment', 'feedback': 'Revise the terminology on page two.'},
+        )
+        self.assertEqual(adjustment.status_code, 200)
+        self.assertEqual(adjustment.json()['status'], 'Ajuste solicitado')
+        self.assertEqual(adjustment.json()['reviewerName'], self.staff_user['name'])
+        self.assertEqual(self.client.post(review_endpoint, headers=self.headers, json={'decision': 'approve'}).status_code, 409)
+
+        second = self.client.post(
+            endpoint, headers=translator_headers,
+            files={'file': ('translated-v2.txt', b'Second version', 'text/plain')},
+        )
+        self.assertEqual(second.status_code, 201)
+        self.assertEqual(second.json()['version'], 2)
+        approval = self.client.post(
+            f"/deliveries/{second.json()['id']}/review", headers=self.headers,
+            json={'decision': 'approve'},
+        )
+        self.assertEqual(approval.status_code, 200)
+        self.assertEqual(approval.json()['status'], 'Aprovado')
+        history = self.client.get('/deliveries', headers=self.headers).json()
+        self.assertEqual([(item['version'], item['status']) for item in history], [(2, 'Aprovado'), (1, 'Ajuste solicitado')])
 
 
 if __name__ == '__main__':

@@ -19,8 +19,10 @@ from decimal import Decimal
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Literal
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -30,6 +32,7 @@ _lock = threading.Lock()
 _attempts: dict[tuple[str, str], list[float]] = {}
 PASSWORD_ITERATIONS = 600_000
 SESSION_SECONDS = 8 * 60 * 60
+MAX_DELIVERY_BYTES = 5 * 1024 * 1024
 
 
 @contextmanager
@@ -42,10 +45,24 @@ def database():
         connection.execute('CREATE TABLE IF NOT EXISTS requests (id TEXT PRIMARY KEY, data TEXT NOT NULL, sending INTEGER NOT NULL DEFAULT 0)')
         connection.execute('CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL, role TEXT NOT NULL, password_hash TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1)')
         connection.execute('CREATE TABLE IF NOT EXISTS sessions (digest TEXT PRIMARY KEY, expires REAL NOT NULL, user_id TEXT)')
+        connection.execute('''CREATE TABLE IF NOT EXISTS services (
+            id TEXT PRIMARY KEY, request_id TEXT, title TEXT NOT NULL, translator_id TEXT NOT NULL,
+            status TEXT NOT NULL, deadline TEXT, created_at TEXT NOT NULL
+        )''')
+        connection.execute('''CREATE TABLE IF NOT EXISTS deliveries (
+            id TEXT PRIMARY KEY, service_id TEXT NOT NULL, version INTEGER NOT NULL,
+            translator_id TEXT NOT NULL, name TEXT NOT NULL, media_type TEXT NOT NULL,
+            size INTEGER NOT NULL, content BLOB NOT NULL, status TEXT NOT NULL,
+            feedback TEXT, submitted_at TEXT NOT NULL, reviewed_at TEXT, reviewed_by TEXT,
+            UNIQUE(service_id, version)
+        )''')
         session_columns = {column['name'] for column in connection.execute('PRAGMA table_info(sessions)')}
         if 'user_id' not in session_columns:
             connection.execute('ALTER TABLE sessions ADD COLUMN user_id TEXT')
         connection.execute('CREATE INDEX IF NOT EXISTS sessions_user_id ON sessions (user_id)')
+        connection.execute('CREATE INDEX IF NOT EXISTS services_translator_id ON services (translator_id)')
+        connection.execute('CREATE INDEX IF NOT EXISTS deliveries_service_id ON deliveries (service_id, version)')
+        connection.execute('CREATE INDEX IF NOT EXISTS deliveries_status ON deliveries (status, submitted_at)')
         yield connection
         connection.commit()
     except Exception:
@@ -143,6 +160,12 @@ def authenticated_user(credentials: HTTPAuthorizationCredentials | None = Depend
 def staff(user: dict = Depends(authenticated_user)):
     if user['role'] not in ('admin', 'employee'):
         raise HTTPException(403, 'Sua conta não tem permissão para acessar esta área.')
+    return user
+
+
+def translator(user: dict = Depends(authenticated_user)):
+    if user['role'] != 'translator':
+        raise HTTPException(403, 'Somente o tradutor atribuído pode enviar a tradução.')
     return user
 
 
@@ -332,6 +355,18 @@ class Update(BaseModel):
     quote: Quote | None = None
 
 
+class DeliveryReview(BaseModel):
+    decision: Literal['approve', 'request_adjustment']
+    feedback: str = Field(default='', max_length=3000)
+
+    @model_validator(mode='after')
+    def validate_review(self):
+        self.feedback = self.feedback.strip()
+        if self.decision == 'request_adjustment' and not self.feedback:
+            raise ValueError('Explique ao tradutor o ajuste necessário.')
+        return self
+
+
 def read_request(connection, request_id):
     row = connection.execute('SELECT data, sending FROM requests WHERE id = ?', (request_id,)).fetchone()
     if not row:
@@ -341,6 +376,158 @@ def read_request(connection, request_id):
 
 def summary(data):
     return {**data, 'attachments': [{**file, 'content': ''} for file in data['attachments']]}
+
+
+def read_service(connection, service_id):
+    service = connection.execute('SELECT * FROM services WHERE id = ?', (service_id,)).fetchone()
+    if not service:
+        raise HTTPException(404, 'Serviço não encontrado.')
+    return service
+
+
+def read_delivery(connection, delivery_id):
+    delivery = connection.execute(
+        '''SELECT deliveries.*, services.title AS service_title,
+                  translator_user.name AS translator_name, reviewer.name AS reviewer_name
+           FROM deliveries JOIN services ON services.id = deliveries.service_id
+           LEFT JOIN users AS translator_user ON translator_user.id = deliveries.translator_id
+           LEFT JOIN users AS reviewer ON reviewer.id = deliveries.reviewed_by
+           WHERE deliveries.id = ?''',
+        (delivery_id,),
+    ).fetchone()
+    if not delivery:
+        raise HTTPException(404, 'Entrega não encontrada.')
+    return delivery
+
+
+def delivery_record(delivery):
+    record = {
+        'id': delivery['id'], 'serviceId': delivery['service_id'],
+        'serviceTitle': delivery['service_title'], 'version': delivery['version'],
+        'translatorName': delivery['translator_name'], 'name': delivery['name'],
+        'mediaType': delivery['media_type'], 'size': delivery['size'],
+        'status': delivery['status'], 'submittedAt': delivery['submitted_at'],
+    }
+    if delivery['feedback']:
+        record['feedback'] = delivery['feedback']
+    if delivery['reviewed_at']:
+        record['reviewedAt'] = delivery['reviewed_at']
+    if delivery['reviewer_name']:
+        record['reviewerName'] = delivery['reviewer_name']
+    return record
+
+
+def validate_delivery_document(name, content):
+    if not name or len(name) > 160 or any(char in name for char in ('/', '\\', '\r', '\n', '\x00')):
+        raise HTTPException(422, 'Nome de documento inválido.')
+    if not content or len(content) > MAX_DELIVERY_BYTES:
+        raise HTTPException(422, 'O documento deve ter entre 1 byte e 5 MB.')
+    extension = Path(name).suffix.lower()
+    try:
+        if extension == '.pdf':
+            if not content.startswith(b'%PDF-'):
+                raise ValueError
+            return 'application/pdf'
+        if extension == '.docx':
+            with zipfile.ZipFile(io.BytesIO(content)) as archive:
+                if not {'[Content_Types].xml', 'word/document.xml'}.issubset(archive.namelist()):
+                    raise ValueError
+            return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        if extension == '.txt':
+            content.decode('utf-8')
+            if b'\x00' in content:
+                raise ValueError
+            return 'text/plain; charset=utf-8'
+    except (ValueError, zipfile.BadZipFile, UnicodeDecodeError) as error:
+        raise HTTPException(422, 'Documento inválido. Use PDF, DOCX ou TXT, com até 5 MB.') from error
+    raise HTTPException(422, 'Documento inválido. Use PDF, DOCX ou TXT, com até 5 MB.')
+
+
+@router.post('/services/{service_id}/deliveries', status_code=201)
+async def upload_delivery(service_id: str, file: UploadFile = File(...), user: dict = Depends(translator)):
+    name = (file.filename or '').strip()
+    content = await file.read(MAX_DELIVERY_BYTES + 1)
+    await file.close()
+    media_type = validate_delivery_document(name, content)
+    with database() as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        service = read_service(connection, service_id)
+        if service['translator_id'] != user['id']:
+            raise HTTPException(403, 'Este serviço não está atribuído à sua conta.')
+        if service['status'] not in ('Em tradução', 'Ajuste solicitado'):
+            raise HTTPException(409, 'Este serviço não está disponível para uma nova entrega.')
+        version = connection.execute(
+            'SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM deliveries WHERE service_id = ?',
+            (service_id,),
+        ).fetchone()['next_version']
+        delivery_id, submitted_at = 'ENT-' + secrets.token_hex(6).upper(), now()
+        connection.execute(
+            '''INSERT INTO deliveries
+               (id, service_id, version, translator_id, name, media_type, size, content, status, submitted_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Em revisão', ?)''',
+            (delivery_id, service_id, version, user['id'], name, media_type, len(content), content, submitted_at),
+        )
+        connection.execute("UPDATE services SET status = 'Em revisão' WHERE id = ?", (service_id,))
+        delivery = read_delivery(connection, delivery_id)
+    return delivery_record(delivery)
+
+
+@router.get('/deliveries')
+def list_deliveries(user: dict = Depends(staff)):
+    with database() as connection:
+        deliveries = connection.execute(
+            '''SELECT deliveries.*, services.title AS service_title,
+                      translator_user.name AS translator_name, reviewer.name AS reviewer_name
+               FROM deliveries JOIN services ON services.id = deliveries.service_id
+               LEFT JOIN users AS translator_user ON translator_user.id = deliveries.translator_id
+               LEFT JOIN users AS reviewer ON reviewer.id = deliveries.reviewed_by
+               ORDER BY deliveries.submitted_at DESC, deliveries.version DESC'''
+        ).fetchall()
+    return [delivery_record(delivery) for delivery in deliveries]
+
+
+@router.get('/deliveries/{delivery_id}')
+def delivery_detail(delivery_id: str, user: dict = Depends(staff)):
+    with database() as connection:
+        return delivery_record(read_delivery(connection, delivery_id))
+
+
+@router.get('/deliveries/{delivery_id}/file')
+def download_delivery(delivery_id: str, user: dict = Depends(staff)):
+    with database() as connection:
+        delivery = read_delivery(connection, delivery_id)
+        content = bytes(delivery['content'])
+        filename = quote(delivery['name'], safe='')
+        media_type = delivery['media_type']
+    return Response(
+        content=content, media_type=media_type,
+        headers={'Content-Disposition': f"attachment; filename*=UTF-8''{filename}", 'X-Content-Type-Options': 'nosniff'},
+    )
+
+
+@router.post('/deliveries/{delivery_id}/review')
+def review_delivery(delivery_id: str, review: DeliveryReview, user: dict = Depends(staff)):
+    with database() as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        delivery = read_delivery(connection, delivery_id)
+        if delivery['status'] != 'Em revisão':
+            raise HTTPException(409, 'Esta entrega já foi revisada.')
+        latest = connection.execute(
+            'SELECT id FROM deliveries WHERE service_id = ? ORDER BY version DESC LIMIT 1',
+            (delivery['service_id'],),
+        ).fetchone()
+        if not latest or latest['id'] != delivery_id:
+            raise HTTPException(409, 'Somente a versão mais recente pode ser revisada.')
+        status = 'Aprovado' if review.decision == 'approve' else 'Ajuste solicitado'
+        reviewed_at = now()
+        connection.execute(
+            '''UPDATE deliveries SET status = ?, feedback = ?, reviewed_at = ?, reviewed_by = ?
+               WHERE id = ?''',
+            (status, review.feedback or None, reviewed_at, user['id'], delivery_id),
+        )
+        connection.execute('UPDATE services SET status = ? WHERE id = ?', (status, delivery['service_id']))
+        delivery = read_delivery(connection, delivery_id)
+    return delivery_record(delivery)
 
 
 @router.post('/requests', status_code=201)
