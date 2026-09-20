@@ -19,8 +19,8 @@ a:focus-visible {
 }
 
 [data-testid='auth-input']:focus-within {
-  border-color: #226650;
-  box-shadow: 0 0 0 3px rgba(34, 102, 80, 0.12);
+  border-color: #FF375F;
+  box-shadow: 0 0 0 3px rgba(255, 55, 95, 0.18);
 }
 
 [data-testid='auth-input'] input:focus-visible {

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
+import { useSession } from '@/features/auth/session';
 
 export type ProjectStatus = 'Em tradução' | 'Em revisão' | 'Aguardando aprovação' | 'Concluído' | 'Nova requisição';
 export type Project = { id: string; title: string; client: string; initials: string; languages: string; status: ProjectStatus; deadline: string; owner: string; urgent?: boolean; progress: number };
@@ -25,8 +26,9 @@ type Workspace = {
 };
 const Context = createContext<Workspace | null>(null);
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const [projects, setProjects] = useState(initialProjects);
-  const [tasks, setTasks] = useState(initialTasks);
+  const { session } = useSession();
+  const [projects, setProjects] = useState(session?.demo ? initialProjects : []);
+  const [tasks, setTasks] = useState(session?.demo ? initialTasks : []);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Project | null>(null);
   const [newRequest, setNewRequest] = useState(false);

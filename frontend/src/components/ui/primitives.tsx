@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 import { Orbit, type LucideIcon } from 'lucide-react-native';
 import { colors, fonts, typeScale } from '@/constants/design';
 
@@ -13,8 +13,8 @@ export function Txt({ children, style, ...props }: React.ComponentProps<typeof T
 }
 
 export function Brand({ compact = false, inverse = false }: { compact?: boolean; inverse?: boolean }) {
-  return <View style={s.brand}><View style={s.brandMark}><Orbit size={27} color={inverse ? '#A4D7BD' : colors.green} strokeWidth={1.8} /></View>
-    <View><Txt style={[s.brandName, inverse && { color: colors.white }]}>Echo Ring</Txt>
+  return <View style={s.brand}><View style={s.brandMark}><Orbit size={27} color={inverse ? colors.accent : colors.accent} strokeWidth={1.8} /></View>
+    <View><Txt style={[s.brandName, compact && { fontSize: 20, lineHeight: 26 }, inverse && { color: colors.white }]}>Echo Ring</Txt>
       {!compact && <Txt style={[s.brandCaption, inverse && { color: colors.navigationMuted }]}>Aliança Traduções</Txt>}
     </View></View>;
 }
@@ -38,8 +38,8 @@ export function IconButton({ icon: Icon, label, onPress, active = false }: { ico
   const [hover, setHover] = useState(false);
   return <View style={{ position: 'relative', zIndex: hover ? 20 : 1 }}>
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} onHoverIn={() => setHover(true)} onHoverOut={() => setHover(false)}
-      style={({ pressed }) => [s.iconButton, (hover || active) && { backgroundColor: colors.greenSoft }, pressed && { opacity: 0.7 }]}>
-      <Icon size={20} color={active ? colors.green : colors.muted} strokeWidth={1.7} />
+      style={({ pressed }) => [s.iconButton, (hover || active) && { backgroundColor: colors.accentSoft }, pressed && { opacity: 0.7 }]}>
+      <Icon size={20} color={active ? colors.accent : colors.muted} strokeWidth={1.7} />
     </Pressable>
     {hover && <View pointerEvents="none" style={s.tooltip}><Txt style={s.tooltipText}>{label}</Txt></View>}
   </View>;
@@ -51,11 +51,12 @@ export function Badge({ children, tone = 'green' }: { children: ReactNode; tone?
 }
 
 export function PageHeading({ title, subtitle, action }: { title: string; subtitle: string; action?: ReactNode }) {
-  return <View style={s.heading}><View style={{ flex: 1, minWidth: 180, gap: 7 }}><Txt accessibilityRole="header" style={s.title}>{title}</Txt><Txt style={s.subtitle}>{subtitle}</Txt></View>{action}</View>;
+  const { width } = useWindowDimensions();
+  return <View style={s.heading}><View style={{ flex: 1, minWidth: 180, gap: 7 }}><Txt accessibilityRole="header" style={[s.title, width < 700 && { fontSize: 34, lineHeight: 42 }]}>{title}</Txt><Txt style={s.subtitle}>{subtitle}</Txt></View>{action}</View>;
 }
 
 export function EmptyState({ icon: Icon, title, text, action }: { icon: LucideIcon; title: string; text: string; action?: ReactNode }) {
-  return <View style={s.empty}><View style={s.emptyIcon}><Icon size={27} color={colors.green} strokeWidth={1.5} /></View><Txt style={s.emptyTitle}>{title}</Txt><Txt style={s.emptyText}>{text}</Txt>{action}</View>;
+  return <View style={s.empty}><View style={s.emptyIcon}><Icon size={27} color={colors.accent} strokeWidth={1.5} /></View><Txt style={s.emptyTitle}>{title}</Txt><Txt style={s.emptyText}>{text}</Txt>{action}</View>;
 }
 
 export const common = StyleSheet.create({
@@ -66,23 +67,23 @@ export const common = StyleSheet.create({
 const s = StyleSheet.create({
   text: { ...typeScale.body, color: colors.ink, letterSpacing: 0 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  brandMark: { width: 30, height: 36, alignItems: 'center', justifyContent: 'center' },
-  brandName: { fontSize: 23, fontWeight: '600', lineHeight: 27 },
+  brandMark: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
+  brandName: { fontSize: 23, fontWeight: '700', lineHeight: 27, letterSpacing: -0.6 },
   brandCaption: { fontSize: 12, color: colors.muted, lineHeight: 18 },
   button: { minHeight: 48, borderRadius: 28, paddingHorizontal: 22, flexDirection: 'row', gap: 9, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
   primary: { backgroundColor: colors.accent, borderColor: colors.accent },
   secondary: { backgroundColor: colors.surface, borderColor: colors.line },
   ghost: { borderColor: 'transparent', backgroundColor: 'transparent' },
   buttonText: { fontSize: 15, lineHeight: 22, fontWeight: '600', flexShrink: 1, textAlign: 'center' },
-  iconButton: { width: 44, height: 44, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
-  tooltip: { position: 'absolute', top: 43, right: 0, paddingVertical: 5, paddingHorizontal: 9, backgroundColor: colors.ink, borderRadius: 4, minWidth: 100 },
+  iconButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center' },
+  tooltip: { position: 'absolute', top: 49, right: 0, paddingVertical: 7, paddingHorizontal: 11, backgroundColor: colors.elevated, borderWidth: 1, borderColor: colors.line, borderRadius: 12, minWidth: 100 },
   tooltipText: { color: colors.white, fontSize: 11, textAlign: 'center' },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 4, alignSelf: 'flex-start' },
-  heading: { flexDirection: 'row', flexWrap: 'wrap', gap: 18, alignItems: 'center', justifyContent: 'space-between', marginBottom: 30 },
-  title: { ...typeScale.title, fontWeight: '600' },
+  badge: { paddingHorizontal: 11, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, alignSelf: 'flex-start' },
+  heading: { flexDirection: 'row', flexWrap: 'wrap', gap: 20, alignItems: 'center', justifyContent: 'space-between', marginBottom: 36 },
+  title: { ...typeScale.title, fontWeight: '700', letterSpacing: -1.2 },
   subtitle: { fontSize: 15, lineHeight: 22, color: colors.muted },
   empty: { paddingVertical: 56, paddingHorizontal: 22, alignItems: 'center', gap: 12 },
-  emptyIcon: { width: 60, height: 60, backgroundColor: colors.greenSoft, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  emptyIcon: { width: 64, height: 64, backgroundColor: colors.accentSoft, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   emptyTitle: { fontWeight: '600', fontSize: 17, textAlign: 'center' },
   emptyText: { textAlign: 'center', color: colors.muted, maxWidth: 380, fontSize: 13 },
 });

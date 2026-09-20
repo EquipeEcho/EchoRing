@@ -13,7 +13,7 @@ import { colors } from '@/constants/design';
 import '@/global.css';
 
 function Routes() {
-  const { session, ready } = useSession();
+  const { ready } = useSession();
   const [fontsLoaded, fontError] = useFonts({
     InterRegular: Inter_400Regular, InterMedium: Inter_500Medium,
     InterSemibold: Inter_600SemiBold, InterBold: Inter_700Bold,
@@ -23,13 +23,9 @@ function Routes() {
   if (!loaded) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator color={colors.accent} accessibilityLabel="Carregando" /></View>;
   return <Stack screenOptions={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: colors.canvas } }}>
     <Stack.Screen name="index" />
-    <Stack.Protected guard={!session}>
-      <Stack.Screen name="login" />
-      <Stack.Screen name="recuperar-senha" />
-    </Stack.Protected>
-    <Stack.Protected guard={!!session}>
-      <Stack.Screen name="(workspace)" />
-    </Stack.Protected>
+    <Stack.Screen name="login" />
+    <Stack.Screen name="recuperar-senha" />
+    <Stack.Screen name="(workspace)" />
   </Stack>;
 }
 

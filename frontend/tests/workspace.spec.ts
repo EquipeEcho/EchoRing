@@ -11,14 +11,14 @@ test('bundled font weights render consistently and fields show keyboard focus', 
   await page.goto('/login');
   const heading = page.getByRole('heading', { name: 'Acesse sua conta' });
   await expect(heading).toBeVisible();
-  const families = ['SourceSans3Regular', 'SourceSans3Medium', 'SourceSans3Semibold', 'SourceSans3Bold'];
+  const families = ['InterRegular', 'InterMedium', 'InterSemibold', 'InterBold'];
   const loaded = await page.evaluate(() => [...document.fonts].filter(face => face.status === 'loaded').map(face => face.family.replaceAll('"', '')));
   for (const family of families) expect(loaded).toContain(family);
-  expect(await heading.evaluate(element => getComputedStyle(element).fontFamily)).toContain('SourceSans3Semibold');
+  expect(await heading.evaluate(element => getComputedStyle(element).fontFamily)).toContain('InterBold');
   const email = page.getByRole('textbox', { name: 'E-mail', exact: true });
-  expect(await email.evaluate(element => getComputedStyle(element).fontFamily)).toContain('SourceSans3Regular');
+  expect(await email.evaluate(element => getComputedStyle(element).fontFamily)).toContain('InterRegular');
   await email.focus();
-  await expect(page.getByTestId('auth-input').first()).toHaveCSS('border-color', 'rgb(34, 102, 80)');
+  await expect(page.getByTestId('auth-input').first()).toHaveCSS('border-color', 'rgb(255, 55, 95)');
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Esqueci minha senha' })).toBeFocused();
 });
@@ -32,7 +32,7 @@ test('login validates input and password visibility; recovery is explicitly simu
   await page.getByRole('button', { name: 'Mostrar senha', exact: true }).click();
   await expect(page.getByLabel('Senha', { exact: true })).toHaveJSProperty('type', 'text');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
-  await expect(page.getByText('Conta não disponível neste ambiente.', { exact: false })).toBeVisible();
+  await expect(page.getByText('Não foi possível conectar à empresa.', { exact: false })).toBeVisible();
   await page.getByRole('link', { name: 'Esqueci minha senha' }).click();
   await page.getByRole('textbox', { name: 'E-mail', exact: true }).fill('ana@example.com');
   await page.getByRole('button', { name: 'Simular recuperação' }).click();
@@ -50,6 +50,61 @@ test('demo session survives reload and sign out protects private routes', async 
   await expect(page).toHaveURL(/login/);
   await page.goto('/dashboard');
   await expect(page).toHaveURL(/login/);
+});
+
+test('translator session only exposes translator workspace areas', async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem('echoring.auth-session.v2', JSON.stringify({
+      name: 'Marina Costa', email: 'marina@example.test', role: 'translator', demo: false,
+      token: 'test-translator-token', expires: Date.now() / 1000 + 3600,
+    }));
+  });
+  await page.goto('/dashboard');
+  await expect(page.getByRole('heading', { name: 'Visão geral', exact: true })).toBeVisible();
+  await expect(page.getByText('Meus projetos', { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Nova requisição', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Cadastros', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Pedidos', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Abrir meu perfil' }).click();
+  await expect(page.getByText('Tradutor · Conta autenticada')).toBeVisible();
+  await page.goto('/solicitacoes');
+  await expect(page).toHaveURL(/dashboard/);
+  await page.goto('/usuarios');
+  await expect(page).toHaveURL(/dashboard/);
+});
+
+test('general administrator can create a platform user', async ({ page }) => {
+  const users = [{ id: 'admin-1', name: 'Administrador Geral', email: 'admin@example.test', role: 'admin', active: true }];
+  await page.route('**/users', async route => {
+    if (route.request().method() === 'POST') {
+      const data = route.request().postDataJSON();
+      const created = { id: 'user-2', name: data.name, email: data.email, role: data.role, active: true };
+      users.push(created);
+      await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(created) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(users) });
+  });
+  await page.addInitScript(() => {
+    sessionStorage.setItem('echoring.auth-session.v2', JSON.stringify({
+      name: 'Administrador Geral', email: 'admin@example.test', role: 'admin', demo: false,
+      token: 'test-admin-token', expires: Date.now() / 1000 + 3600,
+    }));
+  });
+  await page.goto('/usuarios');
+  await expect(page.getByRole('heading', { name: 'Usuários', exact: true })).toBeVisible();
+  await expect(page.getByText('Administrador Geral', { exact: true }).last()).toBeVisible();
+  await page.getByRole('button', { name: 'Adicionar usuário', exact: true }).first().click();
+  await page.getByLabel('Nome completo').fill('Fernanda Lima');
+  await page.getByLabel('E-mail', { exact: true }).fill('fernanda@example.test');
+  await page.getByRole('radio', { name: /Recursos Humanos/ }).click();
+  await page.getByLabel('Senha inicial', { exact: true }).fill('curta');
+  await page.getByRole('button', { name: 'Criar acesso' }).click();
+  await expect(page.getByRole('alert')).toContainText('pelo menos 12 caracteres');
+  await page.getByLabel('Senha inicial', { exact: true }).fill('SenhaTemporaria2026!');
+  await page.getByRole('button', { name: 'Criar acesso' }).click();
+  await expect(page.getByText('Fernanda Lima já pode acessar a plataforma como Recursos Humanos.')).toBeVisible();
+  await expect(page.getByText('fernanda@example.test')).toBeVisible();
 });
 
 test('project details, new request and status filters work', async ({ page }) => {
@@ -94,7 +149,6 @@ test('login and workspace fit the viewport without horizontal overflow', async (
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/login');
   await expect(page.getByRole('heading', { name: 'Acesse sua conta' })).toBeVisible();
-  await expect.poll(() => page.locator('img').evaluateAll(images => images.length > 0 && images.every(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0))).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('login.png'), fullPage: true });

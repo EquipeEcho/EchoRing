@@ -12,7 +12,11 @@ export function WorkspaceDialogs() {
   const [client, setClient] = useState('');
   const [languages, setLanguages] = useState('');
   const [error, setError] = useState('');
-  useEffect(() => { if (newRequest) { setTitle(''); setClient(''); setLanguages(''); setError(''); } }, [newRequest]);
+  useEffect(() => {
+    if (!newRequest) return;
+    const reset = setTimeout(() => { setTitle(''); setClient(''); setLanguages(''); setError(''); }, 0);
+    return () => clearTimeout(reset);
+  }, [newRequest]);
   function submit() {
     if (![title, client, languages].every(value => value.trim())) { setError('Preencha o título, o cliente e os idiomas.'); return; }
     addRequest({ title: title.trim(), client: client.trim(), languages: languages.trim() });
@@ -20,7 +24,7 @@ export function WorkspaceDialogs() {
   return <>
     <Dialog open={!!selected} onClose={() => setSelected(null)} title={selected?.id ?? 'Projeto'}>
       {selected && <>
-        <View style={common.row}><FileText size={24} color={colors.green} /><Txt style={{ fontSize: 20, lineHeight: 27, fontWeight: '600', flex: 1 }}>{selected.title}</Txt></View>
+        <View style={common.row}><FileText size={24} color={colors.accent} /><Txt style={{ fontSize: 20, lineHeight: 27, fontWeight: '600', flex: 1 }}>{selected.title}</Txt></View>
         <Badge tone={statusTone[selected.status]}>{selected.status}</Badge>
         {[['Cliente', selected.client], ['Idiomas', selected.languages], ['Responsável', selected.owner], ['Prazo', selected.deadline]].map(([label, value]) => <View key={label} style={s.detailRow}><Txt style={common.caption}>{label}</Txt><Txt style={{ fontSize: 13, fontWeight: '500', flexShrink: 1, textAlign: 'right' }}>{value}</Txt></View>)}
         <View style={{ gap: 8 }}><View style={s.detailRow}><Txt style={common.caption}>Progresso</Txt><Txt style={common.caption}>{selected.progress}%</Txt></View><View style={s.track}><View style={[s.progress, { width: `${selected.progress}%` }]} /></View></View>
@@ -40,7 +44,7 @@ export function WorkspaceDialogs() {
 const s = StyleSheet.create({
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 20, alignItems: 'center' },
   track: { height: 5, backgroundColor: colors.line, borderRadius: 3, overflow: 'hidden' },
-  progress: { height: 5, backgroundColor: colors.green, borderRadius: 3 },
+  progress: { height: 5, backgroundColor: colors.accent, borderRadius: 3 },
   label: { fontSize: 14, fontWeight: '500' },
-  input: { minHeight: 48, borderWidth: 1, borderColor: '#BDC2C7', borderRadius: 4, paddingHorizontal: 12, fontFamily: font, fontSize: 16, color: colors.ink },
+  input: { minHeight: 52, backgroundColor: colors.canvas, borderWidth: 1, borderColor: colors.line, borderRadius: 16, paddingHorizontal: 16, fontFamily: font, fontSize: 16, color: colors.ink },
 });
