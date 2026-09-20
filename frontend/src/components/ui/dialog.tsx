@@ -16,7 +16,7 @@ export function Dialog({ open, onClose, title, children }: { open: boolean; onCl
 }
 const s = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  dialog: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 28, width: '100%', maxWidth: 520, maxHeight: '90%', overflow: 'hidden', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' },
+  dialog: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 22, width: '100%', maxWidth: 520, maxHeight: '90%', overflow: 'hidden', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, justifyContent: 'space-between', paddingHorizontal: 22, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.line },
   title: { ...typeScale.section, fontWeight: '600', flex: 1 },
   content: { padding: 24, gap: 20 },

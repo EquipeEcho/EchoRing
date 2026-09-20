@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
-import { Orbit, type LucideIcon } from 'lucide-react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
+import { type LucideIcon } from 'lucide-react-native';
 import { colors, fonts, typeScale } from '@/constants/design';
 
 export function Txt({ children, style, ...props }: React.ComponentProps<typeof Text>) {
@@ -13,10 +13,12 @@ export function Txt({ children, style, ...props }: React.ComponentProps<typeof T
 }
 
 export function Brand({ compact = false, inverse = false }: { compact?: boolean; inverse?: boolean }) {
-  return <View style={s.brand}><View style={s.brandMark}><Orbit size={27} color={inverse ? colors.accent : colors.accent} strokeWidth={1.8} /></View>
-    <View><Txt style={[s.brandName, compact && { fontSize: 20, lineHeight: 26 }, inverse && { color: colors.white }]}>Echo Ring</Txt>
-      {!compact && <Txt style={[s.brandCaption, inverse && { color: colors.navigationMuted }]}>Aliança Traduções</Txt>}
-    </View></View>;
+  return <View accessible accessibilityLabel="Echo Ring, traduções que conectam" style={s.brand}>
+    <Image source={require('@/assets/images/echoring-mark.png')} resizeMode="contain" style={[s.brandMark, compact && s.brandMarkCompact]} />
+    <View><View style={s.wordmark}><Txt style={[s.brandName, compact && s.brandNameCompact, inverse && { color: colors.white }]}>echo</Txt><Txt style={[s.brandName, s.brandAccent, compact && s.brandNameCompact]}>ring</Txt></View>
+      {!compact && <Txt style={[s.brandCaption, inverse && { color: colors.navigationMuted }]}>TRADUÇÕES QUE CONECTAM</Txt>}
+    </View>
+  </View>;
 }
 
 export function Button({ children, onPress, icon: Icon, variant = 'primary', disabled, loading, style, testID }: {
@@ -67,19 +69,23 @@ export const common = StyleSheet.create({
 const s = StyleSheet.create({
   text: { ...typeScale.body, color: colors.ink, letterSpacing: 0 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  brandMark: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
-  brandName: { fontSize: 23, fontWeight: '700', lineHeight: 27, letterSpacing: -0.6 },
-  brandCaption: { fontSize: 12, color: colors.muted, lineHeight: 18 },
-  button: { minHeight: 48, borderRadius: 28, paddingHorizontal: 22, flexDirection: 'row', gap: 9, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  brandMark: { width: 42, height: 42 },
+  brandMarkCompact: { width: 34, height: 34 },
+  wordmark: { flexDirection: 'row', alignItems: 'baseline' },
+  brandName: { fontSize: 25, fontWeight: '700', lineHeight: 27, letterSpacing: -1.1 },
+  brandNameCompact: { fontSize: 21, lineHeight: 24, letterSpacing: -0.8 },
+  brandAccent: { color: colors.accent },
+  brandCaption: { fontSize: 7, color: colors.muted, lineHeight: 11, letterSpacing: 2.25, fontWeight: '600' },
+  button: { minHeight: 48, borderRadius: 16, paddingHorizontal: 20, flexDirection: 'row', gap: 9, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
   primary: { backgroundColor: colors.accent, borderColor: colors.accent },
   secondary: { backgroundColor: colors.surface, borderColor: colors.line },
   ghost: { borderColor: 'transparent', backgroundColor: 'transparent' },
   buttonText: { fontSize: 15, lineHeight: 22, fontWeight: '600', flexShrink: 1, textAlign: 'center' },
-  iconButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center' },
+  iconButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, justifyContent: 'center', alignItems: 'center' },
   tooltip: { position: 'absolute', top: 49, right: 0, paddingVertical: 7, paddingHorizontal: 11, backgroundColor: colors.elevated, borderWidth: 1, borderColor: colors.line, borderRadius: 12, minWidth: 100 },
   tooltipText: { color: colors.white, fontSize: 11, textAlign: 'center' },
   badge: { paddingHorizontal: 11, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, alignSelf: 'flex-start' },
-  heading: { flexDirection: 'row', flexWrap: 'wrap', gap: 20, alignItems: 'center', justifyContent: 'space-between', marginBottom: 36 },
+  heading: { flexDirection: 'row', flexWrap: 'wrap', gap: 20, alignItems: 'center', justifyContent: 'space-between', marginBottom: 30 },
   title: { ...typeScale.title, fontWeight: '700', letterSpacing: -1.2 },
   subtitle: { fontSize: 15, lineHeight: 22, color: colors.muted },
   empty: { paddingVertical: 56, paddingHorizontal: 22, alignItems: 'center', gap: 12 },

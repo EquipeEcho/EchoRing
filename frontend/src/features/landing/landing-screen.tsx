@@ -2,8 +2,8 @@ import { useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowLeftRight, ArrowUpRight, Check, CheckCircle2, FileText, Globe2, LockKeyhole, Orbit, Plus, Scale, Sparkles, Send, Upload, X } from 'lucide-react-native';
-import { Button, Txt, common } from '@/components/ui/primitives';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowLeftRight, ArrowUpRight, Check, CheckCircle2, FileText, Globe2, LockKeyhole, Plus, Scale, Sparkles, Send, Upload, X } from 'lucide-react-native';
+import { Brand, Button, Txt, common } from '@/components/ui/primitives';
 import { Dialog } from '@/components/ui/dialog';
 import { useSession } from '@/features/auth/session';
 import { HeroWorld } from './hero-world';
@@ -83,7 +83,7 @@ export function LandingScreen() {
     <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: mobile ? 20 : 48 }}>
       <View style={s.container}>
         <View style={[s.header, mobile && { height: 88 }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Aliança Traduções, início" onPress={() => go('top')} style={s.companyBrand}><Orbit size={32} color={colors.accent} strokeWidth={1.6} /><View><Txt style={[s.companyName, width < 360 && { fontSize: 27, lineHeight: 30 }]}>aliança<Txt style={{ color: colors.accent }}>.</Txt></Txt><Txt style={s.companyCaption}>TRADUÇÕES</Txt></View></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Echo Ring, início" onPress={() => go('top')} style={s.companyBrand}><Brand compact={mobile} /></Pressable>
           <View style={s.headerLinks}>{!mobile && <><Pressable accessibilityRole="button" onPress={() => go('services')}><Txt style={s.navLink}>Soluções</Txt></Pressable><Pressable accessibilityRole="button" onPress={() => go('process')}><Txt style={s.navLink}>Como funciona</Txt></Pressable></>}
             <Pressable accessibilityRole="button" onPress={() => router.push(session ? '/dashboard' : '/login')} style={[s.portal, width < 360 && { paddingHorizontal: 12, gap: 6 }]}><Txt style={[s.portalText, width < 360 && { fontSize: 12 }]}>{mobile ? 'Área da equipe' : 'Entrar no portal'}</Txt><ArrowUpRight size={16} color={colors.ink} /></Pressable>
           </View>

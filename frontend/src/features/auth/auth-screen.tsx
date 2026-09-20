@@ -105,7 +105,7 @@ const s = StyleSheet.create({
   introText: { fontSize: 18, lineHeight: 28, color: colors.muted, maxWidth: 370, marginTop: 24, marginBottom: 30 },
   introRow: { flexDirection: 'row', alignItems: 'center', gap: 18, paddingVertical: 19, borderBottomWidth: 1, borderBottomColor: colors.line },
   introRowText: { flex: 1, fontSize: 22, lineHeight: 30 },
-  form: { width: '100%', maxWidth: 440, backgroundColor: colors.surface, borderRadius: 32, borderWidth: 1, borderColor: colors.line, padding: 36 },
+  form: { width: '100%', maxWidth: 440, backgroundColor: colors.surface, borderRadius: 24, borderWidth: 1, borderColor: colors.line, padding: 36, boxShadow: '0 24px 70px rgba(0,0,0,0.45)' },
   formSmall: { paddingHorizontal: 0, paddingVertical: 16, backgroundColor: 'transparent', borderWidth: 0, boxShadow: 'none' },
   lock: { width: 46, height: 46, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', borderRadius: 23, marginBottom: 24 },
   accessTag: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },

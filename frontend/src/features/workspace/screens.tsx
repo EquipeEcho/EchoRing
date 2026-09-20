@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { ArrowRight, Check, CheckCheck, ChevronRight, Clock3, FileText, FolderKanban, Inbox, Plus, SearchX } from 'lucide-react-native';
+import { ArrowRight, Check, CheckCheck, ChevronRight, Clock3, FileText, FolderKanban, Inbox, Plus, SearchX, type LucideIcon } from 'lucide-react-native';
 import { Badge, Button, EmptyState, PageHeading, Txt, common } from '@/components/ui/primitives';
 import { useInbox } from '@/features/requests/inbox';
 import { colors } from '@/constants/design';
@@ -45,9 +45,10 @@ function TaskRow({ task }: { task: Task }) {
   </Pressable>;
 }
 
-function Metric({ title, value, color }: { title: string; value: number; color: string }) {
+function Metric({ title, value, color, icon: Icon }: { title: string; value: number; color: string; icon: LucideIcon }) {
   return <View style={s.metric}>
-    <Txt style={s.metricLabel}>{title}</Txt><Txt style={[s.metricValue, { color }]}>{value}</Txt>
+    <View style={s.metricIcon}><Icon size={21} color={colors.accent} strokeWidth={1.8} /></View>
+    <Txt style={[s.metricValue, { color }]}>{value}</Txt><Txt style={s.metricLabel}>{title}</Txt>
   </View>;
 }
 
@@ -65,9 +66,9 @@ export function DashboardScreen() {
   return <Page>
     <PageHeading title="Visão geral" subtitle={`${employee ? 'Projetos da equipe' : 'Meus projetos'} · ${date}`} action={employee ? <Button icon={Plus} onPress={() => setNewRequest(true)}>Nova requisição</Button> : undefined} />
     <View style={s.metrics}>
-      <Metric title="Em andamento" value={projects.filter(p => ['Em tradução', 'Em revisão'].includes(p.status)).length} color={colors.ink} />
-      <Metric title="Aguardando aprovação" value={projects.filter(p => p.status === 'Aguardando aprovação').length} color={colors.amber} />
-      <Metric title="Entrega hoje" value={active.filter(p => p.deadline === 'Hoje').length} color={colors.blue} />
+      <Metric icon={FolderKanban} title="Em andamento" value={projects.filter(p => ['Em tradução', 'Em revisão'].includes(p.status)).length} color={colors.ink} />
+      <Metric icon={Clock3} title="Aguardando aprovação" value={projects.filter(p => p.status === 'Aguardando aprovação').length} color={colors.amber} />
+      <Metric icon={CheckCheck} title="Entrega hoje" value={active.filter(p => p.deadline === 'Hoje').length} color={colors.blue} />
     </View>
     <Pressable accessibilityRole="button" accessibilityLabel="Acompanhar projetos em andamento" onPress={() => router.push('/operacao')} style={({ hovered }) => [s.activity, hovered && { backgroundColor: colors.elevated }]}>
       <View style={s.activityIcon}><FolderKanban size={24} color={colors.accent} /></View>
@@ -84,7 +85,7 @@ export function DashboardScreen() {
         <ProjectList projects={visible.slice(0, 5)} />
         <Pressable accessibilityRole="button" onPress={() => router.push('/operacao')} style={s.viewAll}><Txt style={s.viewAllText}>Ver toda a operação</Txt><ArrowRight size={15} color={colors.accent} /></Pressable>
       </View>
-      <View style={[s.tasksSection, width < 1280 && { width: '100%', borderLeftWidth: 0, paddingLeft: 0, borderTopWidth: 1, paddingTop: 26 }]}>
+      <View style={[s.tasksSection, width < 1280 && { width: '100%' }]}>
         <View style={s.sectionHeader}><Txt style={common.sectionTitle}>Minhas tarefas</Txt><Txt style={common.caption}>{tasks.filter(t => !t.done).length} pendentes</Txt></View>
         <View style={{ marginTop: 15 }}>{tasks.slice(0, 4).map(task => <TaskRow key={task.id} task={task} />)}</View>
         <Pressable accessibilityRole="button" onPress={() => router.push('/tarefas')} style={s.viewAll}><Txt style={s.viewAllText}>Ver minhas tarefas</Txt><ArrowRight size={15} color={colors.accent} /></Pressable>
@@ -150,16 +151,17 @@ export function AreaScreen() {
 const s = StyleSheet.create({
   page: { padding: 40, paddingTop: 28, paddingBottom: 40, flexGrow: 1 },
   pageInner: { width: '100%', maxWidth: 1400, alignSelf: 'center' },
-  metrics: { flexDirection: 'row', paddingVertical: 24, borderBottomWidth: 1, borderColor: colors.line, marginBottom: 24 },
-  metric: { flex: 1, minWidth: 0, gap: 8, paddingHorizontal: 8 },
-  metricLabel: { fontSize: 13, color: colors.muted, lineHeight: 18, minHeight: 36, fontWeight: '500' },
-  metricValue: { fontSize: 46, lineHeight: 52, fontWeight: '700', letterSpacing: -1.5, fontVariant: ['tabular-nums'] },
-  activity: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 28, padding: 18, marginBottom: 36 },
-  activityIcon: { height: 48, width: 48, borderRadius: 15, backgroundColor: colors.elevated, alignItems: 'center', justifyContent: 'center' },
+  metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
+  metric: { flex: 1, minWidth: 140, gap: 7, padding: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 20 },
+  metricIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
+  metricLabel: { fontSize: 13, color: colors.muted, lineHeight: 18, fontWeight: '500' },
+  metricValue: { fontSize: 34, lineHeight: 39, fontWeight: '700', letterSpacing: -1, fontVariant: ['tabular-nums'] },
+  activity: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 20, padding: 18, marginBottom: 20 },
+  activityIcon: { height: 46, width: 46, borderRadius: 14, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
   activityTitle: { fontSize: 20, lineHeight: 27, fontWeight: '600' },
-  activityArrow: { height: 44, width: 44, borderRadius: 22, backgroundColor: colors.elevated, alignItems: 'center', justifyContent: 'center' },
-  workGrid: { flexDirection: 'row', gap: 32 },
-  projectsSection: { flex: 1, minWidth: 0 },
+  activityArrow: { height: 42, width: 42, borderRadius: 14, backgroundColor: colors.elevated, alignItems: 'center', justifyContent: 'center' },
+  workGrid: { flexDirection: 'row', gap: 18 },
+  projectsSection: { flex: 1, minWidth: 0, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 22, padding: 22 },
   sectionHeader: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 14 },
   tabs: { flexDirection: 'row', gap: 6, marginTop: 18, paddingBottom: 18 },
   tab: { paddingVertical: 11, paddingHorizontal: 17, backgroundColor: colors.surface, borderRadius: 24, minHeight: 44 },
@@ -181,7 +183,7 @@ const s = StyleSheet.create({
   deadline: { fontSize: 13, lineHeight: 19, fontWeight: '500', color: colors.muted },
   viewAll: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-start' },
   viewAllText: { fontSize: 14, lineHeight: 20, color: colors.accent, fontWeight: '600' },
-  tasksSection: { width: 300, borderLeftWidth: 1, borderColor: colors.line, paddingLeft: 26 },
+  tasksSection: { width: 330, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 22, padding: 22 },
   task: { flexDirection: 'row', gap: 11, paddingVertical: 17, paddingHorizontal: 2, borderBottomWidth: 1, borderBottomColor: colors.line, alignItems: 'flex-start', minHeight: 72 },
   checkbox: { marginTop: 2, width: 23, height: 23, borderWidth: 1, borderColor: colors.muted, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   checked: { backgroundColor: colors.accent, borderColor: colors.accent },

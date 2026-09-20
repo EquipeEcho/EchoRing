@@ -75,7 +75,7 @@ export function UsersScreen() {
       {!!notice && <View style={s.notice}><Txt accessibilityLiveRegion="polite" style={{ color: colors.green }}>{notice}</Txt></View>}
       {!!error && !open && <View style={s.errorBox}><Txt accessibilityRole="alert" style={s.error}>{error}</Txt><Button variant="secondary" onPress={() => void load()}>Tentar novamente</Button></View>}
       <View style={s.summary}><View><Txt style={common.caption}>CONTAS CADASTRADAS</Txt><Txt style={s.total}>{users.length}</Txt></View><Badge tone="neutral">Somente administrador geral</Badge></View>
-      {!loading && !error && !users.length ? <EmptyState icon={UsersRound} title="Nenhum usuário cadastrado" text="Adicione a primeira pessoa que utilizará a plataforma." action={<Button icon={UserPlus} onPress={begin}>Adicionar usuário</Button>} /> : <View>
+      {!loading && !error && !users.length ? <EmptyState icon={UsersRound} title="Nenhum usuário cadastrado" text="Adicione a primeira pessoa que utilizará a plataforma." action={<Button icon={UserPlus} onPress={begin}>Adicionar usuário</Button>} /> : <View style={s.userList}>
         {users.map(user => <View key={user.id} style={[s.userRow, width < 650 && s.userRowSmall]}>
           <View style={s.avatar}><Txt style={s.avatarText}>{user.name.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase()}</Txt></View>
           <View style={{ flex: 1, minWidth: 0, gap: 3 }}><Txt numberOfLines={1} style={s.userName}>{user.name}</Txt><Txt numberOfLines={1} style={common.caption}>{user.email}</Txt></View>
@@ -102,9 +102,10 @@ const s = StyleSheet.create({
   inner: { width: '100%', maxWidth: 1200, alignSelf: 'center' },
   notice: { backgroundColor: colors.greenSoft, borderWidth: 1, borderColor: '#29533F', borderRadius: 16, padding: 16, marginBottom: 24 },
   errorBox: { backgroundColor: colors.redSoft, borderRadius: 16, padding: 16, gap: 12, marginBottom: 24 },
-  summary: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 18, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: colors.line },
+  summary: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 18, padding: 20, marginBottom: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 20 },
   total: { fontSize: 38, lineHeight: 45, fontWeight: '700', marginTop: 4 },
-  userRow: { minHeight: 82, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 16 },
+  userList: { gap: 12 },
+  userRow: { minHeight: 82, flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 18 },
   userRowSmall: { flexWrap: 'wrap' },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: colors.accent, fontSize: 13, fontWeight: '700' },
