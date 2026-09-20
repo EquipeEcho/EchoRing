@@ -27,10 +27,10 @@ export function Button({ children, onPress, icon: Icon, variant = 'primary', dis
   return <Pressable testID={testID} accessibilityRole="button" aria-disabled={disabled || loading} aria-busy={loading} accessibilityState={{ disabled: disabled || loading, busy: loading }}
     disabled={disabled || loading} onPress={onPress}
     style={({ pressed, hovered }) => [s.button, primary ? s.primary : variant === 'secondary' ? s.secondary : s.ghost,
-      hovered && { backgroundColor: primary ? colors.greenDark : colors.greenSoft }, pressed && { opacity: 0.8 },
+      hovered && { backgroundColor: primary ? colors.accentStrong : colors.accentSoft }, pressed && { opacity: 0.8 },
       (disabled || loading) && { opacity: 0.65 }, style]}>
-    {loading ? <ActivityIndicator size="small" color={primary ? colors.white : colors.green} /> : Icon && <Icon size={17} color={primary ? colors.white : colors.green} />}
-    <Txt style={[s.buttonText, { color: primary ? colors.white : colors.green }]}>{children}</Txt>
+    {loading ? <ActivityIndicator size="small" color={primary ? colors.canvas : colors.accent} /> : Icon && <Icon size={17} color={primary ? colors.canvas : colors.accent} />}
+    <Txt style={[s.buttonText, { color: primary ? colors.canvas : colors.accent }]}>{children}</Txt>
   </Pressable>;
 }
 
@@ -69,9 +69,9 @@ const s = StyleSheet.create({
   brandMark: { width: 30, height: 36, alignItems: 'center', justifyContent: 'center' },
   brandName: { fontSize: 23, fontWeight: '600', lineHeight: 27 },
   brandCaption: { fontSize: 12, color: colors.muted, lineHeight: 18 },
-  button: { minHeight: 44, borderRadius: 6, paddingHorizontal: 16, flexDirection: 'row', gap: 9, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
-  primary: { backgroundColor: colors.green, borderColor: colors.greenDark },
-  secondary: { backgroundColor: colors.white, borderColor: '#CCD3DA' },
+  button: { minHeight: 48, borderRadius: 28, paddingHorizontal: 22, flexDirection: 'row', gap: 9, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  primary: { backgroundColor: colors.accent, borderColor: colors.accent },
+  secondary: { backgroundColor: colors.surface, borderColor: colors.line },
   ghost: { borderColor: 'transparent', backgroundColor: 'transparent' },
   buttonText: { fontSize: 15, lineHeight: 22, fontWeight: '600', flexShrink: 1, textAlign: 'center' },
   iconButton: { width: 44, height: 44, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },

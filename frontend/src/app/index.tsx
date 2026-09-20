@@ -1,7 +1,5 @@
-import { Redirect } from 'expo-router';
-import { useSession } from '@/features/auth/session';
+import { LandingScreen } from '@/features/landing/landing-screen';
 
 export default function IndexScreen() {
-  const { session } = useSession();
-  return <Redirect href={session ? '/dashboard' : '/login'} />;
+  return <LandingScreen />;
 }
