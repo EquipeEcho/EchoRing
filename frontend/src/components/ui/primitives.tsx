@@ -12,9 +12,9 @@ export function Txt({ children, style, ...props }: React.ComponentProps<typeof T
   return <Text {...props} style={[s.text, style, { fontFamily: resolved?.fontFamily ?? family, fontWeight: 'normal' }]}>{children}</Text>;
 }
 
-export function Brand({ compact = false, inverse = false }: { compact?: boolean; inverse?: boolean }) {
+export function Brand({ compact = false, inverse = false, wordmarkOnly = false }: { compact?: boolean; inverse?: boolean; wordmarkOnly?: boolean }) {
   return <View accessible accessibilityLabel="Echo Ring, traduções que conectam" style={s.brand}>
-    <Image source={require('@/assets/images/echoring-mark.png')} resizeMode="contain" style={[s.brandMark, compact && s.brandMarkCompact]} />
+    {!wordmarkOnly && <Image source={require('@/assets/images/echoring-mark.png')} resizeMode="contain" style={[s.brandMark, compact && s.brandMarkCompact]} />}
     <View><View style={s.wordmark}><Txt style={[s.brandName, compact && s.brandNameCompact, inverse && { color: colors.white }]}>echo</Txt><Txt style={[s.brandName, s.brandAccent, compact && s.brandNameCompact]}>ring</Txt></View>
       {!compact && <Txt style={[s.brandCaption, inverse && { color: colors.navigationMuted }]}>TRADUÇÕES QUE CONECTAM</Txt>}
     </View>

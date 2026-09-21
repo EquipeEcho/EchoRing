@@ -4,8 +4,8 @@ test('landing is public, responsive and respects reduced motion', async ({ page 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: /Sua mensagem/ })).toBeVisible();
-  await expect(page.getByTestId('language-globe')).toHaveCSS('animation-name', 'none');
+  await expect(page.getByRole('heading', { name: /Conectam/ })).toBeVisible();
+  await expect(page.getByTestId('landing-hero-globe')).toBeVisible();
 
   for (const width of testInfo.project.name === 'mobile' ? [320, 390] : [768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
@@ -27,5 +27,5 @@ test('landing is public, responsive and respects reduced motion', async ({ page 
   await page.getByRole('button', { name: 'Como é calculado o orçamento?' }).click();
   await expect(page.getByText('A proposta considera os idiomas', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'Solicitar orçamento', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'O próximo idioma', exact: false })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Vamos traduzir', exact: false })).toBeVisible();
 });

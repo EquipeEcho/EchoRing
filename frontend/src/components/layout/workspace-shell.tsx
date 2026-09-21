@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { router, Slot, usePathname, type Href } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,14 +52,14 @@ export function WorkspaceShell() {
   const [notifications, setNotifications] = useState(false);
   const [read, setRead] = useState(false);
   const [help, setHelp] = useState(false);
-  const [mobileSearch, setMobileSearch] = useState(false);
+  const searchInput = useRef<TextInput>(null);
   const section = visibleModules.find(item => pathname === item.href)?.title ?? (pathname === '/tarefas' ? 'Minhas tarefas' : 'Meu espaço');
   const { requests } = useInbox();
   const received = requests.filter(item => item.status === 'Recebido').length;
   const pending = tasks.filter(task => !task.done).length;
   function logout() { setProfile(false); signOut(); }
   const initials = session?.name.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'ER';
-  const profileButton = <Pressable accessibilityRole="button" accessibilityLabel="Abrir meu perfil" onPress={() => setProfile(true)} style={s.profileButton}><View style={s.avatar}><Txt style={{ fontSize: 14, color: colors.white, fontWeight: '700' }}>{initials}</Txt></View>{desktop && <><View style={{ flex: 1 }}><Txt style={s.profileName}>{session?.name}</Txt><Txt style={s.profileRole}>{session ? roleLabel[session.role] : ''}</Txt></View><ChevronDown size={14} color={colors.muted} /></>}</Pressable>;
+  const profileButton = <Pressable accessibilityRole="button" accessibilityLabel="Abrir meu perfil" onPress={() => setProfile(true)} style={s.profileButton}><View style={[s.avatar, !desktop && s.mobileAvatar]}><Txt style={{ fontSize: 14, color: colors.white, fontWeight: '700' }}>{initials}</Txt></View>{desktop && <><View style={{ flex: 1 }}><Txt style={s.profileName}>{session?.name}</Txt><Txt style={s.profileRole}>{session ? roleLabel[session.role] : ''}</Txt></View><ChevronDown size={14} color={colors.muted} /></>}</Pressable>;
   return <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
     <View style={s.root}>
       {desktop && <View style={s.sidebar}>
@@ -74,15 +74,14 @@ export function WorkspaceShell() {
       </View>}
       <View style={s.main}>
         <View style={[s.header, !desktop && s.mobileHeader]}>
-          {desktop ? <View style={common.row}><Txt style={s.breadcrumb}>Aliança Traduções</Txt><ChevronRight size={12} color={colors.muted} /><Txt style={s.breadcrumb}>{section}</Txt></View> : <Brand compact />}
-          <View style={[s.headerActions, !desktop && { gap: 2 }]}>
+          {desktop ? <View style={common.row}><Txt style={s.breadcrumb}>Aliança Traduções</Txt><ChevronRight size={12} color={colors.muted} /><Txt style={s.breadcrumb}>{section}</Txt></View> : <Brand wordmarkOnly />}
+          <View style={[s.headerActions, !desktop && { gap: 8 }]}>
             {desktop && <View style={s.search}><Search size={17} color={colors.muted} /><TextInput accessibilityLabel="Buscar projetos" placeholder="Buscar projeto ou cliente..." placeholderTextColor={colors.muted} value={search} onChangeText={setSearch} onSubmitEditing={() => router.push('/operacao')} style={s.searchInput} />{!!search && <Pressable accessibilityRole="button" accessibilityLabel="Limpar busca" onPress={() => setSearch('')} style={{ padding: 5 }}><X size={14} color={colors.muted} /></Pressable>}</View>}
-            {!desktop && <IconButton icon={Search} label="Buscar projetos" onPress={() => setMobileSearch(!mobileSearch)} />}
-            <View><IconButton icon={Bell} label="Notificações" onPress={() => setNotifications(true)} />{!read && <View pointerEvents="none" style={s.notificationDot} />}</View>
+            <View>{desktop ? <IconButton icon={Bell} label="Notificações" onPress={() => setNotifications(true)} /> : <Pressable accessibilityRole="button" accessibilityLabel="Notificações" onPress={() => setNotifications(true)} style={({ pressed }) => [s.mobileAction, pressed && { opacity: 0.65 }]}><Bell size={24} color={colors.ink} strokeWidth={1.8} /></Pressable>}{!read && <View pointerEvents="none" style={s.notificationDot} />}</View>
             {!desktop && profileButton}
           </View>
         </View>
-        {mobileSearch && !desktop && <View style={s.mobileSearch}><Search size={18} color={colors.muted} /><TextInput autoFocus accessibilityLabel="Buscar projetos" placeholder="Buscar projeto ou cliente..." placeholderTextColor={colors.muted} value={search} onChangeText={setSearch} style={s.searchInput} onSubmitEditing={() => router.push('/operacao')} /><IconButton icon={X} label="Fechar busca" onPress={() => { setMobileSearch(false); setSearch(''); }} /></View>}
+        {!desktop && <View style={s.mobileSearch}><Pressable accessibilityRole="button" accessibilityLabel="Buscar projetos" onPress={() => searchInput.current?.focus()} style={s.searchGlyph}><Search size={21} color={colors.muted} /></Pressable><TextInput ref={searchInput} accessibilityLabel="Buscar projetos" placeholder="Buscar projetos, tarefas..." placeholderTextColor={colors.muted} value={search} onChangeText={setSearch} style={s.searchInput} onSubmitEditing={() => router.push('/operacao')} />{!!search && <Pressable accessibilityRole="button" accessibilityLabel="Limpar busca" onPress={() => setSearch('')} style={s.clearSearch}><X size={17} color={colors.muted} /></Pressable>}</View>}
         <View style={s.content}><Slot /></View>
         {!desktop && <View style={s.bottomNav}>{[
           { title: 'Início', href: '/dashboard', icon: House }, { title: 'Operação', href: '/operacao', icon: FolderKanban },
@@ -124,17 +123,21 @@ const s = StyleSheet.create({
   help: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 40, paddingHorizontal: 8 },
   profileButton: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, minWidth: 44, justifyContent: 'center' },
   avatar: { width: 42, height: 42, borderRadius: 15, backgroundColor: '#3A1C2A', borderWidth: 1, borderColor: '#5A2A3B', alignItems: 'center', justifyContent: 'center' },
+  mobileAvatar: { borderRadius: 21, backgroundColor: '#402348', borderColor: '#402348' },
   profileName: { fontSize: 14, lineHeight: 21, fontWeight: '600', color: colors.white },
   profileRole: { fontSize: 12, color: colors.navigationMuted, lineHeight: 18 },
   main: { flex: 1, minWidth: 0, minHeight: 0, backgroundColor: colors.canvas },
   header: { height: 84, backgroundColor: colors.canvas, paddingHorizontal: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.line, zIndex: 5 },
-  mobileHeader: { height: 76, paddingHorizontal: 18 },
+  mobileHeader: { height: 86, paddingHorizontal: 20, borderBottomWidth: 0 },
   breadcrumb: { fontSize: 14, lineHeight: 20, color: colors.muted },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 20 },
   search: { width: 320, minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.line, borderRadius: 15, backgroundColor: colors.surface },
   searchInput: { flex: 1, minWidth: 0, minHeight: 44, fontFamily: font, fontSize: 16, color: colors.ink, outlineWidth: 0 },
-  notificationDot: { position: 'absolute', top: 8, right: 9, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent },
-  mobileSearch: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, paddingHorizontal: 18, borderBottomWidth: 1, borderBottomColor: colors.line },
+  notificationDot: { position: 'absolute', top: 7, right: 7, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accent },
+  mobileAction: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+  mobileSearch: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 20, marginBottom: 14, paddingHorizontal: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 18 },
+  searchGlyph: { width: 34, height: 42, alignItems: 'center', justifyContent: 'center' },
+  clearSearch: { width: 34, height: 42, alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1, minHeight: 0 },
   bottomNav: { flexDirection: 'row', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 24, height: 76, marginHorizontal: 12, marginBottom: 12, marginTop: 8, padding: 5, boxShadow: '0 12px 40px rgba(0,0,0,0.55)' },
   bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 32 },
