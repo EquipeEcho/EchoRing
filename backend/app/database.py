@@ -1,7 +1,7 @@
 import os
 from pymongo import MongoClient
 
-MONGO_URL = os.getenv("MONGO_URL", "mongodb://db-mongo:27017")
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://admin:admin@db-mongo:27017/?authSource=admin")
 client = MongoClient(MONGO_URL)
 
 db = client["EchoRing"]        # use o nome do banco que aparece no Compass
