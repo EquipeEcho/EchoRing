@@ -15,8 +15,9 @@ def criar_usuario(dados: UsuarioCreate):
             "username": dados.username,
             "email": dados.email,
             "passwordHash": senha_hash,
+            "role": dados.role,
         })
     except DuplicateKeyError:
         raise HTTPException(status_code=409, detail="Email ou username já cadastrado")
 
-    return UsuarioOut(id=str(resultado.inserted_id), username=dados.username, email=dados.email)
+    return UsuarioOut(id=str(resultado.inserted_id), username=dados.username, email=dados.email, role=dados.role)
