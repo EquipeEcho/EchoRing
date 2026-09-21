@@ -11,3 +11,11 @@ class UsuarioOut(BaseModel):
     username: str
     email: EmailStr
     role: str
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    senha: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
