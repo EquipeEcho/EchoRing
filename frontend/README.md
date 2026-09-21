@@ -1,56 +1,80 @@
-# Welcome to your Expo app 👋
+# Echo Ring - Frontend
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Portal responsivo da Alianca Traducoes, desenvolvido com TypeScript, React Native,
+Expo SDK 57 e Expo Router. O foco desta entrega e a navegacao web em desktop e celular.
+A saida web usa uma aplicacao de pagina unica (`web.output: single`), apropriada ao
+portal autenticado. Na hospedagem, configure o fallback das rotas para `index.html`.
 
-## Get started
+## Executar
 
-1. Install dependencies
+Com Node.js 24 instalado, nesta pasta:
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```powershell
+npm.cmd ci
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+npm.cmd run web -- --port 8081
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Abra http://localhost:8081. O login e o dashboard demonstrativos nao dependem da API.
+O Metro usa dois workers para limitar a carga durante a compilacao.
 
-### Other setup steps
+## Acesso demonstrativo
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Use **Acessar demonstracao** na tela de login. Para testar os campos de credenciais:
 
-## Learn more
+- E-mail: `demo@echoring.local`
+- Senha: `EchoRing2026!`
 
-To learn more about developing your project with Expo, look at the following resources:
+Esta e uma simulacao de frontend, sem autenticacao real. A sessao demonstrativa usa
+`sessionStorage` na web, sobrevive ao recarregamento da mesma aba e e removida ao sair.
+Senhas nao sao armazenadas nem enviadas. Nas plataformas nativas, a sessao fica em memoria.
+A recuperacao de acesso e explicitamente simulada: nao envia e-mail nem altera senha.
+Requisicoes e tarefas sao dados ficticios em memoria e voltam ao estado inicial ao recarregar.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Estrutura
 
-## Join the community
+| Pasta | Responsabilidade |
+| --- | --- |
+| `src/app` | Rotas publicas e grupo protegido `(workspace)` |
+| `src/features/auth` | Login, recuperacao de acesso e sessao demonstrativa |
+| `src/features/workspace` | Dados demonstrativos, telas e formularios |
+| `src/components/layout` | Menu lateral, cabecalho e navegacao mobile |
+| `src/components/ui` | Botoes, campos visuais, textos, badges e dialogos |
+| `src/constants/design.ts` | Cores, tipografia e breakpoint de navegacao |
+| `tests` | Testes de navegacao, formularios e responsividade |
 
-Join our community of developers creating universal apps.
+Desktop usa menu lateral; abaixo de 1000 px, a navegacao passa para a barra inferior.
+As listas de projetos passam a apresentar cada registro verticalmente abaixo de 800 px.
+Cadastros, financeiro, relatorios e administracao sao areas previstas, identificadas como
+em preparacao. As demais interacoes implementadas incluem busca, filtros de status,
+detalhes dos projetos, criacao de requisicao demonstrativa, tarefas e notificacoes.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Verificar
+
+```powershell
+npm.cmd run typecheck
+npm.cmd run test:e2e
+```
+
+Os testes exigem o servidor na porta 8081 (ou `E2E_BASE_URL`).
+No Windows, usam Microsoft Edge instalado. Em outros sistemas, instale o Chromium
+com `npx playwright install chromium`. Executam em 1440x1000 e 390x844, com verificacao
+adicional em 320x740. Screenshots e traces ficam em `test-results/`.
+
+## Proxima integracao
+
+Substituir o servico de sessao demonstrativa pelo contrato real da API e implementar
+autorizacao no servidor. As protecoes do Expo Router controlam apenas a navegacao.
+`EXPO_PUBLIC_API_URL` esta reservado para as chamadas HTTP; variaveis publicas nao
+devem conter credenciais. O perfil demonstrativo atual e de funcionario.
+
+## Recursos visuais
+
+Tipografia: Source Sans 3, incluida no bundle pelo pacote
+`@expo-google-fonts/source-sans-3` (OFL-1.1). Os pesos regular, medio, semibold e bold
+sao carregados localmente por `expo-font`, sem requisicoes a servicos de fontes externos.
+Os tamanhos compartilhados e as cores ficam em `src/constants/design.ts`.
+
+Icones: Lucide. Fotografia de escritorio usada como fundo decorativo de acesso:
+[Unsplash](https://images.unsplash.com/photo-1497366754035-f200968a6e72).
+A fotografia nao representa as instalacoes da Alianca Traducoes.

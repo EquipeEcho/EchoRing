@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Dev: bancos",
+      "type": "process",
+      "command": "docker",
+      "args": ["compose", "up", "-d", "--pull", "never", "db-postgres", "db-mongo"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: API",
+      "type": "process",
+      "command": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
+      "args": ["-m", "uvicorn", "main:app", "--reload", "--host", "127.0.0.1", "--port", "8000", "--env-file", ".env"],
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "problemMatcher": [],
+      "presentation": { "panel": "dedicated" }
+    },
+    {
+      "label": "Dev: frontend",
+      "type": "shell",
+      "command": "npm.cmd run web -- --port 8081",
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "problemMatcher": [],
+      "presentation": { "panel": "dedicated" }
+    },
+    {
+      "label": "Dev: iniciar tudo",
+      "dependsOn": ["Dev: bancos", "Dev: API", "Dev: frontend"],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
+    },
+    {
+      "label": "Check: TypeScript",
+      "type": "shell",
+      "command": "npx.cmd tsc --noEmit",
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "problemMatcher": "$tsc"
+    }
+  ]
+}
