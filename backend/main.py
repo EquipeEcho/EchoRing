@@ -1,6 +1,8 @@
 import os
 
 from fastapi import FastAPI
+from app.routes.usuarios import router as usuarios_router
+from app.routes.auth import router as auth_router
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from dotenv import load_dotenv
@@ -54,6 +56,9 @@ app.add_middleware(
 )
 
 app.include_router(router)
+
+app.include_router(usuarios_router)
+app.include_router(auth_router)
 
 @app.get("/")
 def read_root():
