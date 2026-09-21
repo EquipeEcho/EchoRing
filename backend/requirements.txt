@@ -1,2 +1,11 @@
+motor
+pymongo
+psycopg2-binary
+sqlalchemy
+uvicorn
 fastapi
 uvicorn
+sqlalchemy
+psycopg2-binary
+python-multipart
+puremagic

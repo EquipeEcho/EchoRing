@@ -9,6 +9,8 @@ services:
       - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
+      - POSTGRES_URL=postgresql+psycopg2://admin:admin@db-postgres:5432/api5_relacional
+      - MONGO_URL=mongodb://db-mongo:27017/mydb
     depends_on:
       - db-postgres 
       - db-mongo    
@@ -19,6 +21,8 @@ services:
       context: ./frontend
     ports:
       - "8081:8081"
+    environment:
+      - REACT_NATIVE_PACKAGER_HOSTNAME=192.168.1.101
     volumes:
       - ./frontend:/app
       - /app/node_modules

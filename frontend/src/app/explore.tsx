@@ -1,180 +1,322 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useState } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  Platform,
+} from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+import * as DocumentPicker from 'expo-document-picker';
 
-import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+// AVISO: Substitua pelo IP da sua máquina local onde o backend FastAPI está rodando.
+// Não use 'localhost' se estiver testando em dispositivo físico ou no Expo Go (use o IP ex: 192.168.x.x).
+const API_URL = 'http://localhost:8000/upload/'; 
 
-export default function TabTwoScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
+export default function FormularioSolicitacao() {
+  const [nome, setNome] = useState('');
+  const [email, setEmail] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [empresa, setEmpresa] = useState('');
+  const [servico, setServico] = useState('');
+  const [tradDe, setTradDe] = useState('');
+  const [tradPara, setTradPara] = useState('');
+  const [observacao, setObservacao] = useState('');
+  
+  const [arquivo, setArquivo] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  // Selecionar documento (PDF, DOC, DOCX)
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setArquivo(result.assets[0]);
+      }
+    } catch (err) {
+      Alert.alert('Erro', 'Ocorreu um erro ao selecionar o arquivo.');
+    }
   };
-  const theme = useTheme();
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
+  // Enviar formulário multipart/form-data para a rota FastAPI
+  const handleEnviar = async () => {
+    if (!nome || !email) {
+      Alert.alert('Campos Obrigatórios', 'Por favor, preencha o Nome e o E-mail.');
+      return;
+    }
+
+    if (!arquivo) {
+      Alert.alert('Arquivo Obrigatório', 'Por favor, selecione um arquivo para envio.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('nome', nome);
+      formData.append('email', email);
+      if (telefone) formData.append('telefone', telefone);
+      if (empresa) formData.append('empresa', empresa);
+      if (servico) formData.append('servico', servico);
+      if (tradDe) formData.append('trad_de', tradDe);
+      if (tradPara) formData.append('trad_para', tradPara);
+      if (observacao) formData.append('observacao', observacao);
+
+      // Anexa o arquivo com tipo correto para o React Native
+      formData.append('file', {
+        uri: Platform.OS === 'ios' ? arquivo.uri.replace('file://', '') : arquivo.uri,
+        name: arquivo.name || 'documento.pdf',
+        type: arquivo.mimeType || 'application/pdf',
+      } as any);
+
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      const responseData = await response.json();
+
+      if (response.ok) {
+        Alert.alert('Sucesso', 'Solicitação enviada com sucesso!');
+        // Resetar campos
+        setNome('');
+        setEmail('');
+        setTelefone('');
+        setEmpresa('');
+        setServico('');
+        setTradDe('');
+        setTradPara('');
+        setObservacao('');
+        setArquivo(null);
+      } else {
+        Alert.alert('Erro no envio', responseData.detail || 'Ocorreu um erro ao processar sua solicitação.');
+      }
+    } catch (error) {
+      Alert.alert('Erro de Conexão', 'Não foi possível conectar ao servidor.');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      <Text style={styles.title}>Nova Solicitação</Text>
 
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
-            </Pressable>
-          </ExternalLink>
-        </ThemedView>
+      {/* Nome */}
+      <Text style={styles.label}>Nome:*</Text>
+      <TextInput
+        style={styles.input}
+        value={nome}
+        onChangeText={setNome}
+        placeholder="Digite seu nome completo"
+      />
 
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+      {/* Email */}
+      <Text style={styles.label}>E-mail:*</Text>
+      <TextInput
+        style={styles.input}
+        value={email}
+        onChangeText={setEmail}
+        placeholder="Digite seu e-mail"
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
 
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
-              </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
-              />
-            </ThemedView>
-          </Collapsible>
+      {/* Telefone */}
+      <Text style={styles.label}>Telefone:</Text>
+      <TextInput
+        style={styles.input}
+        value={telefone}
+        onChangeText={setTelefone}
+        placeholder="(00) 00000-0000"
+        keyboardType="phone-pad"
+      />
 
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
-            </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+      {/* Empresa */}
+      <Text style={styles.label}>Empresa:</Text>
+      <TextInput
+        style={styles.input}
+        value={empresa}
+        onChangeText={setEmpresa}
+        placeholder="Nome da empresa (opcional)"
+      />
 
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+      {/* Serviço */}
+      <Text style={styles.label}>Serviço:*</Text>
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={servico}
+          onValueChange={(itemValue) => setServico(itemValue)}
+        >
+          <Picker.Item label="Serviço:*" value="" />
+          <Picker.Item label="Tradução Simples" value="Tradução Simples" />
+          <Picker.Item label="Tradução Juramentada" value="Tradução Juramentada" />
+          <Picker.Item label="Interpretação Simultânea" value="Interpretação Simultânea" />
+          <Picker.Item label="Interpretação em Libras" value="Interpretação em Libras" />
+          <Picker.Item label="Revisão de documento" value="Revisão de documento" />
+          <Picker.Item label="Transcrição" value="Transcrição" />
+          <Picker.Item label="Legendagem" value="Legendagem" />
+          <Picker.Item label="Outros" value="Outros" />
+        </Picker>
+      </View>
 
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
-            </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
+      {/* Tradução de: */}
+      <Text style={styles.label}>Tradução de:*</Text>
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={tradDe}
+          onValueChange={(itemValue) => setTradDe(itemValue)}
+        >
+          <Picker.Item label="Tradução de:*" value="" />
+          <Picker.Item label="Português" value="Português" />
+          <Picker.Item label="Inglês" value="Inglês" />
+          <Picker.Item label="Espanhol" value="Espanhol" />
+          <Picker.Item label="Alemão" value="Alemão" />
+          <Picker.Item label="Italiano" value="Italiano" />
+          <Picker.Item label="Francês" value="Francês" />
+          <Picker.Item label="Outro" value="Outro" />
+        </Picker>
+      </View>
+
+      {/* Tradução para: */}
+      <Text style={styles.label}>Tradução para:*</Text>
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={tradPara}
+          onValueChange={(itemValue) => setTradPara(itemValue)}
+        >
+          <Picker.Item label="Tradução para:*" value="" />
+          <Picker.Item label="Português" value="Português" />
+          <Picker.Item label="Inglês" value="Inglês" />
+          <Picker.Item label="Espanhol" value="Espanhol" />
+          <Picker.Item label="Alemão" value="Alemão" />
+          <Picker.Item label="Italiano" value="Italiano" />
+          <Picker.Item label="Francês" value="Francês" />
+          <Picker.Item label="Outro" value="Outro" />
+        </Picker>
+      </View>
+
+      {/* Observações */}
+      <Text style={styles.label}>Observações:</Text>
+      <TextInput
+        style={[styles.input, styles.textArea]}
+        value={observacao}
+        onChangeText={setObservacao}
+        placeholder="Informações adicionais..."
+        multiline
+        numberOfLines={4}
+      />
+
+      {/* Botão de Selecionar Arquivo */}
+      <TouchableOpacity style={styles.fileButton} onPress={pickDocument}>
+        <Text style={styles.fileButtonText}>
+          {arquivo ? `Arquivo: ${arquivo.name}` : 'Selecionar arquivo (PDF, DOC, DOCX)'}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Botão de Envio */}
+      <TouchableOpacity
+        style={[styles.submitButton, loading && styles.disabledButton]}
+        onPress={handleEnviar}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#FFF" />
+        ) : (
+          <Text style={styles.submitButtonText}>Enviar Solicitação</Text>
+        )}
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
+  container: {
     flex: 1,
+    backgroundColor: '#F5F5F5',
   },
   contentContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    padding: 20,
+    paddingBottom: 40,
   },
-  container: {
-    maxWidth: MaxContentWidth,
-    flexGrow: 1,
-  },
-  titleContainer: {
-    gap: Spacing.three,
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
-  },
-  centerText: {
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
     textAlign: 'center',
+    color: '#333',
   },
-  pressed: {
-    opacity: 0.7,
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 5,
+    color: '#333',
   },
-  linkButton: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: 'center',
-    gap: Spacing.one,
+  input: {
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#CCC',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 15,
+    fontSize: 14,
+  },
+  textArea: {
+    height: 90,
+    textAlignVertical: 'top',
+  },
+  pickerContainer: {
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#CCC',
+    borderRadius: 6,
+    marginBottom: 15,
+    overflow: 'hidden',
+  },
+  fileButton: {
+    backgroundColor: '#E0E0E0',
+    borderWidth: 1,
+    borderColor: '#B0B0B0',
+    borderStyle: 'dashed',
+    borderRadius: 6,
+    padding: 15,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  fileButtonText: {
+    color: '#333',
+    fontWeight: '500',
+  },
+  submitButton: {
+    backgroundColor: '#0066CC',
+    paddingVertical: 14,
+    borderRadius: 6,
     alignItems: 'center',
   },
-  sectionsWrapper: {
-    gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+  disabledButton: {
+    backgroundColor: '#88BBE8',
   },
-  collapsibleContent: {
-    alignItems: 'center',
-  },
-  imageTutorial: {
-    width: '100%',
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
-  },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
+  submitButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
