@@ -1,6 +1,8 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
+from bson import ObjectId
+from app.database import usuarios
 
 from app.core.security import decode_token
 
@@ -22,5 +24,18 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     if user_id is None:
         raise credentials_exception
 
-    # falta buscar o user no banco quando a tabela existir
-    return payload
+    user = usuarios.find_one({"_id": ObjectId(user_id)})
+    if user is None:
+        raise credentials_exception
+
+    return user
+
+def require_role(*allowed_roles: str):
+    def checker(user=Depends(get_current_user)):
+        if user["role"] not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Você não tem permissão para acessar este recurso",
+            )
+        return user
+    return checker
