@@ -11,7 +11,7 @@ function AuthFrame({ children }: { children: ReactNode }) {
   const small = width < 600;
   return <View style={s.background}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={[s.page, small && s.pageSmall]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[s.page, small && s.pageSmall]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}>
         <View style={s.top}><Brand /><Link href="/" asChild><Pressable accessibilityRole="link" style={s.backToSite}><Txt style={s.link}>Voltar ao site</Txt><ArrowUpRight size={16} color={colors.accent} /></Pressable></Link></View>
         <View style={[s.center, width >= 1100 && s.centerWide]}>
           {width >= 1100 && <View style={s.intro}>

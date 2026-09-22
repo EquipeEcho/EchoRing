@@ -54,7 +54,7 @@ export function Badge({ children, tone = 'green' }: { children: ReactNode; tone?
 
 export function PageHeading({ title, subtitle, action }: { title: string; subtitle: string; action?: ReactNode }) {
   const { width } = useWindowDimensions();
-  return <View style={s.heading}><View style={{ flex: 1, minWidth: 180, gap: 7 }}><Txt accessibilityRole="header" style={[s.title, width < 700 && { fontSize: 34, lineHeight: 42 }]}>{title}</Txt><Txt style={s.subtitle}>{subtitle}</Txt></View>{action}</View>;
+  return <View style={s.heading}><View style={s.headingCopy}><View style={s.headingRule} /><Txt accessibilityRole="header" style={[s.title, width < 700 && { fontSize: 34, lineHeight: 42 }]}>{title}</Txt><Txt style={s.subtitle}>{subtitle}</Txt></View>{action}</View>;
 }
 
 export function EmptyState({ icon: Icon, title, text, action }: { icon: LucideIcon; title: string; text: string; action?: ReactNode }) {
@@ -85,8 +85,9 @@ const s = StyleSheet.create({
   tooltip: { position: 'absolute', top: 49, right: 0, paddingVertical: 7, paddingHorizontal: 11, backgroundColor: colors.elevated, borderWidth: 1, borderColor: colors.line, borderRadius: 12, minWidth: 100 },
   tooltipText: { color: colors.white, fontSize: 11, textAlign: 'center' },
   badge: { paddingHorizontal: 11, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, alignSelf: 'flex-start' },
-  heading: { flexDirection: 'row', flexWrap: 'wrap', gap: 20, alignItems: 'center', justifyContent: 'space-between', marginBottom: 30 },
-  title: { ...typeScale.title, fontWeight: '700', letterSpacing: -1.2 },
+  heading: { flexDirection: 'row', flexWrap: 'wrap', gap: 24, alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 34 },
+  headingCopy: { flex: 1, minWidth: 180, gap: 7 }, headingRule: { width: 34, height: 3, marginBottom: 7, borderRadius: 2, backgroundColor: colors.accent },
+  title: { ...typeScale.title, fontWeight: '700', letterSpacing: -1.7 },
   subtitle: { fontSize: 15, lineHeight: 22, color: colors.muted },
   empty: { paddingVertical: 56, paddingHorizontal: 22, alignItems: 'center', gap: 12 },
   emptyIcon: { width: 64, height: 64, backgroundColor: colors.accentSoft, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },

@@ -9,6 +9,21 @@
   --font-serif: Georgia, 'Times New Roman', serif;
 }
 
+/* Keep wheel, trackpad, touch and keyboard scrolling without visual rails. */
+html,
+body,
+#root,
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 input:focus-visible,
 [role='button']:focus-visible,
 [role='checkbox']:focus-visible,
