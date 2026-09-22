@@ -20,12 +20,19 @@ Este projeto utiliza **Docker** para garantir que o ambiente de desenvolvimento 
    git checkout develop
    ```
 
-3. **Suba a infraestrutura completa:**
-   Na raiz do projeto (onde está o arquivo `docker-compose.yml`), execute:
+3. **Configure o ambiente e suba a infraestrutura completa:**
+   Na raiz do projeto (onde está o arquivo `docker-compose.yml`), copie os exemplos:
+   ```bash
+   cp backend/.env.example backend/.env
+   cp frontend/.env.example frontend/.env
+   ```
+   Defina no `backend/.env` uma senha local em `POSTGRES_PASSWORD`, uma senha de
+   compatibilidade em `MONGO_INITDB_ROOT_PASSWORD` e as contas da aplicação. Não
+   publique esse arquivo. Depois execute:
    ```bash
    docker compose up -d --build
    ```
-   > **Nota:** Na primeira vez, esse comando pode levar alguns minutos, pois o Docker fará o download das imagens do PostgreSQL, MongoDB, Node e Python, configurando as dependências web do Expo e do FastAPI automaticamente.
+   > **Nota:** Na primeira vez, esse comando pode levar alguns minutos, pois o Docker fará o download das imagens do PostgreSQL, MongoDB, Node e Python. O MongoDB permanece somente para compatibilidade com trabalhos da equipe; a API principal persiste tudo no PostgreSQL.
 
 #### 🌐 Acessando a Aplicação
 Quando o terminal indicar que todos os contêineres foram iniciados (`Started` / `Running`), abra o seu navegador nos seguintes endereços:
@@ -36,7 +43,7 @@ Quando o terminal indicar que todos os contêineres foram iniciados (`Started` /
 ## Desenvolvimento local no Windows
 
 Para editar com recarga automatica, execute Expo e FastAPI no Windows e mantenha
-somente PostgreSQL e MongoDB no Docker. Este modo evita precisar baixar as imagens
+somente PostgreSQL no Docker. Este modo evita precisar baixar as imagens
 Node e Python do Docker Hub. As imagens dos bancos ainda precisam estar disponiveis.
 
 Pre-requisitos: Docker Desktop iniciado, Node.js 24 e Python 3.13 ou 3.14.
@@ -52,8 +59,12 @@ python -m venv backend\.venv
 npm.cmd ci --prefix frontend
 if (-not (Test-Path backend\.env)) { Copy-Item backend\.env.example backend\.env }
 if (-not (Test-Path frontend\.env)) { Copy-Item frontend\.env.example frontend\.env }
-docker compose up -d db-postgres db-mongo
+docker compose up -d db-postgres
 ```
+
+O servico `db-mongo` e seu volume continuam definidos para compatibilidade com
+trabalhos existentes, mas nao sao dependencia da API. Inicie-o separadamente com
+`docker compose up -d db-mongo` apenas quando outra parte do projeto precisar dele.
 
 ### Iniciar para trabalhar
 
@@ -79,14 +90,12 @@ npm.cmd run web -- --port 8081
 - Interface: http://localhost:8081
 - API: http://localhost:8000
 - Swagger: http://localhost:8000/docs
-- PostgreSQL: localhost:5432, banco `api5_relacional`, usuario/senha local `admin`.
-- MongoDB: localhost:27017, usuario/senha local `admin`, autenticacao em `admin`.
+- PostgreSQL: localhost:5432; banco, usuario e senha definidos em `backend/.env`.
 
 Edite `backend/main.py` e `frontend/src/app/`; os servidores recarregam as alteracoes.
-Use `process.env.EXPO_PUBLIC_API_URL` nas futuras chamadas HTTP do frontend.
-As URLs de bancos em `backend/.env` sao preparacao para a camada de persistencia;
-a API inicial ainda nao implementa consultas aos bancos.
-No Docker, os hosts internos dos bancos sao `db-postgres` e `db-mongo`.
+Use `process.env.EXPO_PUBLIC_API_URL` nas chamadas HTTP do frontend.
+A API persiste usuarios, sessoes, solicitacoes, tarefas, documentos e historico no
+PostgreSQL. No Docker, o host interno e `db-postgres`; fora dele, use `localhost`.
 As variaveis `EXPO_PUBLIC_*` sao publicas e nao devem conter credenciais.
 
 Verificacoes: `npm.cmd run typecheck --prefix frontend` e
