@@ -84,14 +84,21 @@ export default function FormularioSolicitacao() {
 
       const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
         body: formData,
       });
 
-      const responseData = await response.json();
+      const responseText = await response.text();
 
+      console.log('STATUS:', response.status);
+      console.log('RESPOSTA DO SERVIDOR:', responseText);
+          
+      let responseData = {};
+          
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        console.log('Resposta não é JSON');
+      }
       if (response.ok) {
         Alert.alert('Sucesso', 'Solicitação enviada com sucesso!');
         // Resetar campos
