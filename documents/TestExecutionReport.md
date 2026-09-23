@@ -30,3 +30,4 @@ Data em que a validação foi executada (DD/MM/AAAA).https://github.com/Ryan5313
 | ID | Cenário / Casos de Teste | Status | Observação / Defeito | Usuario | Data |
 | --- | :--- | :---: | :--- | :----- | :----- |
 | CT-01 | Setup do Docker | ✅  Passou | N/A | @Ryan53132 | 09/09/2026 |
+| CT-02 | Login do tradutor com redirecionamento para área de entregas | ✅  Passou | N/A | @matheuspires7 | 23/09/2026 |
