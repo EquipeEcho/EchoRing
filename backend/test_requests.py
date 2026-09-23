@@ -2,8 +2,8 @@ import base64
 import hashlib
 import os
 import smtplib
-import tempfile
 import unittest
+import uuid
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -14,9 +14,9 @@ import requests_api
 
 class RequestsTests(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
+        self.schema = 'test_' + uuid.uuid4().hex
         self.environment = patch.dict(os.environ, {
-            'REQUESTS_DB_PATH': os.path.join(self.directory.name, 'intake.sqlite3'),
+            'POSTGRES_SCHEMA': self.schema,
             'ADMIN_EMAIL': 'admin@example.test', 'ADMIN_PASSWORD': 'admin-password-long-enough',
             'ADMIN_NAME': 'General Admin',
             'STAFF_EMAIL': 'staff@example.test', 'STAFF_PASSWORD': 'test-password-long-enough',
@@ -42,8 +42,18 @@ class RequestsTests(unittest.TestCase):
 
     def tearDown(self):
         self.client.close()
+        self.drop_schema(self.schema)
         self.environment.stop()
-        self.directory.cleanup()
+
+    def drop_schema(self, schema):
+        if not schema.startswith('test_'):
+            raise RuntimeError('Recusa ao remover schema que não pertence aos testes.')
+        connection = requests_api.postgres_connection()
+        try:
+            connection.execute(requests_api.sql.SQL('DROP SCHEMA IF EXISTS {} CASCADE').format(requests_api.sql.Identifier(schema)))
+            connection.commit()
+        finally:
+            connection.close()
 
     def create(self):
         result = self.client.post('/requests', json=self.intake)
@@ -65,12 +75,12 @@ class RequestsTests(unittest.TestCase):
             translator = connection.execute('SELECT id FROM users WHERE email = ?', (session['email'],)).fetchone()
         return {**session, 'id': translator['id']}, {'Authorization': 'Bearer ' + session['token']}
 
-    def create_service(self, translator_id, service_id='OS-TEST-001', status='Em tradução'):
+    def create_service(self, translator_id, service_id='OS-TEST-001', status='Em andamento'):
         with requests_api.database() as connection:
             connection.execute(
                 '''INSERT INTO services (id, request_id, title, translator_id, status, deadline, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                (service_id, 'SOL-TEST', 'Test manual', translator_id, status, '2026-10-01', requests_api.now()),
+                (service_id, 'SOL-' + service_id, 'Test manual', translator_id, status, '2026-10-01', requests_api.now()),
             )
         return service_id
 
@@ -139,7 +149,7 @@ class RequestsTests(unittest.TestCase):
         with patch.object(requests_api, 'deliver_quote', side_effect=smtplib.SMTPException('provider unavailable')):
             self.assertEqual(self.client.post('/requests/' + request_id + '/send-quote', headers=self.headers).status_code, 502)
         detail = self.client.get('/requests/' + request_id, headers=self.headers).json()
-        self.assertEqual(detail['quote'], self.quote)
+        self.assertEqual({key: detail['quote'][key] for key in self.quote}, self.quote)
         self.assertEqual(detail['status'], 'Em análise')
         self.assertNotIn('emailSentAt', detail)
 
@@ -163,8 +173,9 @@ class RequestsTests(unittest.TestCase):
             connection.starttls.assert_called_once()
             message = connection.send_message.call_args.args[0]
             self.assertEqual(message['To'], 'client@example.test')
-            self.assertIn('R$ 350,50', message.get_content())
-            self.assertFalse(message.is_multipart())
+            self.assertIn('R$ 350,50', message.get_body(preferencelist=('plain',)).get_content())
+            self.assertIn('/orcamento/', message.get_body(preferencelist=('plain',)).get_content())
+            self.assertTrue(message.is_multipart())
 
     def test_logout_expiry_rate_limit_and_unknown_account(self):
         self.assertEqual(self.client.post('/staff/logout', headers=self.headers).status_code, 200)
@@ -176,11 +187,13 @@ class RequestsTests(unittest.TestCase):
             self.assertEqual(self.client.post('/staff/login', json={'email': 'wrong', 'password': 'wrong'}).status_code, 401)
         self.assertEqual(self.client.post('/staff/login', json={'email': 'wrong', 'password': 'wrong'}).status_code, 429)
         requests_api._attempts.clear()
-        with tempfile.TemporaryDirectory() as empty_directory, patch.dict(os.environ, {
-            'REQUESTS_DB_PATH': os.path.join(empty_directory, 'empty.sqlite3'),
+        empty_schema = 'test_' + uuid.uuid4().hex
+        with patch.dict(os.environ, {
+            'POSTGRES_SCHEMA': empty_schema,
             'ADMIN_PASSWORD': '', 'STAFF_PASSWORD': '', 'TRANSLATOR_PASSWORD': '',
         }):
             self.assertEqual(self.client.post('/staff/login', json={'email': 'staff@example.test', 'password': 'test-password-long-enough'}).status_code, 401)
+            self.drop_schema(empty_schema)
 
     def test_delivery_upload_requires_the_assigned_translator_and_valid_document(self):
         translator, translator_headers = self.translator_session()
@@ -193,7 +206,7 @@ class RequestsTests(unittest.TestCase):
         services = self.client.get('/services', headers=translator_headers)
         self.assertEqual(services.status_code, 200)
         self.assertEqual(services.json()[0]['id'], service_id)
-        self.assertEqual(services.json()[0]['status'], 'Em tradução')
+        self.assertEqual(services.json()[0]['status'], 'Em andamento')
         self.assertEqual(services.json()[0]['lastVersion'], 0)
         self.assertEqual(self.client.post(endpoint, files=document).status_code, 401)
         self.assertEqual(self.client.post(endpoint, headers=self.headers, files=document).status_code, 403)
@@ -202,7 +215,7 @@ class RequestsTests(unittest.TestCase):
         delivery = result.json()
         self.assertEqual(delivery['serviceId'], service_id)
         self.assertEqual(delivery['version'], 1)
-        self.assertEqual(delivery['status'], 'Em revisão')
+        self.assertEqual(delivery['status'], 'Aguardando avaliação')
         self.assertEqual(delivery['translatorName'], 'Test Translator')
         self.assertNotIn('content', delivery)
 
@@ -210,9 +223,9 @@ class RequestsTests(unittest.TestCase):
             stored = connection.execute('SELECT content FROM deliveries WHERE id = ?', (delivery['id'],)).fetchone()
             service = connection.execute('SELECT status FROM services WHERE id = ?', (service_id,)).fetchone()
         self.assertEqual(bytes(stored['content']), b'Translated document')
-        self.assertEqual(service['status'], 'Em revisão')
+        self.assertEqual(service['status'], 'Aguardando avaliação')
         assigned = self.client.get('/services', headers=translator_headers).json()[0]
-        self.assertEqual(assigned['status'], 'Em revisão')
+        self.assertEqual(assigned['status'], 'Aguardando avaliação')
         self.assertEqual(assigned['lastVersion'], 1)
         self.assertEqual(self.client.post(endpoint, headers=translator_headers, files=document).status_code, 409)
 
@@ -260,13 +273,13 @@ class RequestsTests(unittest.TestCase):
 
         review_endpoint = f"/deliveries/{first['id']}/review"
         self.assertEqual(self.client.post(review_endpoint, headers=translator_headers, json={'decision': 'approve'}).status_code, 403)
-        self.assertEqual(self.client.post(review_endpoint, headers=self.headers, json={'decision': 'request_adjustment'}).status_code, 422)
+        self.assertEqual(self.client.post(review_endpoint, headers=self.headers, json={'decision': 'request_revision'}).status_code, 422)
         adjustment = self.client.post(
             review_endpoint, headers=self.headers,
-            json={'decision': 'request_adjustment', 'feedback': 'Revise the terminology on page two.'},
+            json={'decision': 'request_revision', 'feedback': 'Revise the terminology on page two.'},
         )
         self.assertEqual(adjustment.status_code, 200)
-        self.assertEqual(adjustment.json()['status'], 'Ajuste solicitado')
+        self.assertEqual(adjustment.json()['status'], 'Revisão solicitada')
         self.assertEqual(adjustment.json()['reviewerName'], self.staff_user['name'])
         self.assertEqual(self.client.post(review_endpoint, headers=self.headers, json={'decision': 'approve'}).status_code, 409)
 
@@ -281,9 +294,111 @@ class RequestsTests(unittest.TestCase):
             json={'decision': 'approve'},
         )
         self.assertEqual(approval.status_code, 200)
-        self.assertEqual(approval.json()['status'], 'Aprovado')
+        self.assertEqual(approval.json()['status'], 'Pronta')
         history = self.client.get('/deliveries', headers=self.headers).json()
-        self.assertEqual([(item['version'], item['status']) for item in history], [(2, 'Aprovado'), (1, 'Ajuste solicitado')])
+        self.assertEqual([(item['version'], item['status']) for item in history], [(2, 'Pronta'), (1, 'Revisão solicitada')])
+
+    def test_complete_flow_secures_decision_assignment_revision_and_final_delivery(self):
+        translator, translator_headers = self.translator_session()
+        with requests_api.database() as connection:
+            connection.execute(
+                '''INSERT INTO users (id, email, name, role, password_hash, active)
+                   VALUES (?, ?, ?, 'translator', ?, TRUE)''',
+                ('other-translator', 'other@example.test', 'Other Translator', requests_api.hash_password('other-password-long-enough')),
+            )
+        other_login = self.client.post('/auth/login', json={
+            'email': 'other@example.test', 'password': 'other-password-long-enough',
+        }).json()
+        other_headers = {'Authorization': 'Bearer ' + other_login['token']}
+
+        request_id = self.create()
+        self.save_quote(request_id)
+        sent_token = {}
+
+        def capture_quote(data, token):
+            sent_token['value'] = token
+
+        with patch.object(requests_api, 'deliver_quote', side_effect=capture_quote):
+            sent = self.client.post(f'/requests/{request_id}/send-quote', headers=self.headers)
+        self.assertEqual(sent.status_code, 200)
+        quote_id = sent.json()['quote']['id']
+        self.assertNotIn('quoteResponseTokenDigest', sent.json())
+        self.assertEqual(self.client.post(
+            f'/quotes/{quote_id}/decision', json={'token': 'x' * 48, 'decision': 'approve'},
+        ).status_code, 403)
+        approved = self.client.post(
+            f'/quotes/{quote_id}/decision', json={'token': sent_token['value'], 'decision': 'approve'},
+        )
+        self.assertEqual(approved.status_code, 200)
+        self.assertEqual(approved.json()['status'], 'Orçamento aprovado')
+        self.assertEqual(self.client.post(
+            f'/quotes/{quote_id}/decision', json={'token': sent_token['value'], 'decision': 'decline'},
+        ).status_code, 409)
+
+        translators = self.client.get('/translators', headers=self.headers)
+        self.assertEqual(translators.status_code, 200)
+        self.assertEqual({item['id'] for item in translators.json()}, {translator['id'], 'other-translator'})
+        assignment = self.client.post(f'/requests/{request_id}/assign', headers=self.headers, json={
+            'translatorId': translator['id'], 'deadline': '2026-10-10', 'observations': 'Use the approved glossary.',
+        })
+        self.assertEqual(assignment.status_code, 201)
+        task_id = assignment.json()['id']
+        self.assertEqual(assignment.json()['status'], 'Tradutor atribuído')
+        self.assertEqual(self.client.post(f'/requests/{request_id}/assign', headers=self.headers, json={
+            'translatorId': translator['id'], 'deadline': '2026-10-10',
+        }).status_code, 409)
+
+        self.assertEqual(self.client.get('/tasks', headers=other_headers).json(), [])
+        self.assertEqual(self.client.get(f'/tasks/{task_id}', headers=other_headers).status_code, 403)
+        self.assertEqual(self.client.get(f'/tasks/{task_id}/attachments/0', headers=other_headers).status_code, 403)
+        own_task = self.client.get(f'/tasks/{task_id}', headers=translator_headers)
+        self.assertEqual(own_task.status_code, 200)
+        self.assertEqual(own_task.json()['attachments'][0]['content'], '')
+        original = self.client.get(f'/tasks/{task_id}/attachments/0', headers=translator_headers)
+        self.assertEqual(original.content, b'Test translation document')
+        self.assertEqual(self.client.post(f'/tasks/{task_id}/start', headers=other_headers).status_code, 403)
+        started = self.client.post(f'/tasks/{task_id}/start', headers=translator_headers)
+        self.assertEqual(started.status_code, 200)
+        self.assertEqual(started.json()['status'], 'Em andamento')
+
+        first = self.client.post(
+            f'/tasks/{task_id}/deliveries', headers=translator_headers,
+            files={'file': ('translated-v1.txt', b'First complete version', 'text/plain')},
+        )
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(first.json()['status'], 'Aguardando avaliação')
+        revision = self.client.post(
+            f"/deliveries/{first.json()['id']}/review", headers=self.headers,
+            json={'decision': 'request_revision', 'feedback': 'Revise the terminology on page two.'},
+        )
+        self.assertEqual(revision.status_code, 200)
+        self.assertEqual(revision.json()['status'], 'Revisão solicitada')
+        revised_task = self.client.get(f'/tasks/{task_id}', headers=translator_headers).json()
+        self.assertEqual(revised_task['lastFeedback'], 'Revise the terminology on page two.')
+
+        second = self.client.post(
+            f'/tasks/{task_id}/deliveries', headers=translator_headers,
+            files={'file': ('translated-v2.txt', b'Second complete version', 'text/plain')},
+        )
+        approval = self.client.post(
+            f"/deliveries/{second.json()['id']}/review", headers=self.headers,
+            json={'decision': 'approve'},
+        )
+        self.assertEqual(approval.status_code, 200)
+        self.assertEqual(approval.json()['status'], 'Pronta')
+        self.assertEqual(self.client.post(f'/tasks/{task_id}/send-final', headers=self.headers).status_code, 503)
+        with patch.object(requests_api, 'deliver_final') as final_delivery:
+            delivered = self.client.post(f'/tasks/{task_id}/send-final', headers=self.headers)
+        self.assertEqual(delivered.status_code, 200)
+        self.assertEqual(delivered.json()['status'], 'Entregue')
+        final_delivery.assert_called_once()
+        self.assertEqual(self.client.post(f'/tasks/{task_id}/send-final', headers=self.headers).status_code, 409)
+        request_detail = self.client.get(f'/requests/{request_id}', headers=self.headers).json()
+        self.assertEqual(request_detail['status'], 'Entregue')
+        statuses = [event['status'] for event in request_detail['history']]
+        for expected in ('Recebido', 'Em análise', 'Orçamento enviado', 'Orçamento aprovado', 'Tradutor atribuído',
+                         'Em andamento', 'Aguardando avaliação', 'Revisão solicitada', 'Pronta', 'Entregue'):
+            self.assertIn(expected, statuses)
 
 
 if __name__ == '__main__':
