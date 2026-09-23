@@ -4,5 +4,5 @@ import { useSession } from '@/features/auth/session';
 
 export default function DeliveriesRoute() {
   const { session } = useSession();
-  return session?.role === 'translator' ? <DeliveriesScreen /> : <Redirect href="/dashboard" />;
+  return session?.role !== 'hr' ? <DeliveriesScreen /> : <Redirect href="/dashboard" />;
 }

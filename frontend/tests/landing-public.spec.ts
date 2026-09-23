@@ -7,9 +7,22 @@ test('landing is public, responsive and respects reduced motion', async ({ page 
   await expect(page.getByRole('heading', { name: /Conectam/ })).toBeVisible();
   await expect(page.getByTestId('landing-hero-globe')).toBeVisible();
 
-  for (const width of testInfo.project.name === 'mobile' ? [320, 390] : [768, 1024, 1440]) {
-    await page.setViewportSize({ width, height: 900 });
+  const viewports = testInfo.project.name === 'mobile'
+    ? [{ width: 320, height: 740 }, { width: 390, height: 844 }]
+    : [{ width: 768, height: 900 }, { width: 1024, height: 768 }, { width: 1440, height: 1000 }];
+
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expect.poll(async () => {
+      const heroBounds = await page.getByTestId('landing-hero-globe').boundingBox();
+      return heroBounds ? Math.ceil(heroBounds.y + heroBounds.height) : -1;
+    }).toBeLessThanOrEqual(viewport.height);
+    await expect.poll(async () => {
+      const heroBounds = await page.getByTestId('landing-hero-globe').boundingBox();
+      const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+      return heroBounds ? Math.max(heroBounds.x, clientWidth - heroBounds.x - heroBounds.width) : 1;
+    }).toBeLessThanOrEqual(0);
 
     const submit = page.getByRole('button', { name: 'Continuar', exact: true });
     await expect.poll(async () => {

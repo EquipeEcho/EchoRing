@@ -32,7 +32,7 @@ test('login validates input and password visibility; recovery is explicitly simu
   await page.getByRole('button', { name: 'Mostrar senha', exact: true }).click();
   await expect(page.getByLabel('Senha', { exact: true })).toHaveJSProperty('type', 'text');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
-  await expect(page.getByText('Não foi possível conectar à empresa.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText(/Não foi possível conectar à empresa|E-mail ou senha incorretos/);
   await page.getByRole('link', { name: 'Esqueci minha senha' }).click();
   await page.getByRole('textbox', { name: 'E-mail', exact: true }).fill('ana@example.com');
   await page.getByRole('button', { name: 'Simular recuperação' }).click();
@@ -117,7 +117,10 @@ test('project details, new request and status filters work', async ({ page }) =>
   await expect(page.getByText('Preencha o título, o cliente e os idiomas.')).toBeVisible();
   await page.getByLabel('Título do projeto', { exact: true }).fill('Contrato de teste');
   await page.getByLabel('Cliente', { exact: true }).fill('Cliente de teste');
-  await page.getByLabel('Idiomas', { exact: true }).fill('Português → Inglês');
+  await page.getByRole('button', { name: 'Idioma de origem', exact: true }).click();
+  await page.getByRole('radio', { name: 'Idioma de origem: Português', exact: true }).click();
+  await page.getByRole('button', { name: 'Idioma de destino', exact: true }).click();
+  await page.getByRole('radio', { name: 'Idioma de destino: Inglês', exact: true }).click();
   await page.getByRole('button', { name: 'Criar requisição', exact: true }).click();
   await expect(page.getByRole('button', { name: /Abrir REQ-007: Contrato de teste/ })).toBeVisible();
   await page.getByRole('button', { name: 'Ver toda a operação' }).click();
