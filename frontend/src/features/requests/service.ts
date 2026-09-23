@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 export type Attachment = { name: string; size: number; content: string };
 export type WorkflowEvent = { status: string; note: string; actorName: string; createdAt: string };
@@ -14,11 +15,25 @@ export type TranslatorOption = { id: string; name: string; email: string; role: 
 export type TranslationRequest = Intake & {
   id: string; createdAt: string; status: RequestStatus;
   quote?: Quote; emailSentAt?: string; quoteRespondedAt?: string; assignedAt?: string;
-  history?: WorkflowEvent[]; demo?: boolean;
+  history?: WorkflowEvent[]; demo?: boolean; autoApproved?: boolean;
   task?: { id: string; status: string; deadline: string; translator: { id: string; name: string; email: string } };
 };
 export const apiMode = process.env.EXPO_PUBLIC_REQUESTS_MODE === 'api';
-const baseURL = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+const configuredBaseURL = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+
+function resolveBaseURL() {
+  if (!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredBaseURL)) return configuredBaseURL;
+  if (Platform.OS === 'web') {
+    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    return host && host !== 'localhost' && host !== '127.0.0.1'
+      ? configuredBaseURL.replace(/localhost|127\.0\.0\.1/i, host)
+      : configuredBaseURL;
+  }
+  const metroHost = Constants.expoConfig?.hostUri?.split(':')[0];
+  return metroHost ? configuredBaseURL.replace(/localhost|127\.0\.0\.1/i, metroHost) : configuredBaseURL;
+}
+
+const baseURL = resolveBaseURL();
 const storageKey = 'echoring.translation-requests.v1';
 
 export async function api<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {

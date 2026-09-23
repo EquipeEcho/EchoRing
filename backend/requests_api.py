@@ -40,6 +40,10 @@ SESSION_SECONDS = 8 * 60 * 60
 MAX_DELIVERY_BYTES = 5 * 1024 * 1024
 
 
+def environment_flag(name: str) -> bool:
+    return os.getenv(name, '').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
 def postgres_schema():
     schema = os.getenv('POSTGRES_SCHEMA', 'public').strip() or 'public'
     if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', schema):
@@ -733,7 +737,8 @@ def deliver_quote(data, response_token=None):
 
 @router.post('/requests/{request_id}/send-quote')
 def send_quote(request_id: str, user: dict = Depends(staff)):
-    response_token = secrets.token_urlsafe(48)
+    auto_approve = environment_flag('AUTO_APPROVE_QUOTES')
+    response_token = '' if auto_approve else secrets.token_urlsafe(48)
     with database() as connection:
         data, sending = read_request(connection, request_id, for_update=True)
         if sending or data['status'] == 'Orçamento enviado':
@@ -746,6 +751,19 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
         days = max(1, min(int(os.getenv('QUOTE_RESPONSE_DAYS', '30')), 365))
         data['quoteResponseExpiresAt'] = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
         connection.execute('UPDATE requests SET data = ?, sending = TRUE WHERE id = ?', (Jsonb(data), request_id))
+    if auto_approve:
+        approved_at = now()
+        data.update(
+            status='Orçamento aprovado', quoteDecision='approve',
+            quoteRespondedAt=approved_at, autoApproved=True,
+        )
+        with database() as connection:
+            connection.execute('UPDATE requests SET data = ?, sending = FALSE WHERE id = ?', (Jsonb(data), request_id))
+            add_event(
+                connection, 'Orçamento aprovado', request_id=request_id, actor=user,
+                note='Aprovação automática habilitada para testes.', created_at=approved_at,
+            )
+            return sanitized_request(data, connection, include_content=True)
     try:
         deliver_quote(data, response_token)
     except Exception as error:

@@ -23,6 +23,7 @@ class RequestsTests(unittest.TestCase):
             'TRANSLATOR_EMAIL': 'translator@example.test', 'TRANSLATOR_PASSWORD': 'translator-password-long-enough',
             'TRANSLATOR_NAME': 'Test Translator',
             'SMTP_HOST': '', 'SMTP_FROM': '',
+            'AUTO_APPROVE_QUOTES': 'false',
         })
         self.environment.start()
         requests_api._attempts.clear()
@@ -399,6 +400,24 @@ class RequestsTests(unittest.TestCase):
         for expected in ('Recebido', 'Em análise', 'Orçamento enviado', 'Orçamento aprovado', 'Tradutor atribuído',
                          'Em andamento', 'Aguardando avaliação', 'Revisão solicitada', 'Pronta', 'Entregue'):
             self.assertIn(expected, statuses)
+
+
+    def test_auto_approve_quote_skips_email_for_local_workflow(self):
+        request_id = self.create()
+        self.save_quote(request_id)
+
+        with patch.dict(os.environ, {'AUTO_APPROVE_QUOTES': 'true'}), \
+             patch.object(requests_api, 'deliver_quote') as delivery:
+            response = self.client.post(f'/requests/{request_id}/send-quote', headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'Orçamento aprovado')
+        self.assertEqual(response.json()['quoteDecision'], 'approve')
+        self.assertTrue(response.json()['autoApproved'])
+        self.assertNotIn('emailSentAt', response.json())
+        delivery.assert_not_called()
+        self.assertEqual(response.json()['history'][-1]['status'], 'Orçamento aprovado')
+        self.assertIn('automática', response.json()['history'][-1]['note'])
 
 
 if __name__ == '__main__':

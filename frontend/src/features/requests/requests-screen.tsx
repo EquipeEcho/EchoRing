@@ -64,7 +64,7 @@ export function RequestsScreen() {
     setBusy(true); setError('');
     try {
       const result = token ? await sendQuote(selected.id, token) : await updateRequest(selected.id, { status: 'Orçamento simulado' });
-      setSelected(result); setConfirm(false); setNotice(token ? 'Orçamento aceito pelo provedor de e-mail para envio ao cliente.' : 'Envio simulado. Nenhum e-mail foi enviado ao cliente.'); await refresh();
+      setSelected(result); setConfirm(false); setNotice(result.autoApproved ? 'Orçamento aprovado automaticamente para teste. Nenhum e-mail foi enviado.' : token ? 'Orçamento aceito pelo provedor de e-mail para envio ao cliente.' : 'Envio simulado. Nenhum e-mail foi enviado ao cliente.'); await refresh();
     } catch (failure) { setConfirm(false); setError((failure as Error).message); }
     finally { setBusy(false); }
   }
