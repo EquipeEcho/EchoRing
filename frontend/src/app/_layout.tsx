@@ -25,6 +25,7 @@ function Routes() {
     <Stack.Screen name="index" />
     <Stack.Screen name="login" />
     <Stack.Screen name="recuperar-senha" />
+    <Stack.Screen name="orcamento/[id]" />
     <Stack.Screen name="(workspace)" />
   </Stack>;
 }

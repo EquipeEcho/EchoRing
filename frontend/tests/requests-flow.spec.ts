@@ -8,9 +8,15 @@ test('intake with documents persists, reaches staff inbox and quote simulation i
   await expect(page.getByRole('alert')).toContainText('Preencha os campos obrigatórios');
   await page.getByLabel('Nome do projeto *', { exact: true }).fill('Manual enviado pelo site');
   await page.getByLabel('Sobre o projeto *', { exact: true }).fill('Traduzir um manual técnico com 20 páginas.');
+  await page.getByRole('button', { name: 'Prazo desejado', exact: true }).click();
+  await page.getByRole('button', { name: 'Selecionar hoje', exact: true }).click();
+  await page.getByRole('button', { name: 'Idioma de origem *', exact: true }).click();
+  await page.getByRole('radio', { name: 'Idioma de origem: Espanhol', exact: true }).click();
+  await page.getByRole('button', { name: 'Idioma de destino *', exact: true }).click();
+  await page.getByRole('radio', { name: 'Idioma de destino: Francês', exact: true }).click();
   await page.getByRole('button', { name: 'Inverter idiomas', exact: true }).click();
-  await expect(page.getByLabel('Idioma de origem *', { exact: true })).toHaveValue('Inglês');
-  await expect(page.getByLabel('Idioma de destino *', { exact: true })).toHaveValue('Português');
+  await expect(page.getByRole('button', { name: 'Idioma de origem *', exact: true })).toContainText('Francês');
+  await expect(page.getByRole('button', { name: 'Idioma de destino *', exact: true })).toContainText('Espanhol');
   await page.getByRole('button', { name: 'Inverter idiomas', exact: true }).click();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'O material faz a diferença.' })).toBeVisible();
@@ -42,7 +48,8 @@ test('intake with documents persists, reaches staff inbox and quote simulation i
   expect((await download).suggestedFilename()).toBe('sample.txt');
   await page.getByRole('button', { name: 'Iniciar análise', exact: true }).click();
   await page.getByLabel('Valor do orçamento (R$)', { exact: true }).fill('350,50');
-  await page.getByLabel('Prazo de entrega', { exact: true }).fill('5 dias úteis após aprovação');
+  await page.getByRole('button', { name: 'Prazo de entrega', exact: true }).click();
+  await page.getByRole('button', { name: 'Selecionar hoje', exact: true }).click();
   await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
   await expect(page.getByTestId('quote-notice')).toContainText('Rascunho salvo');
   await page.getByRole('button', { name: 'Fechar solicitação', exact: true }).click();
@@ -114,7 +121,8 @@ test('authenticated employee analyzes a request and sends its quote through the 
   await expect(page.getByText('cliente@example.test', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Iniciar análise', exact: true }).click();
   await page.getByLabel('Valor do orçamento (R$)', { exact: true }).fill('480,00');
-  await page.getByLabel('Prazo de entrega', { exact: true }).fill('7 dias úteis');
+  await page.getByRole('button', { name: 'Prazo de entrega', exact: true }).click();
+  await page.getByRole('button', { name: 'Selecionar hoje', exact: true }).click();
   await page.getByLabel('Mensagem ao cliente', { exact: true }).fill('Tradução e revisão incluídas na proposta.');
   await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
   await expect(page.getByTestId('quote-notice')).toContainText('Rascunho salvo');
@@ -128,4 +136,22 @@ test('authenticated employee analyzes a request and sends its quote through the 
   expect(calls.every(call => call.authorization === 'Bearer test-employee-token')).toBe(true);
   expect(calls.some(call => call.method === 'PATCH' && call.path === '/requests/SOL-API-001')).toBe(true);
   expect(calls.some(call => call.method === 'POST' && call.path.endsWith('/send-quote'))).toBe(true);
+});
+
+test('client confirms a quote decision through the personal link', async ({ page }) => {
+  let payload: { token: string; decision: string } | null = null;
+  await page.route('**/quotes/ORC-TEST-001/decision', async route => {
+    payload = route.request().postDataJSON();
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      requestId: 'SOL-TEST-001', quoteId: 'ORC-TEST-001', title: 'Manual técnico',
+      status: 'Orçamento aprovado', respondedAt: '2026-09-21T12:00:00Z',
+    }) });
+  });
+  const token = 'secure-personal-token-with-more-than-thirty-two-characters';
+  await page.goto(`/orcamento/ORC-TEST-001?decision=approve#${token}`);
+  await expect(page.getByRole('heading', { name: 'Confirme sua decisão' })).toBeVisible();
+  await page.getByRole('button', { name: 'Confirmar aprovação' }).click();
+  await expect(page.getByRole('heading', { name: 'Orçamento aprovado' })).toBeVisible();
+  expect(payload).toEqual({ token, decision: 'approve' });
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe('');
 });

@@ -1,23 +1,36 @@
 import { Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import { api } from '@/features/requests/service';
+import { api, downloadProtectedDocument, type Attachment, type WorkflowEvent } from '@/features/requests/service';
 
-export type ServiceStatus = 'Em tradução' | 'Em revisão' | 'Ajuste solicitado' | 'Aprovado';
+export type ServiceStatus = 'Tradutor atribuído' | 'Em andamento' | 'Aguardando avaliação' | 'Revisão solicitada' | 'Pronta' | 'Entregue';
 export type TranslationService = {
   id: string; requestId?: string; title: string; status: ServiceStatus;
-  deadline?: string; createdAt: string; lastVersion: number; lastFeedback?: string;
+  deadline?: string; createdAt: string; updatedAt: string; startedAt?: string; readyAt?: string; deliveredAt?: string; lastVersion: number; lastFeedback?: string;
+  observations: string; source: string; target: string; clientName?: string; clientEmail?: string;
+  company?: string; attachments: Attachment[]; history: WorkflowEvent[];
+  translator?: { id: string; name: string; email: string };
+  lastDelivery?: { id: string; name: string; size: number; status: string; version: number; submittedAt: string; feedback: string };
 };
 export type Delivery = {
   id: string; serviceId: string; serviceTitle: string; version: number;
   translatorName: string; name: string; mediaType: string; size: number;
-  status: 'Em revisão' | 'Ajuste solicitado' | 'Aprovado'; submittedAt: string;
+  status: 'Aguardando avaliação' | 'Revisão solicitada' | 'Pronta'; submittedAt: string;
+  feedback?: string; reviewedAt?: string; reviewerName?: string;
 };
 
 const allowedExtensions = /\.(pdf|docx|txt)$/i;
 const maxBytes = 5 * 1024 * 1024;
 
 export async function getAssignedServices(token: string) {
-  return api<TranslationService[]>('/services', {}, token);
+  return api<TranslationService[]>('/tasks', {}, token);
+}
+
+export function getTask(taskId: string, token: string) {
+  return api<TranslationService>(`/tasks/${encodeURIComponent(taskId)}`, {}, token);
+}
+
+export function startTask(taskId: string, token: string) {
+  return api<TranslationService>(`/tasks/${encodeURIComponent(taskId)}/start`, { method: 'POST' }, token);
 }
 
 export async function selectTranslationDocument() {
@@ -43,7 +56,29 @@ export async function uploadTranslation(serviceId: string, asset: DocumentPicker
       uri: asset.uri, name: asset.name, type: asset.mimeType || 'application/octet-stream',
     } as unknown as Blob);
   }
-  return api<Delivery>(`/services/${encodeURIComponent(serviceId)}/deliveries`, { method: 'POST', body }, token);
+  return api<Delivery>(`/tasks/${encodeURIComponent(serviceId)}/deliveries`, { method: 'POST', body }, token);
+}
+
+export function getDeliveries(token: string) {
+  return api<Delivery[]>('/deliveries', {}, token);
+}
+
+export function reviewDelivery(deliveryId: string, decision: 'approve' | 'request_revision', feedback: string, token: string) {
+  return api<Delivery>(`/deliveries/${encodeURIComponent(deliveryId)}/review`, {
+    method: 'POST', body: JSON.stringify({ decision, feedback }),
+  }, token);
+}
+
+export function sendFinal(taskId: string, token: string) {
+  return api<TranslationService>(`/tasks/${encodeURIComponent(taskId)}/send-final`, { method: 'POST' }, token);
+}
+
+export function downloadOriginal(taskId: string, index: number, name: string, token: string) {
+  return downloadProtectedDocument(`/tasks/${encodeURIComponent(taskId)}/attachments/${index}`, name, token);
+}
+
+export function downloadDelivery(deliveryId: string, name: string, token: string) {
+  return downloadProtectedDocument(`/deliveries/${encodeURIComponent(deliveryId)}/file`, name, token);
 }
 
 export function formatBytes(size?: number) {

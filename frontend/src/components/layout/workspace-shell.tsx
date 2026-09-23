@@ -24,8 +24,8 @@ export const modules: { title: string; href: string; icon: LucideIcon; descripti
 ];
 
 export function modulesFor(role: UserRole) {
-  if (role === 'admin') return modules.filter(item => item.href !== '/entregas');
-  if (role === 'employee') return modules.filter(item => !['/entregas', '/usuarios', '/area/administracao'].includes(item.href));
+  if (role === 'admin') return modules;
+  if (role === 'employee') return modules.filter(item => !['/usuarios', '/area/administracao'].includes(item.href));
   if (role === 'hr') return modules.filter(item => ['/dashboard', '/area/cadastros'].includes(item.href));
   return modules.filter(item => ['/dashboard', '/operacao', '/entregas'].includes(item.href));
 }
@@ -64,7 +64,7 @@ export function WorkspaceShell() {
     <View style={s.root}>
       {desktop && <View style={s.sidebar}>
         <View style={s.brand}><Brand inverse /></View>
-        <ScrollView contentContainerStyle={s.navContent}>
+        <ScrollView contentContainerStyle={s.navContent} showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}>
           {visibleModules.filter(item => ['/dashboard', '/operacao', '/entregas', '/solicitacoes'].includes(item.href)).map(item => <NavItem key={item.href} {...item} active={pathname === item.href} badge={item.href === '/solicitacoes' ? received : undefined} />)}
           <NavItem title="Minhas tarefas" href="/tarefas" icon={ListTodo} active={pathname === '/tarefas'} badge={pending} />
           {visibleModules.some(item => item.href === '/usuarios' || item.href.startsWith('/area/')) && <><View style={s.separator} /><Txt style={s.navSection}>Gestão</Txt>
@@ -85,7 +85,7 @@ export function WorkspaceShell() {
         <View style={s.content}><Slot /></View>
         {!desktop && <View style={s.bottomNav}>{[
           { title: 'Início', href: '/dashboard', icon: House }, { title: 'Operação', href: '/operacao', icon: FolderKanban },
-          ...(session?.role === 'translator' ? [{ title: 'Entregas', href: '/entregas', icon: UploadCloud }] : []),
+          ...(session?.role !== 'hr' ? [{ title: session?.role === 'translator' ? 'Traduções' : 'Avaliações', href: '/entregas', icon: UploadCloud }] : []),
           ...(staffMember ? [{ title: 'Pedidos', href: '/solicitacoes', icon: Inbox }] : []), { title: 'Tarefas', href: '/tarefas', icon: ListTodo },
           ...(showMore ? [{ title: 'Mais', href: '/mais', icon: Ellipsis }] : []),
         ].map(item => { const active = pathname === item.href || (item.href === '/mais' && pathname.startsWith('/area/')); const Icon = item.icon;
@@ -93,28 +93,28 @@ export function WorkspaceShell() {
         })}</View>}
       </View>
     </View>
-    <Dialog open={profile} onClose={() => setProfile(false)} title="Meu perfil">
+    <Dialog open={profile} onClose={() => setProfile(false)} size="compact" eyebrow="CONTA ATUAL" title="Meu perfil">
       <View style={common.row}><View style={[s.avatar, { width: 48, height: 48 }]}><Txt style={{ color: colors.white, fontWeight: '600' }}>{initials}</Txt></View><View><Txt style={{ fontWeight: '600' }}>{session?.name}</Txt><Txt style={common.caption}>{session?.email}</Txt></View></View>
       <Badge>{session ? `${roleLabel[session.role]}${session.demo ? ' · Demonstração' : ' · Conta autenticada'}` : ''}</Badge><Txt style={common.caption}>Aliança Traduções / {session?.role === 'translator' ? 'Portal do tradutor' : session?.role === 'hr' ? 'Recursos Humanos' : 'Gestão da plataforma'}</Txt><Button variant="secondary" icon={LogOut} onPress={logout}>Sair da conta</Button>
     </Dialog>
-    <Dialog open={notifications} onClose={() => setNotifications(false)} title="Notificações">
+    <Dialog open={notifications} onClose={() => setNotifications(false)} eyebrow="CENTRAL DE ATUALIZAÇÕES" title="Notificações" description="Acompanhe prazos, entregas e movimentações recentes.">
       <Badge tone="neutral">Dados demonstrativos</Badge>
       {[['Tradução pronta para revisão', 'Lucas enviou o contrato de Almeida & Associados.', 'Há 15 minutos'], ['Prazo de entrega próximo', 'O manual da Vértice Engenharia tem entrega hoje.', 'Há 40 minutos']].map(([title, text, time]) => <View key={title} style={{ gap: 5, borderBottomWidth: 1, borderBottomColor: colors.line, paddingBottom: 16 }}><Txt style={{ fontWeight: '600', fontSize: 13 }}>{title}</Txt><Txt style={common.caption}>{text}</Txt><Txt style={{ fontSize: 10, color: colors.muted }}>{time}</Txt></View>)}
       <Button variant="secondary" onPress={() => setRead(true)} disabled={read}>{read ? 'Todas as notificações lidas' : 'Marcar todas como lidas'}</Button>
     </Dialog>
-    <Dialog open={help} onClose={() => setHelp(false)} title="Central de ajuda"><Badge tone="amber">Demonstração</Badge><Txt>Aliança Traduções</Txt><Txt style={common.caption}>Manuais de acesso e documentos institucionais ainda não foram disponibilizados neste ambiente.</Txt><Button variant="secondary" onPress={() => setHelp(false)}>Voltar ao painel</Button></Dialog>
+    <Dialog open={help} onClose={() => setHelp(false)} size="compact" eyebrow="SUPORTE" title="Central de ajuda"><Badge tone="amber">Demonstração</Badge><Txt>Aliança Traduções</Txt><Txt style={common.caption}>Manuais de acesso e documentos institucionais ainda não foram disponibilizados neste ambiente.</Txt><Button variant="secondary" onPress={() => setHelp(false)}>Voltar ao painel</Button></Dialog>
     <WorkspaceDialogs />
   </SafeAreaView>;
 }
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
   root: { flex: 1, flexDirection: 'row', minHeight: 0 },
-  sidebar: { width: 268, backgroundColor: colors.navigation, borderRightWidth: 1, borderRightColor: colors.navigationLine },
+  sidebar: { width: 252, backgroundColor: colors.navigation, borderRightWidth: 1, borderRightColor: colors.navigationLine },
   brand: { paddingHorizontal: 22, paddingVertical: 25, borderBottomWidth: 1, borderBottomColor: colors.navigationLine },
-  navContent: { paddingHorizontal: 14, paddingTop: 18 },
-  navSection: { color: colors.navigationMuted, fontSize: 12, lineHeight: 18, fontWeight: '600', marginHorizontal: 13, marginBottom: 12 },
-  navItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, minHeight: 52, borderRadius: 16, gap: 12, marginBottom: 6 },
-  navActive: { backgroundColor: colors.navigationActive, borderWidth: 1, borderColor: '#542431' },
+  navContent: { paddingHorizontal: 12, paddingTop: 18 },
+  navSection: { color: colors.navigationMuted, fontSize: 10, lineHeight: 16, letterSpacing: 1.6, fontWeight: '600', marginHorizontal: 14, marginBottom: 10 },
+  navItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, minHeight: 46, borderRadius: 8, gap: 12, marginBottom: 3, borderLeftWidth: 2, borderLeftColor: 'transparent' },
+  navActive: { backgroundColor: '#191014', borderLeftColor: colors.accent },
   navLabel: { fontSize: 15, lineHeight: 22, color: colors.navigationText, flex: 1 },
   count: { backgroundColor: colors.accent, paddingHorizontal: 8, borderRadius: 10 },
   countText: { fontSize: 12, lineHeight: 20, color: colors.navigationText },
@@ -127,11 +127,11 @@ const s = StyleSheet.create({
   profileName: { fontSize: 14, lineHeight: 21, fontWeight: '600', color: colors.white },
   profileRole: { fontSize: 12, color: colors.navigationMuted, lineHeight: 18 },
   main: { flex: 1, minWidth: 0, minHeight: 0, backgroundColor: colors.canvas },
-  header: { height: 84, backgroundColor: colors.canvas, paddingHorizontal: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.line, zIndex: 5 },
+  header: { height: 78, backgroundColor: colors.canvas, paddingHorizontal: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.line, zIndex: 5 },
   mobileHeader: { height: 86, paddingHorizontal: 20, borderBottomWidth: 0 },
   breadcrumb: { fontSize: 14, lineHeight: 20, color: colors.muted },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 20 },
-  search: { width: 320, minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.line, borderRadius: 15, backgroundColor: colors.surface },
+  search: { width: 320, minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 6, borderBottomWidth: 1, borderBottomColor: '#48484F' },
   searchInput: { flex: 1, minWidth: 0, minHeight: 44, fontFamily: font, fontSize: 16, color: colors.ink, outlineWidth: 0 },
   notificationDot: { position: 'absolute', top: 7, right: 7, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accent },
   mobileAction: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },

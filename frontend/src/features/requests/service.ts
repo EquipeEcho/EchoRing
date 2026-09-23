@@ -1,17 +1,39 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 export type Attachment = { name: string; size: number; content: string };
+export type WorkflowEvent = { status: string; note: string; actorName: string; createdAt: string };
 export type Intake = {
   name: string; email: string; company: string; title: string; service: string;
   source: string; target: string; deadline: string; message: string; consent: boolean; attachments: Attachment[];
 };
-export type Quote = { amount: string; delivery: string; message: string };
+export type Quote = { id?: string; amount: string; delivery: string; message: string };
+export type RequestStatus = 'Recebido' | 'Em análise' | 'Orçamento enviado' | 'Orçamento aprovado'
+  | 'Orçamento recusado' | 'Tradutor atribuído' | 'Em andamento' | 'Aguardando avaliação'
+  | 'Revisão solicitada' | 'Pronta' | 'Entregue' | 'Orçamento simulado';
+export type TranslatorOption = { id: string; name: string; email: string; role: 'translator'; active: boolean };
 export type TranslationRequest = Intake & {
-  id: string; createdAt: string; status: 'Recebido' | 'Em análise' | 'Orçamento enviado' | 'Orçamento simulado';
-  quote?: Quote; emailSentAt?: string; demo?: boolean;
+  id: string; createdAt: string; status: RequestStatus;
+  quote?: Quote; emailSentAt?: string; quoteRespondedAt?: string; assignedAt?: string;
+  history?: WorkflowEvent[]; demo?: boolean; autoApproved?: boolean;
+  task?: { id: string; status: string; deadline: string; translator: { id: string; name: string; email: string } };
 };
 export const apiMode = process.env.EXPO_PUBLIC_REQUESTS_MODE === 'api';
-const baseURL = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+const configuredBaseURL = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+
+function resolveBaseURL() {
+  if (!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredBaseURL)) return configuredBaseURL;
+  if (Platform.OS === 'web') {
+    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    return host && host !== 'localhost' && host !== '127.0.0.1'
+      ? configuredBaseURL.replace(/localhost|127\.0\.0\.1/i, host)
+      : configuredBaseURL;
+  }
+  const metroHost = Constants.expoConfig?.hostUri?.split(':')[0];
+  return metroHost ? configuredBaseURL.replace(/localhost|127\.0\.0\.1/i, metroHost) : configuredBaseURL;
+}
+
+const baseURL = resolveBaseURL();
 const storageKey = 'echoring.translation-requests.v1';
 
 export async function api<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
@@ -30,6 +52,15 @@ export async function api<T>(path: string, options: RequestInit = {}, token?: st
     if (error instanceof TypeError || (error instanceof Error && error.name === 'AbortError')) throw new Error('Não foi possível conectar à empresa. Tente novamente em instantes.');
     throw error;
   } finally { clearTimeout(timer); }
+}
+
+async function apiFile(path: string, token: string) {
+  const response = await fetch(baseURL + path, { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(typeof body?.detail === 'string' ? body.detail : 'Não foi possível baixar o documento.');
+  }
+  return response.blob();
 }
 
 export function localRequests(): TranslationRequest[] {
@@ -72,6 +103,19 @@ export async function updateRequest(id: string, changes: { status?: 'Em análise
 export async function sendQuote(id: string, token: string): Promise<TranslationRequest> {
   return api('/requests/' + encodeURIComponent(id) + '/send-quote', { method: 'POST' }, token);
 }
+export function getTranslators(token: string) {
+  return api<TranslatorOption[]>('/translators', {}, token);
+}
+export function assignTranslator(id: string, assignment: { translatorId: string; deadline: string; observations: string }, token: string) {
+  return api<{ id: string; status: string }>(`/requests/${encodeURIComponent(id)}/assign`, {
+    method: 'POST', body: JSON.stringify(assignment),
+  }, token);
+}
+export function submitQuoteDecision(quoteId: string, token: string, decision: 'approve' | 'decline') {
+  return api<{ requestId: string; quoteId: string; title: string; status: 'Orçamento aprovado' | 'Orçamento recusado'; respondedAt: string }>(
+    `/quotes/${encodeURIComponent(quoteId)}/decision`, { method: 'POST', body: JSON.stringify({ token, decision }) },
+  );
+}
 export function money(value: string) {
   return Number(value.replace(',', '.')).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
@@ -103,5 +147,11 @@ export function downloadDocument(file: Attachment) {
   const bytes = Uint8Array.from(atob(file.content), char => char.charCodeAt(0));
   const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }));
   const link = document.createElement('a'); link.href = url; link.download = file.name; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+export async function downloadProtectedDocument(path: string, name: string, token: string) {
+  if (Platform.OS !== 'web') throw new Error('O download protegido está disponível no portal web.');
+  const url = URL.createObjectURL(await apiFile(path, token));
+  const link = document.createElement('a'); link.href = url; link.download = name; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
