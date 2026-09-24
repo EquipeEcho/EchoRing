@@ -51,11 +51,11 @@ export function LoginScreen() {
     setBusy(true);
     try { await signIn(email, password); } catch (failure) { setError((failure as Error).message); } finally { setBusy(false); }
   }
-  if (session) return <Redirect href="/dashboard" />;
+  if (session) return <Redirect href={session.role === 'translator' ? '/entregas' : '/dashboard'} />;
   return <AuthFrame>
     <View style={s.accessTag}><View style={s.accessDot} /><Txt style={s.accessTagText}>ACESSO À PLATAFORMA</Txt></View>
     <Txt accessibilityRole="header" style={s.title}>Acesse sua conta</Txt>
-    <Txt style={s.subtitle}>Entre para acessar seu espaço de trabalho.</Txt>
+    <Txt style={s.subtitle}>Funcionários e tradutores entram por aqui.</Txt>
     <View style={s.fields}>
       <EmailField value={email} onChange={v => { setEmail(v); setEmailError(''); }} error={emailError} onSubmit={submit} />
       <View style={s.field}><View style={s.labelRow}><Txt style={s.label}>Senha</Txt><Link href="/recuperar-senha" style={s.link}>Esqueci minha senha</Link></View>
