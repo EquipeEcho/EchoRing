@@ -1,45 +1,63 @@
-import os
 from typing import Optional
-from fastapi import FastAPI, UploadFile, File, Form, Depends, status
+from fastapi import FastAPI, UploadFile, File, Form, Depends, status, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+
 from functions.uploud import SolicitacaoUploadFacade
-from database.conection import get_postgres_db
+from database.conection import engine, get_postgres_db
+from database.schema_db import Base
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-@app.post("/upload/", status_code=status.HTTP_201_CREATED)
-async def upload_solicitacao_endpoint(
-    file: UploadFile = File(...),
-    nome: str = Form(...),
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.post("/api/upload", status_code=status.HTTP_201_CREATED)
+async def create_upload(
+    name: str = Form(...),
     email: str = Form(...),
-    telefone: Optional[str] = Form(None),
-    empresa: Optional[str] = Form(None),
-    trad_de: Optional[str] = Form(None),
-    trad_para: Optional[str] = Form(None),
-    servico: Optional[str] = Form(None),
-    observacao: Optional[str] = Form(None),
-    funcionario_id: Optional[int] = Form(None),
+    file: UploadFile = File(...),
+    phone: Optional[str] = Form(None),
+    company: Optional[str] = Form(None),
+    service: Optional[str] = Form(None),
+    source_lang: Optional[str] = Form(None),
+    target_lang: Optional[str] = Form(None),
+    message: Optional[str] = Form(None),
+    consent: Optional[str] = Form(None),
     db: Session = Depends(get_postgres_db)
 ):
-    facade = SolicitacaoUploadFacade(db)
-    
-    solicitacao = await facade.upload_solicitacao(
-        file=file,
-        nome=nome,
-        email=email,
-        telefone=telefone,
-        empresa=empresa,
-        trad_de=trad_de,
-        trad_para=trad_para,
-        servico=servico,
-        observacao=observacao,
-        funcionario_id=funcionario_id
-    )
+    try:
+        facade = SolicitacaoUploadFacade(db)
+        
+        nova_solicitacao = await facade.upload_solicitacao(
+            file=file,
+            nome=name,
+            email=email,
+            telefone=phone,
+            empresa=company,
+            trad_de=source_lang,
+            trad_para=target_lang,
+            servico=service,
+            observacao=message
+        )
 
-    return {
-        "message": "Solicitação e arquivo enviados com sucesso!",
-        "solicitacao_id": getattr(solicitacao, "id", None),
-        "nome": solicitacao.nome,
-        "email": solicitacao.email,
-        "caminho_arquivo": solicitacao.arquivos
-    }
+        return {
+            "success": True,
+            "id": nova_solicitacao.id,
+            "message": "Solicitação gravada com sucesso!"
+        }
+
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=f"Erro interno: {str(e)}"
+        )
