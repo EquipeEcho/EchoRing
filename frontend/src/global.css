@@ -1,9 +1,65 @@
 :root {
+  color-scheme: dark;
+  background: #000;
   --font-display:
-    Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
-    Segoe UI Symbol, Noto Color Emoji;
+    InterRegular, system-ui, sans-serif;
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
   --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
+}
+
+/* Keep wheel, trackpad, touch and keyboard scrolling without visual rails. */
+html,
+body,
+#root,
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+input:focus-visible,
+[role='button']:focus-visible,
+[role='checkbox']:focus-visible,
+[role='tab']:focus-visible,
+a:focus-visible {
+  outline: 2px solid #FF375F;
+  outline-offset: 3px;
+}
+
+[data-testid='auth-input']:focus-within {
+  border-color: #FF375F;
+  box-shadow: 0 0 0 3px rgba(255, 55, 95, 0.18);
+}
+
+[data-testid='auth-input'] input:focus-visible {
+  outline: none;
+}
+
+[data-testid='language-globe'] { animation: world-breathe 9s ease-in-out infinite; }
+[data-testid='hero-orbit'] { animation: world-turn 40s linear infinite; }
+[data-testid='language-chip-one'] { animation: word-float 6s ease-in-out infinite; }
+[data-testid='language-chip-two'] { animation: word-float 7s ease-in-out -2s infinite; }
+[data-testid='language-chip-three'] { animation: word-float 8s ease-in-out -4s infinite; }
+[data-testid='quote-stage'] { animation: word-enter 220ms ease-out both; }
+[data-testid='landing-field'] input, [data-testid='landing-field'] textarea { transition: border-color 160ms ease, box-shadow 160ms ease; }
+[data-testid='landing-field']:focus-within input, [data-testid='landing-field']:focus-within textarea { border-color: #FF375F !important; box-shadow: 0 0 0 3px rgba(255,55,95,0.1); }
+[data-testid='landing-services'] button { transition: border-color 180ms ease, transform 180ms ease, background-color 180ms ease; }
+[data-testid='landing-services'] button:hover { border-color: #774051; transform: translateY(-4px); }
+
+@keyframes world-breathe { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes world-turn { to { transform: rotate(360deg); } }
+@keyframes word-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+@keyframes word-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-testid='language-globe'], [data-testid^='language-chip-'], [data-testid='hero-orbit'], [data-testid='quote-stage'] { animation: none; }
+  [data-testid='landing-services'] button, [data-testid='landing-field'] input, [data-testid='landing-field'] textarea { transition: none; }
+  [data-testid='landing-services'] button:hover { transform: none; }
 }

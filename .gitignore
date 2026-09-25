@@ -19,3 +19,6 @@ env/
 # Arquivos do Windows / MacOS
 Thumbs.db
 .DS_Store
+
+# Local development logs
+.local/

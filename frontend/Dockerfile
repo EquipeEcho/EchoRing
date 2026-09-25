@@ -8,3 +8,4 @@ RUN npm i
 COPY . .
 
 CMD ["npx", "expo", "start", "--clear", "--web", "--port", "8081"]
+

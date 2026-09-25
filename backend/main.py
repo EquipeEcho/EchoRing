@@ -10,6 +10,21 @@ from database.schema_db import Base
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+app.add_middleware(BodyLimitMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        origin.strip()
+        for origin in os.getenv(
+            'CORS_ORIGINS', 'http://localhost:8081,http://127.0.0.1:8081'
+        ).split(',')
+        if origin.strip()
+    ],
+    allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allow_headers=['Authorization', 'Content-Type'],
+)
+
+app.include_router(router)
 
 app.add_middleware(
     CORSMiddleware,
