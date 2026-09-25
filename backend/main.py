@@ -1,7 +1,9 @@
+import os
 from typing import Optional
 from fastapi import FastAPI, UploadFile, File, Form, Depends, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from requests_api import router
 
 from functions.uploud import SolicitacaoUploadFacade
 from database.conection import engine, get_postgres_db
@@ -10,7 +12,7 @@ from database.schema_db import Base
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-app.add_middleware(BodyLimitMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
