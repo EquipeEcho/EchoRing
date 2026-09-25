@@ -253,8 +253,7 @@ class Login(BaseModel):
     password: str = Field(max_length=1024)
 
 
-@router.post('/auth/login')
-@router.post('/staff/login', include_in_schema=False)
+
 def login(data: Login, request: Request):
     throttle(request, 'auth-login', 5)
     accounts = configured_accounts()
@@ -277,13 +276,12 @@ def login(data: Login, request: Request):
     return {'token': token, 'expires': expires, **public_user(user)}
 
 
-@router.get('/auth/me')
+
 def me(user: dict = Depends(authenticated_user)):
     return public_user(user)
 
 
-@router.post('/auth/logout')
-@router.post('/staff/logout', include_in_schema=False)
+
 def logout(credentials: HTTPAuthorizationCredentials | None = Depends(bearer), user: dict = Depends(authenticated_user)):
     digest = hashlib.sha256(credentials.credentials.encode()).hexdigest()
     with database() as connection:
@@ -316,7 +314,7 @@ def user_record(user):
     return {**{key: user[key] for key in ('id', 'name', 'email', 'role')}, 'active': bool(user['active'])}
 
 
-@router.get('/users')
+
 def list_users(admin: dict = Depends(administrator)):
     with database() as connection:
         sync_configured_accounts(connection, configured_accounts())
@@ -324,7 +322,7 @@ def list_users(admin: dict = Depends(administrator)):
     return [user_record(user) for user in users]
 
 
-@router.post('/users', status_code=201)
+
 def create_user(data: UserCreate, admin: dict = Depends(administrator)):
     try:
         with database() as connection:
@@ -341,7 +339,7 @@ def create_user(data: UserCreate, admin: dict = Depends(administrator)):
     return user_record(user)
 
 
-@router.get('/translators')
+
 def list_translators(user: dict = Depends(staff)):
     with database() as connection:
         sync_configured_accounts(connection, configured_accounts())
@@ -639,7 +637,7 @@ def ensure_task_access(service, user):
         raise HTTPException(403, 'Esta tarefa não está atribuída à sua conta.')
 
 
-@router.post('/requests', status_code=201)
+
 def create_request(data: Intake, request: Request):
     throttle(request, 'intake', 10)
     created_at = now()
@@ -650,21 +648,21 @@ def create_request(data: Intake, request: Request):
         return sanitized_request(record, connection)
 
 
-@router.get('/requests')
+
 def list_requests(user: dict = Depends(staff)):
     with database() as connection:
         rows = connection.execute('SELECT data FROM requests ORDER BY created_at DESC').fetchall()
         return [sanitized_request(json_data(row['data']), connection) for row in rows]
 
 
-@router.get('/requests/{request_id}')
+
 def request_detail(request_id: str, user: dict = Depends(staff)):
     with database() as connection:
         data, _ = read_request(connection, request_id)
         return sanitized_request(data, connection, include_content=True)
 
 
-@router.patch('/requests/{request_id}')
+
 def update_request(request_id: str, changes: Update, user: dict = Depends(staff)):
     if changes.status is not None and changes.status != 'Em análise':
         raise HTTPException(422, 'Status inválido.')
@@ -735,7 +733,7 @@ def deliver_quote(data, response_token=None):
     _smtp_send(message)
 
 
-@router.post('/requests/{request_id}/send-quote')
+
 def send_quote(request_id: str, user: dict = Depends(staff)):
     auto_approve = environment_flag('AUTO_APPROVE_QUOTES')
     response_token = '' if auto_approve else secrets.token_urlsafe(48)
@@ -790,7 +788,7 @@ def _request_for_quote(connection, quote_id):
     return json_data(row['data'])
 
 
-@router.post('/quotes/{quote_id}/decision')
+
 def decide_quote(quote_id: str, decision: QuoteDecision, request: Request):
     throttle(request, 'quote-decision', 20)
     with database() as connection:
@@ -814,7 +812,7 @@ def decide_quote(quote_id: str, decision: QuoteDecision, request: Request):
     return {'requestId': data['id'], 'quoteId': quote_id, 'title': data['title'], 'status': status, 'respondedAt': responded_at}
 
 
-@router.post('/requests/{request_id}/assign', status_code=201)
+
 def assign_translator(request_id: str, assignment: TranslatorAssignment, user: dict = Depends(staff)):
     with database() as connection:
         data, _ = read_request(connection, request_id, for_update=True)
@@ -841,7 +839,7 @@ def assign_translator(request_id: str, assignment: TranslatorAssignment, user: d
         return task_record(connection, read_service(connection, task_id))
 
 
-@router.get('/tasks')
+
 def list_tasks(user: dict = Depends(authenticated_user)):
     if user['role'] == 'translator':
         query, values = 'SELECT * FROM services WHERE translator_id = ? ORDER BY created_at DESC', (user['id'],)
@@ -853,14 +851,14 @@ def list_tasks(user: dict = Depends(authenticated_user)):
         return [task_record(connection, item) for item in connection.execute(query, values).fetchall()]
 
 
-@router.get('/services', include_in_schema=False)
+
 def list_assigned_services(user: dict = Depends(translator)):
     with database() as connection:
         services = connection.execute('SELECT * FROM services WHERE translator_id = ? ORDER BY created_at DESC', (user['id'],)).fetchall()
         return [task_record(connection, service) for service in services]
 
 
-@router.get('/tasks/{task_id}')
+
 def task_detail(task_id: str, user: dict = Depends(authenticated_user)):
     with database() as connection:
         service = read_service(connection, task_id)
@@ -868,7 +866,7 @@ def task_detail(task_id: str, user: dict = Depends(authenticated_user)):
         return task_record(connection, service)
 
 
-@router.post('/tasks/{task_id}/start')
+
 def start_task(task_id: str, user: dict = Depends(translator)):
     with database() as connection:
         service = read_service(connection, task_id, for_update=True)
@@ -894,7 +892,7 @@ def original_attachment(connection, service, attachment_index):
     return attachments[attachment_index]
 
 
-@router.get('/tasks/{task_id}/attachments/{attachment_index}')
+
 def download_original(task_id: str, attachment_index: int, user: dict = Depends(authenticated_user)):
     with database() as connection:
         service = read_service(connection, task_id)
@@ -932,17 +930,17 @@ async def _upload_delivery(task_id: str, file: UploadFile, user: dict):
         return delivery_record(read_delivery(connection, delivery_id))
 
 
-@router.post('/tasks/{task_id}/deliveries', status_code=201)
+
 async def upload_task_delivery(task_id: str, file: UploadFile = File(...), user: dict = Depends(translator)):
     return await _upload_delivery(task_id, file, user)
 
 
-@router.post('/services/{task_id}/deliveries', status_code=201, include_in_schema=False)
+
 async def upload_service_delivery(task_id: str, file: UploadFile = File(...), user: dict = Depends(translator)):
     return await _upload_delivery(task_id, file, user)
 
 
-@router.get('/deliveries')
+
 def list_deliveries(user: dict = Depends(staff)):
     with database() as connection:
         deliveries = connection.execute(
@@ -955,13 +953,13 @@ def list_deliveries(user: dict = Depends(staff)):
     return [delivery_record(delivery) for delivery in deliveries]
 
 
-@router.get('/deliveries/{delivery_id}')
+
 def delivery_detail(delivery_id: str, user: dict = Depends(staff)):
     with database() as connection:
         return delivery_record(read_delivery(connection, delivery_id))
 
 
-@router.get('/deliveries/{delivery_id}/file')
+
 def download_delivery(delivery_id: str, user: dict = Depends(staff)):
     with database() as connection:
         delivery = read_delivery(connection, delivery_id)
@@ -972,7 +970,7 @@ def download_delivery(delivery_id: str, user: dict = Depends(staff)):
                     headers={'Content-Disposition': f"attachment; filename*=UTF-8''{filename}", 'X-Content-Type-Options': 'nosniff'})
 
 
-@router.post('/deliveries/{delivery_id}/review')
+
 def review_delivery(delivery_id: str, review: DeliveryReview, user: dict = Depends(staff)):
     with database() as connection:
         delivery = read_delivery(connection, delivery_id, for_update=True)
@@ -1014,7 +1012,6 @@ def deliver_final(data, task, delivery):
     _smtp_send(message)
 
 
-@router.post('/tasks/{task_id}/send-final')
 def send_final(task_id: str, user: dict = Depends(staff)):
     with database() as connection:
         service = read_service(connection, task_id, for_update=True)
@@ -1041,3 +1038,56 @@ def send_final(task_id: str, user: dict = Depends(staff)):
                            (delivered_at, delivered_at, task_id))
         update_request_status(connection, service['request_id'], 'Entregue', user, f"Arquivo final: {delivery['name']}", task_id, 'deliveredAt')
         return task_record(connection, read_service(connection, task_id))
+
+    
+@router.post('/auth/login')
+@router.post('/staff/login', include_in_schema=False)
+
+@router.get('/auth/me')
+
+@router.post('/auth/logout')
+@router.post('/staff/logout', include_in_schema=False)
+
+@router.get('/users')
+
+@router.post('/users', status_code=201)
+
+@router.get('/translators')
+
+@router.post('/requests', status_code=201)
+
+@router.get('/requests')
+
+@router.get('/requests/{request_id}')
+
+@router.patch('/requests/{request_id}')
+
+@router.post('/requests/{request_id}/send-quote')
+
+@router.post('/quotes/{quote_id}/decision')
+
+@router.post('/requests/{request_id}/assign', status_code=201)
+
+@router.get('/tasks')
+
+@router.get('/services', include_in_schema=False)
+
+@router.get('/tasks/{task_id}')
+
+@router.post('/tasks/{task_id}/start')
+
+@router.get('/tasks/{task_id}/attachments/{attachment_index}')
+
+@router.post('/tasks/{task_id}/deliveries', status_code=201)
+
+@router.post('/services/{task_id}/deliveries', status_code=201, include_in_schema=False)
+
+@router.get('/deliveries')
+
+@router.get('/deliveries/{delivery_id}')
+
+@router.get('/deliveries/{delivery_id}/file')
+
+@router.post('/deliveries/{delivery_id}/review')
+
+@router.post('/tasks/{task_id}/send-final')
