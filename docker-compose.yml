@@ -6,12 +6,10 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-    env_file:
-      - ./backend/.env
     environment:
-      PYTHONUNBUFFERED: "1"
-      POSTGRES_HOST: db-postgres
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      - PYTHONUNBUFFERED=1
+      - POSTGRES_URL=postgresql+psycopg2://admin:admin@db-postgres:5432/api5_relacional
+      - MONGO_URL=mongodb://db-mongo:27017/mydb
     depends_on:
       db-postgres:
         condition: service_healthy
@@ -21,6 +19,8 @@ services:
       context: ./frontend
     ports:
       - "8081:8081"
+    environment:
+      - REACT_NATIVE_PACKAGER_HOSTNAME=192.168.1.101
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -29,8 +29,6 @@ services:
 
   db-postgres:
     image: postgres:15-alpine
-    env_file:
-      - ./backend/.env
     ports:
       - "5432:5432"
     volumes:
@@ -45,8 +43,6 @@ services:
   # A API principal persiste todos os seus dados somente no PostgreSQL.
   db-mongo:
     image: mongo:6-jammy
-    env_file:
-      - ./backend/.env
     ports:
       - "27017:27017"
     volumes:

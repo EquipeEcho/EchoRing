@@ -1,45 +1,18 @@
 import os
-
-from fastapi import FastAPI
+from typing import Optional
+from fastapi import FastAPI, UploadFile, File, Form, Depends, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse
-from dotenv import load_dotenv
-
-load_dotenv()
-
+from sqlalchemy.orm import Session
 from requests_api import router
 
+from functions.uploud import SolicitacaoUploadFacade
+from database.conection import engine, get_postgres_db
+from database.schema_db import Base
 
-class BodyLimitMiddleware:
-    def __init__(self, app):
-        self.app = app
-
-    async def __call__(self, scope, receive, send):
-        if scope['type'] != 'http' or scope['method'] not in ('POST', 'PATCH'):
-            return await self.app(scope, receive, send)
-        body = bytearray()
-        while True:
-            event = await receive()
-            if event['type'] == 'http.disconnect':
-                return
-            body.extend(event.get('body', b''))
-            if len(body) > 8 * 1024 * 1024:
-                return await JSONResponse({'detail': 'Solicitação muito grande. Limite total: 5 MB de documentos.'}, status_code=413)(scope, receive, send)
-            if not event.get('more_body'):
-                break
-        delivered = False
-
-        async def buffered_receive():
-            nonlocal delivered
-            if not delivered:
-                delivered = True
-                return {'type': 'http.request', 'body': bytes(body), 'more_body': False}
-            return await receive()
-
-        await self.app(scope, buffered_receive, send)
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-app.add_middleware(BodyLimitMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -55,6 +28,53 @@ app.add_middleware(
 
 app.include_router(router)
 
-@app.get("/")
-def read_root():
-    return {"status": "Sucesso", "mensagem": "API Python rodando no Docker!"}
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.post("/api/upload", status_code=status.HTTP_201_CREATED)
+async def create_upload(
+    name: str = Form(...),
+    email: str = Form(...),
+    file: UploadFile = File(...),
+    phone: Optional[str] = Form(None),
+    company: Optional[str] = Form(None),
+    service: Optional[str] = Form(None),
+    source_lang: Optional[str] = Form(None),
+    target_lang: Optional[str] = Form(None),
+    message: Optional[str] = Form(None),
+    consent: Optional[str] = Form(None),
+    db: Session = Depends(get_postgres_db)
+):
+    try:
+        facade = SolicitacaoUploadFacade(db)
+        
+        nova_solicitacao = await facade.upload_solicitacao(
+            file=file,
+            nome=name,
+            email=email,
+            telefone=phone,
+            empresa=company,
+            trad_de=source_lang,
+            trad_para=target_lang,
+            servico=service,
+            observacao=message
+        )
+
+        return {
+            "success": True,
+            "id": nova_solicitacao.id,
+            "message": "Solicitação gravada com sucesso!"
+        }
+
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=f"Erro interno: {str(e)}"
+        )
