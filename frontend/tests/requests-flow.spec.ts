@@ -138,6 +138,67 @@ test('authenticated employee analyzes a request and sends its quote through the 
   expect(calls.some(call => call.method === 'POST' && call.path.endsWith('/send-quote'))).toBe(true);
 });
 
+test('automatic quote approval loads translators without reloading the page', async ({ page }) => {
+  type QuotePayload = { amount: string; delivery: string; message: string };
+  let translatorRequests = 0;
+  let record = {
+    id: 'SOL-AUTO-001', createdAt: '2026-09-26T12:00:00Z', status: 'Em análise',
+    name: 'Cliente Automático', email: 'automatico@example.test', company: '',
+    title: 'Projeto com aprovação automática', service: 'Tradução de documentos',
+    source: 'Português', target: 'Inglês', deadline: '2026-10-01',
+    message: 'Projeto configurado para aprovação automática.', consent: true, attachments: [],
+    quote: { amount: '520,00', delivery: '2026-10-01', message: 'Tradução e revisão incluídas.' },
+    autoApproved: false,
+  };
+
+  await page.route('**/translators', async route => {
+    translatorRequests += 1;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+      { id: 'USR-TR-001', name: 'Marina Costa', email: 'marina@example.test', role: 'translator', active: true },
+    ]) });
+  });
+  await page.route('**/requests**', async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (request.method() === 'GET' && url.pathname === '/requests') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([record]) });
+      return;
+    }
+    if (request.method() === 'GET' && url.pathname === `/requests/${record.id}`) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(record) });
+      return;
+    }
+    if (request.method() === 'PATCH' && url.pathname === `/requests/${record.id}`) {
+      const changes = request.postDataJSON() as { quote?: QuotePayload };
+      record = { ...record, ...(changes.quote ? { quote: changes.quote } : {}) };
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(record) });
+      return;
+    }
+    if (request.method() === 'POST' && url.pathname === `/requests/${record.id}/send-quote`) {
+      record = { ...record, status: 'Orçamento aprovado', autoApproved: true };
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(record) });
+      return;
+    }
+    await route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ detail: 'Rota não simulada.' }) });
+  });
+  await page.addInitScript(() => {
+    sessionStorage.setItem('echoring.auth-session.v2', JSON.stringify({
+      name: 'Funcionária Teste', email: 'staff@example.test', role: 'employee', demo: false,
+      token: 'test-employee-token', expires: Date.now() / 1000 + 3600,
+    }));
+  });
+
+  await page.goto('/solicitacoes');
+  await page.getByRole('button', { name: /Abrir solicitação SOL-AUTO-001/ }).click();
+  await page.getByRole('button', { name: 'Revisar e enviar por e-mail', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmar envio', exact: true }).click();
+
+  await expect(page.getByTestId('quote-notice')).toContainText('aprovado automaticamente');
+  await expect(page.getByText('Escolha o tradutor', { exact: true })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Tradutor: Marina Costa', exact: true })).toBeVisible();
+  expect(translatorRequests).toBe(1);
+});
+
 test('client confirms a quote decision through the personal link', async ({ page }) => {
   let payload: { token: string; decision: string } | null = null;
   await page.route('**/quotes/ORC-TEST-001/decision', async route => {
@@ -154,4 +215,31 @@ test('client confirms a quote decision through the personal link', async ({ page
   await expect(page.getByRole('heading', { name: 'Orçamento aprovado' })).toBeVisible();
   expect(payload).toEqual({ token, decision: 'approve' });
   await expect.poll(() => page.evaluate(() => location.hash)).toBe('');
+});
+
+test('completed requests are kept outside the active workflow', async ({ page }) => {
+  const base = {
+    createdAt: '2026-09-20T12:00:00Z', name: 'Cliente Teste', email: 'cliente@example.test', company: '',
+    service: 'Tradução de documentos', source: 'Português', target: 'Inglês', deadline: '', message: 'Projeto de teste',
+    consent: true, attachments: [],
+  };
+  await page.route('**/requests', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify([
+      { ...base, id: 'SOL-ATIVA', title: 'Solicitação ativa', status: 'Em análise' },
+      { ...base, id: 'SOL-CONCLUIDA', title: 'Solicitação concluída', status: 'Entregue' },
+    ]),
+  }));
+  await page.addInitScript(() => {
+    sessionStorage.setItem('echoring.auth-session.v2', JSON.stringify({
+      name: 'Funcionária Teste', email: 'staff@example.test', role: 'employee', demo: false,
+      token: 'test-employee-token', expires: Date.now() / 1000 + 3600,
+    }));
+  });
+
+  await page.goto('/solicitacoes');
+  await expect(page.getByText('Solicitação ativa', { exact: true })).toBeVisible();
+  await expect(page.getByText('Solicitação concluída', { exact: true })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Concluídas (1)', exact: true }).click();
+  await expect(page.getByText('Solicitação concluída', { exact: true })).toBeVisible();
+  await expect(page.getByText('Solicitação ativa', { exact: true })).toHaveCount(0);
 });

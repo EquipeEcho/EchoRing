@@ -25,12 +25,35 @@ body,
 }
 
 input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  caret-color: #FF375F;
+}
+
 [role='button']:focus-visible,
 [role='checkbox']:focus-visible,
-[role='tab']:focus-visible,
+[role='tab']:focus-visible {
+  outline: none;
+  border-radius: 12px;
+  background-color: rgba(255, 55, 95, 0.08);
+  box-shadow: 0 0 0 1px rgba(255, 55, 95, 0.2), 0 8px 22px rgba(255, 55, 95, 0.08);
+}
+
 a:focus-visible {
-  outline: 2px solid #FF375F;
-  outline-offset: 3px;
+  outline: none;
+  text-decoration-color: #FF375F;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+[data-testid='search-field'] {
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+[data-testid='search-field']:focus-within {
+  border-color: rgba(255, 55, 95, 0.75);
+  background-color: rgba(255, 55, 95, 0.035);
+  box-shadow: 0 10px 18px -16px rgba(255, 55, 95, 0.9);
 }
 
 [data-testid='auth-input']:focus-within {
@@ -59,6 +82,7 @@ a:focus-visible {
 @keyframes word-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (prefers-reduced-motion: reduce) {
+  [data-testid='search-field'] { transition: none; }
   [data-testid='language-globe'], [data-testid^='language-chip-'], [data-testid='hero-orbit'], [data-testid='quote-stage'] { animation: none; }
   [data-testid='landing-services'] button, [data-testid='landing-field'] input, [data-testid='landing-field'] textarea { transition: none; }
   [data-testid='landing-services'] button:hover { transform: none; }

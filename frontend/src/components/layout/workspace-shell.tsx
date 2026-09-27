@@ -11,7 +11,9 @@ import { useWorkspace } from '@/features/workspace/data';
 import { useInbox } from '@/features/requests/inbox';
 import { WorkspaceDialogs } from '@/features/workspace/dialogs';
 
-export const modules: { title: string; href: string; icon: LucideIcon; description: string }[] = [
+export type WorkspaceModule = { title: string; href: string; icon: LucideIcon; description: string };
+
+export const modules: WorkspaceModule[] = [
   { title: 'Visão geral', href: '/dashboard', icon: LayoutGrid, description: 'Pendências e projetos em andamento' },
   { title: 'Operação', href: '/operacao', icon: FolderKanban, description: 'Requisições, orçamentos e ordens de serviço' },
   { title: 'Entregas', href: '/entregas', icon: UploadCloud, description: 'Envio de traduções concluídas para revisão' },
@@ -30,6 +32,24 @@ export function modulesFor(role: UserRole) {
   return modules.filter(item => ['/dashboard', '/operacao', '/entregas'].includes(item.href));
 }
 
+const tasksModule: WorkspaceModule = { title: 'Tarefas', href: '/tarefas', icon: ListTodo, description: 'Pendências e atividades da sua rotina' };
+
+export function mobilePrimaryModulesFor(role: UserRole): WorkspaceModule[] {
+  const available = modulesFor(role);
+  const dashboard = available.find(item => item.href === '/dashboard')!;
+  const contextual = available.find(item => item.href === (role === 'hr' ? '/area/cadastros' : '/operacao'))!;
+  return [
+    { ...dashboard, title: 'Início', icon: House },
+    { ...contextual, title: role === 'translator' ? 'Projetos' : contextual.title },
+    tasksModule,
+  ];
+}
+
+export function mobileMoreModulesFor(role: UserRole): WorkspaceModule[] {
+  const primaryHrefs = new Set(mobilePrimaryModulesFor(role).map(item => item.href));
+  return [...modulesFor(role), tasksModule].filter(item => !primaryHrefs.has(item.href));
+}
+
 function NavItem({ title, href, icon: Icon, active, badge }: { title: string; href: string; icon: LucideIcon; active: boolean; badge?: number }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} aria-current={active ? 'page' : undefined} accessibilityState={{ selected: active }} onPress={() => router.push(href as Href)}
     style={({ hovered }) => [s.navItem, active && s.navActive, hovered && !active && { backgroundColor: colors.navigationHover }]}>
@@ -44,16 +64,17 @@ export function WorkspaceShell() {
   const desktop = width >= desktopWidth;
   const pathname = usePathname();
   const { session, signOut } = useSession();
-  const visibleModules = modulesFor(session?.role ?? 'translator');
-  const staffMember = session?.role === 'employee' || session?.role === 'admin';
-  const showMore = session?.role !== 'translator';
+  const role = session?.role ?? 'translator';
+  const visibleModules = modulesFor(role);
+  const mobilePrimaryModules = mobilePrimaryModulesFor(role);
+  const mobileMoreModules = mobileMoreModulesFor(role);
   const { search, setSearch, tasks } = useWorkspace();
   const [profile, setProfile] = useState(false);
   const [notifications, setNotifications] = useState(false);
   const [read, setRead] = useState(false);
   const [help, setHelp] = useState(false);
   const searchInput = useRef<TextInput>(null);
-  const section = visibleModules.find(item => pathname === item.href)?.title ?? (pathname === '/tarefas' ? 'Minhas tarefas' : 'Meu espaço');
+  const section = visibleModules.find(item => pathname === item.href)?.title ?? (pathname === '/tarefas' ? 'Minhas tarefas' : pathname === '/mais' ? 'Mais' : 'Meu espaço');
   const { requests } = useInbox();
   const received = requests.filter(item => item.status === 'Recebido').length;
   const pending = tasks.filter(task => !task.done).length;
@@ -76,20 +97,18 @@ export function WorkspaceShell() {
         <View style={[s.header, !desktop && s.mobileHeader]}>
           {desktop ? <View style={common.row}><Txt style={s.breadcrumb}>Aliança Traduções</Txt><ChevronRight size={12} color={colors.muted} /><Txt style={s.breadcrumb}>{section}</Txt></View> : <Brand wordmarkOnly />}
           <View style={[s.headerActions, !desktop && { gap: 8 }]}>
-            {desktop && <View style={s.search}><Search size={17} color={colors.muted} /><TextInput accessibilityLabel="Buscar projetos" placeholder="Buscar projeto ou cliente..." placeholderTextColor={colors.muted} value={search} onChangeText={setSearch} onSubmitEditing={() => router.push('/operacao')} style={s.searchInput} />{!!search && <Pressable accessibilityRole="button" accessibilityLabel="Limpar busca" onPress={() => setSearch('')} style={{ padding: 5 }}><X size={14} color={colors.muted} /></Pressable>}</View>}
+            {desktop && <View testID="search-field" style={s.search}><Search size={17} color={colors.muted} /><TextInput accessibilityLabel="Buscar projetos" placeholder="Buscar projeto ou cliente..." placeholderTextColor={colors.muted} value={search} onChangeText={setSearch} onSubmitEditing={() => router.push('/operacao')} style={s.searchInput} />{!!search && <Pressable accessibilityRole="button" accessibilityLabel="Limpar busca" onPress={() => setSearch('')} style={{ padding: 5 }}><X size={14} color={colors.muted} /></Pressable>}</View>}
             <View>{desktop ? <IconButton icon={Bell} label="Notificações" onPress={() => setNotifications(true)} /> : <Pressable accessibilityRole="button" accessibilityLabel="Notificações" onPress={() => setNotifications(true)} style={({ pressed }) => [s.mobileAction, pressed && { opacity: 0.65 }]}><Bell size={24} color={colors.ink} strokeWidth={1.8} /></Pressable>}{!read && <View pointerEvents="none" style={s.notificationDot} />}</View>
             {!desktop && profileButton}
           </View>
         </View>
-        {!desktop && <View style={s.mobileSearch}><Pressable accessibilityRole="button" accessibilityLabel="Buscar projetos" onPress={() => searchInput.current?.focus()} style={s.searchGlyph}><Search size={21} color={colors.muted} /></Pressable><TextInput ref={searchInput} accessibilityLabel="Buscar projetos" placeholder="Buscar projetos, tarefas..." placeholderTextColor={colors.muted} value={search} onChangeText={setSearch} style={s.searchInput} onSubmitEditing={() => router.push('/operacao')} />{!!search && <Pressable accessibilityRole="button" accessibilityLabel="Limpar busca" onPress={() => setSearch('')} style={s.clearSearch}><X size={17} color={colors.muted} /></Pressable>}</View>}
+        {!desktop && <View testID="search-field" style={s.mobileSearch}><Pressable accessibilityRole="button" accessibilityLabel="Buscar projetos" onPress={() => searchInput.current?.focus()} style={s.searchGlyph}><Search size={21} color={colors.muted} /></Pressable><TextInput ref={searchInput} accessibilityLabel="Buscar projetos" placeholder="Buscar projetos, tarefas..." placeholderTextColor={colors.muted} value={search} onChangeText={setSearch} style={s.searchInput} onSubmitEditing={() => router.push('/operacao')} />{!!search && <Pressable accessibilityRole="button" accessibilityLabel="Limpar busca" onPress={() => setSearch('')} style={s.clearSearch}><X size={17} color={colors.muted} /></Pressable>}</View>}
         <View style={s.content}><Slot /></View>
-        {!desktop && <View style={s.bottomNav}>{[
-          { title: 'Início', href: '/dashboard', icon: House }, { title: 'Operação', href: '/operacao', icon: FolderKanban },
-          ...(session?.role !== 'hr' ? [{ title: session?.role === 'translator' ? 'Traduções' : 'Avaliações', href: '/entregas', icon: UploadCloud }] : []),
-          ...(staffMember ? [{ title: 'Pedidos', href: '/solicitacoes', icon: Inbox }] : []), { title: 'Tarefas', href: '/tarefas', icon: ListTodo },
-          ...(showMore ? [{ title: 'Mais', href: '/mais', icon: Ellipsis }] : []),
-        ].map(item => { const active = pathname === item.href || (item.href === '/mais' && pathname.startsWith('/area/')); const Icon = item.icon;
-          return <Pressable key={item.href} accessibilityRole="button" accessibilityLabel={item.title} aria-current={active ? 'page' : undefined} accessibilityState={{ selected: active }} onPress={() => router.push(item.href as Href)} style={[s.bottomItem, active && s.bottomActive]}><View style={s.bottomIcon}><Icon size={24} color={active ? colors.accent : colors.ink} strokeWidth={active ? 2.3 : 1.8} /></View><Txt style={[s.bottomLabel, active && { color: colors.accent, fontWeight: '600' }]}>{item.title}</Txt></Pressable>;
+        {!desktop && <View testID="workspace-bottom-nav" style={s.bottomNav}>{[
+          ...mobilePrimaryModules,
+          { title: 'Mais', href: '/mais', icon: Ellipsis, description: 'Outras áreas da conta' },
+        ].map(item => { const active = pathname === item.href || (item.href === '/mais' && mobileMoreModules.some(module => module.href === pathname)); const Icon = item.icon;
+          return <Pressable key={item.href} testID="workspace-bottom-tab" accessibilityRole="button" accessibilityLabel={item.title} aria-current={active ? 'page' : undefined} accessibilityState={{ selected: active }} onPress={() => router.push(item.href as Href)} style={[s.bottomItem, active && s.bottomActive]}><View style={s.bottomIcon}><Icon size={24} color={active ? colors.accent : colors.ink} strokeWidth={active ? 2.3 : 1.8} /></View><Txt numberOfLines={1} style={[s.bottomLabel, active && { color: colors.accent, fontWeight: '600' }]}>{item.title}</Txt></Pressable>;
         })}</View>}
       </View>
     </View>
@@ -131,7 +150,7 @@ const s = StyleSheet.create({
   mobileHeader: { height: 86, paddingHorizontal: 20, borderBottomWidth: 0 },
   breadcrumb: { fontSize: 14, lineHeight: 20, color: colors.muted },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 20 },
-  search: { width: 320, minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 6, borderBottomWidth: 1, borderBottomColor: '#48484F' },
+  search: { width: 320, minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: '#48484F', borderTopLeftRadius: 10, borderTopRightRadius: 10 },
   searchInput: { flex: 1, minWidth: 0, minHeight: 44, fontFamily: font, fontSize: 16, color: colors.ink, outlineWidth: 0 },
   notificationDot: { position: 'absolute', top: 7, right: 7, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accent },
   mobileAction: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
@@ -139,9 +158,9 @@ const s = StyleSheet.create({
   searchGlyph: { width: 34, height: 42, alignItems: 'center', justifyContent: 'center' },
   clearSearch: { width: 34, height: 42, alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1, minHeight: 0 },
-  bottomNav: { flexDirection: 'row', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 24, height: 76, marginHorizontal: 12, marginBottom: 12, marginTop: 8, padding: 5, boxShadow: '0 12px 40px rgba(0,0,0,0.55)' },
+  bottomNav: { flexDirection: 'row', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 24, height: 74, marginHorizontal: 12, marginBottom: 12, marginTop: 8, padding: 5, boxShadow: '0 12px 40px rgba(0,0,0,0.55)' },
   bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 32 },
   bottomActive: { backgroundColor: colors.accentSoft },
   bottomIcon: { width: 44, height: 27, justifyContent: 'center', alignItems: 'center' },
-  bottomLabel: { fontSize: 12, lineHeight: 18, color: colors.ink },
+  bottomLabel: { maxWidth: '100%', fontSize: 11, lineHeight: 17, color: colors.ink },
 });

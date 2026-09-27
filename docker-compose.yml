@@ -8,8 +8,17 @@ services:
       - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
-      - POSTGRES_URL=postgresql+psycopg2://admin:admin@db-postgres:5432/api5_relacional
+      - DATABASE_URL=postgresql://admin:admin@db-postgres:5432/api5_relacional
+      - POSTGRES_HOST=db-postgres
       - MONGO_URL=mongodb://db-mongo:27017/mydb
+      - ADMIN_EMAIL=admin@admin.com
+      - ADMIN_PASSWORD=admin@admin.com
+      - TRANSLATOR_EMAIL=translator@translator.com
+      - TRANSLATOR_PASSWORD=translator@translator.com
+      - STAFF_EMAIL=staff@staff.com
+      - STAFF_PASSWORD=staff@staff.com
+      - JWT_SECRET=supersecretkey
+      - TOKEN_SECRET=supersecrettoken
     depends_on:
       db-postgres:
         condition: service_healthy
@@ -31,13 +40,22 @@ services:
     image: postgres:15-alpine
     ports:
       - "5432:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: api5_relacional
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -h localhost -p 5432 -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 5s
 
   # Mantido para compatibilidade com trabalhos existentes da equipe.
   # A API principal persiste todos os seus dados somente no PostgreSQL.
@@ -47,7 +65,6 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
-
 
 volumes:
   pg_data:
