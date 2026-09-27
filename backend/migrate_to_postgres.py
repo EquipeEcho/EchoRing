@@ -1,4 +1,4 @@
-"""One-time, idempotent import from the legacy database into PostgreSQL."""
+"""Importa uma única vez os dados do SQLite antigo para o PostgreSQL."""
 
 import argparse
 import hashlib
@@ -30,14 +30,17 @@ TABLE_COLUMNS = {
 
 
 def sqlite_columns(connection, table):
+    """Lê as colunas existentes porque bancos antigos podem ter estruturas diferentes."""
     return {row['name'] for row in connection.execute(f'PRAGMA table_info({table})')}
 
 
 def sqlite_tables(connection):
+    """Lista as tabelas disponíveis no arquivo SQLite recebido."""
     return {row['name'] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
 
 
 def values_for(row, columns, available):
+    """Monta uma linha compatível e completa campos que não existiam em versões antigas."""
     defaults = {
         'active': 1, 'sending': 0, 'observations': '', 'source': '', 'target': '',
         'updated_at': None, 'started_at': None, 'ready_at': None, 'delivered_at': None,
@@ -47,6 +50,7 @@ def values_for(row, columns, available):
 
 
 def import_legacy(sqlite_path):
+    """Copia as tabelas conhecidas sem repetir uma migração já registrada."""
     source = sqlite3.connect(sqlite_path)
     source.row_factory = sqlite3.Row
     source_key = hashlib.sha256(str(sqlite_path.resolve()).encode()).hexdigest()
@@ -60,6 +64,7 @@ def import_legacy(sqlite_path):
             if target.execute('SELECT 1 FROM legacy_migrations WHERE source_key = ?', (source_key,)).fetchone():
                 return {'alreadyMigrated': True, 'counts': {}}
 
+            # Usuários e solicitações precisam de ajustes próprios antes de entrar no PostgreSQL.
             if 'users' in tables:
                 columns = TABLE_COLUMNS['users']
                 available = sqlite_columns(source, 'users')
@@ -84,6 +89,7 @@ def import_legacy(sqlite_path):
                     )
                 counts['requests'] = len(rows)
 
+            # Estas tabelas têm estrutura equivalente e podem seguir o mesmo fluxo de cópia.
             for table in ('sessions', 'services', 'deliveries'):
                 if table not in tables:
                     continue
@@ -101,6 +107,7 @@ def import_legacy(sqlite_path):
                     )
                 counts[table] = len(rows)
 
+            # Os ids do histórico são recriados pelo PostgreSQL para manter sua sequência local.
             if 'workflow_events' in tables:
                 columns = ('request_id', 'service_id', 'status', 'note', 'actor_id', 'actor_name', 'created_at')
                 available = sqlite_columns(source, 'workflow_events')
@@ -114,6 +121,7 @@ def import_legacy(sqlite_path):
                     )
                 counts['workflow_events'] = len(rows)
 
+            # O caminho vira uma chave estável para o mesmo arquivo não ser importado duas vezes.
             target.execute(
                 'INSERT INTO legacy_migrations (source_key, source_path) VALUES (?, ?)',
                 (source_key, str(sqlite_path.resolve())),
@@ -124,6 +132,7 @@ def import_legacy(sqlite_path):
 
 
 def main():
+    """Lê o caminho informado, executa a importação e mostra um resumo no terminal."""
     parser = argparse.ArgumentParser(description='Importa o SQLite legado no PostgreSQL configurado no .env.')
     parser.add_argument('--sqlite-path', default='.local/requests.sqlite3')
     args = parser.parse_args()

@@ -1,3 +1,5 @@
+"""Testes de integração do fluxo completo de uma solicitação de tradução."""
+
 import base64
 import hashlib
 import os
@@ -13,7 +15,10 @@ import requests_api
 
 
 class RequestsTests(unittest.TestCase):
+    """Cobre o fluxo de solicitações em um schema isolado para cada teste."""
+
     def setUp(self):
+        """Prepara contas, cliente HTTP e dados básicos usados em cada cenário."""
         self.schema = 'test_' + uuid.uuid4().hex
         self.environment = patch.dict(os.environ, {
             'POSTGRES_SCHEMA': self.schema,
@@ -42,11 +47,13 @@ class RequestsTests(unittest.TestCase):
         self.quote = {'amount': '350,50', 'delivery': '5 business days', 'message': 'Translation and revision included.'}
 
     def tearDown(self):
+        """Fecha o cliente e remove do PostgreSQL tudo que o teste criou."""
         self.client.close()
         self.drop_schema(self.schema)
         self.environment.stop()
 
     def drop_schema(self, schema):
+        """Remove apenas schemas identificados como teste para proteger os demais dados."""
         if not schema.startswith('test_'):
             raise RuntimeError('Recusa ao remover schema que não pertence aos testes.')
         connection = requests_api.postgres_connection()
@@ -57,16 +64,19 @@ class RequestsTests(unittest.TestCase):
             connection.close()
 
     def create(self):
+        """Cria uma solicitação válida e devolve seu identificador."""
         result = self.client.post('/requests', json=self.intake)
         self.assertEqual(result.status_code, 201)
         return result.json()['id']
 
     def save_quote(self, request_id):
+        """Salva a proposta padrão e confirma a entrada da solicitação em análise."""
         result = self.client.patch('/requests/' + request_id, headers=self.headers, json={'quote': self.quote})
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json()['status'], 'Em análise')
 
     def translator_session(self):
+        """Abre uma sessão de tradutor e devolve a conta junto com seu cabeçalho."""
         response = self.client.post('/auth/login', json={
             'email': 'translator@example.test', 'password': 'translator-password-long-enough',
         })
@@ -77,6 +87,7 @@ class RequestsTests(unittest.TestCase):
         return {**session, 'id': translator['id']}, {'Authorization': 'Bearer ' + session['token']}
 
     def create_service(self, translator_id, service_id='OS-TEST-001', status='Em andamento'):
+        """Insere uma tarefa diretamente para os testes focados em entrega e revisão."""
         with requests_api.database() as connection:
             connection.execute(
                 '''INSERT INTO services (id, request_id, title, translator_id, status, deadline, created_at)
@@ -86,6 +97,7 @@ class RequestsTests(unittest.TestCase):
         return service_id
 
     def test_public_intake_is_persistent_and_staff_only(self):
+        """Garante persistência pública, leitura restrita e conteúdo oculto na listagem."""
         request_id = self.create()
         self.assertEqual(self.client.get('/requests').status_code, 401)
         self.assertEqual(self.client.get('/requests/' + request_id).status_code, 401)
@@ -98,6 +110,7 @@ class RequestsTests(unittest.TestCase):
             self.assertEqual(second_client.get('/requests', headers=self.headers).json()[0]['id'], request_id)
 
     def test_translator_login_returns_role_and_cannot_access_staff_requests(self):
+        """Confere a sessão do tradutor e o bloqueio das rotas exclusivas da equipe."""
         response = self.client.post('/auth/login', json={'email': 'TRANSLATOR@example.test', 'password': 'translator-password-long-enough'})
         self.assertEqual(response.status_code, 200)
         session = response.json()
@@ -111,6 +124,7 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(self.client.get('/auth/me', headers=translator_headers).status_code, 401)
 
     def test_admin_can_create_users_and_created_account_can_login(self):
+        """Confere cadastro seguro, permissões de administrador e login da nova conta."""
         self.assertEqual(self.client.get('/users', headers=self.headers).status_code, 403)
         admin_login = self.client.post('/auth/login', json={'email': 'admin@example.test', 'password': 'admin-password-long-enough'})
         self.assertEqual(admin_login.status_code, 200)
@@ -137,12 +151,14 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(self.client.post('/users', headers=admin_headers, json={**new_user, 'email': 'other@example.test', 'role': 'admin'}).status_code, 422)
 
     def test_rejects_invalid_consent_email_languages_and_documents(self):
+        """Rejeita solicitações com campos inseguros, arquivos falsos ou corpo grande demais."""
         for changes in [{'consent': False}, {'email': 'bad\r\nBcc: example@test.local'}, {'target': 'English'}, {'name': '   '}, {'attachments': [{'name': 'fake.pdf', 'size': 3, 'content': 'YWJj'}]}, {'attachments': [{'name': '../sample.txt', 'size': 3, 'content': 'YWJj'}]}]:
             with self.subTest(changes=changes):
                 self.assertEqual(self.client.post('/requests', json={**self.intake, **changes}).status_code, 422)
         self.assertEqual(self.client.post('/requests', content=b'x' * (8 * 1024 * 1024 + 1), headers={'Content-Type': 'application/json'}).status_code, 413)
 
     def test_quote_draft_survives_missing_smtp_and_failed_delivery(self):
+        """Mantém o orçamento salvo quando o SMTP está ausente ou falha no envio."""
         request_id = self.create()
         self.save_quote(request_id)
         with patch.object(requests_api, 'deliver_quote', wraps=requests_api.deliver_quote):
@@ -155,6 +171,7 @@ class RequestsTests(unittest.TestCase):
         self.assertNotIn('emailSentAt', detail)
 
     def test_successful_delivery_marks_sent_and_prevents_duplicate_and_edits(self):
+        """Após o envio, bloqueia uma segunda mensagem e novas mudanças na proposta."""
         request_id = self.create()
         self.save_quote(request_id)
         with patch.object(requests_api, 'deliver_quote') as delivery:
@@ -167,6 +184,7 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(self.client.patch('/requests/' + request_id, headers=self.headers, json={'quote': self.quote}).status_code, 409)
 
     def test_smtp_uses_tls_and_sends_to_request_email(self):
+        """Confere TLS, destinatário, valor formatado e links no e-mail de orçamento."""
         data = {**self.intake, 'id': 'SOL-TEST', 'quote': self.quote}
         with patch.dict(os.environ, {'SMTP_HOST': 'smtp.example.test', 'SMTP_FROM': 'staff@example.test', 'SMTP_SECURITY': 'starttls'}), patch.object(requests_api.smtplib, 'SMTP') as smtp:
             requests_api.deliver_quote(data)
@@ -179,6 +197,7 @@ class RequestsTests(unittest.TestCase):
             self.assertTrue(message.is_multipart())
 
     def test_logout_expiry_rate_limit_and_unknown_account(self):
+        """Cobre encerramento, expiração, limite de tentativas e conta inexistente."""
         self.assertEqual(self.client.post('/staff/logout', headers=self.headers).status_code, 200)
         self.assertEqual(self.client.get('/requests', headers=self.headers).status_code, 401)
         with requests_api.database() as connection:
@@ -197,6 +216,7 @@ class RequestsTests(unittest.TestCase):
             self.drop_schema(empty_schema)
 
     def test_delivery_upload_requires_the_assigned_translator_and_valid_document(self):
+        """Aceita a versão somente do tradutor responsável e atualiza tarefa e arquivo."""
         translator, translator_headers = self.translator_session()
         service_id = self.create_service(translator['id'])
         endpoint = f'/services/{service_id}/deliveries'
@@ -234,6 +254,7 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(self.client.post(f'/services/{other_service}/deliveries', headers=translator_headers, files=document).status_code, 403)
 
     def test_delivery_upload_rejects_unsafe_or_invalid_documents(self):
+        """Bloqueia nomes perigosos, formatos falsos, extensões proibidas e arquivos vazios."""
         translator, translator_headers = self.translator_session()
         service_id = self.create_service(translator['id'])
         endpoint = f'/services/{service_id}/deliveries'
@@ -248,7 +269,32 @@ class RequestsTests(unittest.TestCase):
                 response = self.client.post(endpoint, headers=translator_headers, files={'file': document})
                 self.assertEqual(response.status_code, 422)
 
+    def test_translator_uploads_multiple_documents_as_one_version(self):
+        """Agrupa vários arquivos na mesma versão e permite baixar cada um separadamente."""
+        translator, translator_headers = self.translator_session()
+        service_id = self.create_service(translator['id'])
+        response = self.client.post(
+            f'/tasks/{service_id}/deliveries', headers=translator_headers,
+            files=[
+                ('files', ('chapter-one.txt', b'First translated chapter', 'text/plain')),
+                ('files', ('chapter-two.txt', b'Second translated chapter', 'text/plain')),
+            ],
+        )
+
+        self.assertEqual(response.status_code, 201)
+        delivery = response.json()
+        self.assertEqual(delivery['version'], 1)
+        self.assertEqual([item['name'] for item in delivery['files']], ['chapter-one.txt', 'chapter-two.txt'])
+        task = self.client.get(f'/tasks/{service_id}', headers=translator_headers).json()
+        self.assertEqual(len(task['lastDelivery']['files']), 2)
+
+        second = self.client.get(f"/deliveries/{delivery['id']}/files/1", headers=self.headers)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.content, b'Second translated chapter')
+        self.assertEqual(self.client.get(f"/deliveries/{delivery['id']}/files/2", headers=self.headers).status_code, 404)
+
     def test_staff_review_preserves_versions_and_protects_the_file(self):
+        """Mantém o histórico das versões e restringe arquivo e avaliação à equipe."""
         translator, translator_headers = self.translator_session()
         service_id = self.create_service(translator['id'])
         endpoint = f'/services/{service_id}/deliveries'
@@ -295,11 +341,12 @@ class RequestsTests(unittest.TestCase):
             json={'decision': 'approve'},
         )
         self.assertEqual(approval.status_code, 200)
-        self.assertEqual(approval.json()['status'], 'Pronta')
+        self.assertEqual(approval.json()['status'], 'Entregue')
         history = self.client.get('/deliveries', headers=self.headers).json()
-        self.assertEqual([(item['version'], item['status']) for item in history], [(2, 'Pronta'), (1, 'Revisão solicitada')])
+        self.assertEqual([(item['version'], item['status']) for item in history], [(2, 'Entregue'), (1, 'Revisão solicitada')])
 
-    def test_complete_flow_secures_decision_assignment_revision_and_final_delivery(self):
+    def test_complete_flow_secures_decision_assignment_revision_and_approval(self):
+        """Percorre o fluxo completo e finaliza o serviço diretamente na aprovação."""
         translator, translator_headers = self.translator_session()
         with requests_api.database() as connection:
             connection.execute(
@@ -317,6 +364,7 @@ class RequestsTests(unittest.TestCase):
         sent_token = {}
 
         def capture_quote(data, token):
+            """Guarda o token que seria enviado por e-mail para simular a resposta do cliente."""
             sent_token['value'] = token
 
         with patch.object(requests_api, 'deliver_quote', side_effect=capture_quote):
@@ -386,23 +434,21 @@ class RequestsTests(unittest.TestCase):
             json={'decision': 'approve'},
         )
         self.assertEqual(approval.status_code, 200)
-        self.assertEqual(approval.json()['status'], 'Pronta')
-        self.assertEqual(self.client.post(f'/tasks/{task_id}/send-final', headers=self.headers).status_code, 503)
-        with patch.object(requests_api, 'deliver_final') as final_delivery:
-            delivered = self.client.post(f'/tasks/{task_id}/send-final', headers=self.headers)
-        self.assertEqual(delivered.status_code, 200)
-        self.assertEqual(delivered.json()['status'], 'Entregue')
-        final_delivery.assert_called_once()
-        self.assertEqual(self.client.post(f'/tasks/{task_id}/send-final', headers=self.headers).status_code, 409)
+        self.assertEqual(approval.json()['status'], 'Entregue')
+        completed_task = self.client.get(f'/tasks/{task_id}', headers=translator_headers).json()
+        self.assertEqual(completed_task['status'], 'Entregue')
+        self.assertTrue(completed_task['deliveredAt'])
+        self.assertEqual(self.client.post(f'/tasks/{task_id}/send-final', headers=self.headers).status_code, 404)
         request_detail = self.client.get(f'/requests/{request_id}', headers=self.headers).json()
         self.assertEqual(request_detail['status'], 'Entregue')
         statuses = [event['status'] for event in request_detail['history']]
         for expected in ('Recebido', 'Em análise', 'Orçamento enviado', 'Orçamento aprovado', 'Tradutor atribuído',
-                         'Em andamento', 'Aguardando avaliação', 'Revisão solicitada', 'Pronta', 'Entregue'):
+                         'Em andamento', 'Aguardando avaliação', 'Revisão solicitada', 'Entregue'):
             self.assertIn(expected, statuses)
 
 
     def test_auto_approve_quote_skips_email_for_local_workflow(self):
+        """No modo local, aprova a proposta sem chamar o serviço de e-mail."""
         request_id = self.create()
         self.save_quote(request_id)
 

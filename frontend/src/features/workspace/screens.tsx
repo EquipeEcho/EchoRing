@@ -6,7 +6,7 @@ import { Badge, Button, EmptyState, PageHeading, Txt, common } from '@/component
 import { useInbox } from '@/features/requests/inbox';
 import { colors } from '@/constants/design';
 import { matchesSearch, statusTone, useWorkspace, type Project, type Task } from './data';
-import { modules, modulesFor } from '@/components/layout/workspace-shell';
+import { mobileMoreModulesFor, modules } from '@/components/layout/workspace-shell';
 import { useSession } from '@/features/auth/session';
 
 function Page({ children }: { children: React.ReactNode }) {
@@ -127,8 +127,10 @@ export function TasksScreen() {
 
 export function MoreScreen() {
   const { session } = useSession();
+  const items = mobileMoreModulesFor(session?.role ?? 'translator');
   return <Page><PageHeading title="Mais" subtitle="Áreas da Aliança Traduções" />
-    {modulesFor(session?.role ?? 'translator').filter(item => !['/dashboard', '/operacao', '/entregas', '/solicitacoes'].includes(item.href)).map(item => <Pressable key={item.href} accessibilityRole="button" onPress={() => router.push(item.href as Href)} style={s.moduleRow}><View style={s.moduleIcon}><item.icon size={22} color={colors.accent} /></View><View style={{ flex: 1, gap: 4 }}><Txt style={{ fontWeight: '600' }}>{item.title}</Txt><Txt style={common.caption}>{item.description}</Txt></View><ChevronRight size={18} color={colors.muted} /></Pressable>)}
+    {items.map(item => <Pressable key={item.href} accessibilityRole="button" accessibilityLabel={item.title} onPress={() => router.push(item.href as Href)} style={s.moduleRow}><View style={s.moduleIcon}><item.icon size={22} color={colors.accent} /></View><View style={{ flex: 1, minWidth: 0, gap: 4 }}><Txt style={{ fontWeight: '600' }}>{item.title}</Txt><Txt style={common.caption}>{item.description}</Txt></View><ChevronRight size={18} color={colors.muted} /></Pressable>)}
+    {!items.length && <EmptyState icon={Inbox} title="Tudo à mão" text="As áreas disponíveis para esta conta já estão na navegação principal." />}
   </Page>;
 }
 
@@ -186,8 +188,8 @@ const s = StyleSheet.create({
   viewAll: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-start' },
   viewAllText: { fontSize: 14, lineHeight: 20, color: colors.accent, fontWeight: '600' },
   tasksSection: { width: 330, paddingHorizontal: 22, paddingVertical: 18, borderLeftWidth: 1, borderLeftColor: colors.line },
-  task: { flexDirection: 'row', gap: 11, paddingVertical: 17, paddingHorizontal: 2, borderBottomWidth: 1, borderBottomColor: colors.line, alignItems: 'flex-start', minHeight: 72 },
-  checkbox: { marginTop: 2, width: 23, height: 23, borderWidth: 1, borderColor: colors.muted, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  task: { flexDirection: 'row', gap: 14, paddingVertical: 18, paddingHorizontal: 18, borderBottomWidth: 1, borderBottomColor: colors.line, alignItems: 'flex-start', minHeight: 76 },
+  checkbox: { marginTop: 1, width: 24, height: 24, borderWidth: 1, borderColor: '#777780', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   checked: { backgroundColor: colors.accent, borderColor: colors.accent },
   taskTitle: { fontSize: 15, lineHeight: 22, fontWeight: '500' },
   taskMeta: { fontSize: 13, color: colors.muted, lineHeight: 19 },

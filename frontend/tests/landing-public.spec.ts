@@ -8,7 +8,7 @@ test('landing is public, responsive and respects reduced motion', async ({ page 
   await expect(page.getByTestId('landing-hero-globe')).toBeVisible();
 
   const viewports = testInfo.project.name === 'mobile'
-    ? [{ width: 320, height: 740 }, { width: 390, height: 844 }]
+    ? [{ width: 320, height: 568 }, { width: 320, height: 740 }, { width: 390, height: 844 }]
     : [{ width: 768, height: 900 }, { width: 1024, height: 768 }, { width: 1440, height: 1000 }];
 
   for (const viewport of viewports) {

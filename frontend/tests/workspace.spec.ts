@@ -52,7 +52,7 @@ test('demo session survives reload and sign out protects private routes', async 
   await expect(page).toHaveURL(/login/);
 });
 
-test('translator session only exposes translator workspace areas', async ({ page }) => {
+test('translator session only exposes translator workspace areas', async ({ page }, testInfo) => {
   await page.addInitScript(() => {
     sessionStorage.setItem('echoring.auth-session.v2', JSON.stringify({
       name: 'Marina Costa', email: 'marina@example.test', role: 'translator', demo: false,
@@ -67,6 +67,11 @@ test('translator session only exposes translator workspace areas', async ({ page
   await expect(page.getByRole('button', { name: 'Pedidos', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Abrir meu perfil' }).click();
   await expect(page.getByText('Tradutor · Conta autenticada')).toBeVisible();
+  await page.getByRole('button', { name: 'Fechar', exact: true }).click();
+  if (testInfo.project.name === 'mobile') await page.getByRole('button', { name: 'Mais', exact: true }).click();
+  else await page.goto('/mais');
+  await expect(page.getByRole('heading', { name: 'Mais', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Entregas', exact: true })).toBeVisible();
   await page.goto('/solicitacoes');
   await expect(page).toHaveURL(/dashboard/);
   await page.goto('/usuarios');
@@ -131,6 +136,11 @@ test('project details, new request and status filters work', async ({ page }) =>
 
 test('tasks, search, mobile navigation and notifications are usable', async ({ page }, testInfo) => {
   await enterDemo(page);
+  if (testInfo.project.name === 'mobile') {
+    await expect(page.getByTestId('workspace-bottom-tab')).toHaveCount(4);
+    await expect(page.getByTestId('workspace-bottom-nav')).toContainText('InícioOperaçãoTarefasMais');
+  }
+  await expect(page.getByRole('checkbox', { name: 'Conferir documentos recebidos' })).toHaveAttribute('aria-checked', 'true');
   const task = page.getByRole('checkbox', { name: 'Revisar contrato traduzido' });
   await task.click();
   await expect(task).toHaveAttribute('aria-checked', 'true');

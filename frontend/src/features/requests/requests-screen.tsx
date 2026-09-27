@@ -15,6 +15,7 @@ export function RequestsScreen() {
   const { session } = useSession();
   const token = session?.token;
   const { requests, loading, error: loadError, refresh } = useInbox();
+  const [view, setView] = useState<'active' | 'completed'>('active');
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<TranslationRequest | null>(null);
@@ -27,7 +28,14 @@ export function RequestsScreen() {
   const [assignment, setAssignment] = useState({ translatorId: '', deadline: '', observations: '' });
   const locked = !!selected && !['Recebido', 'Em análise'].includes(selected.status);
   const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const visible = requests.filter(item => (filter === 'Todos' || item.status === filter) && normalize(item.title + item.name + item.email + item.id).includes(normalize(search)));
+  const completedStatuses = ['Pronta', 'Entregue', 'Orçamento recusado'];
+  const activeRequests = requests.filter(item => !completedStatuses.includes(item.status));
+  const completedRequests = requests.filter(item => completedStatuses.includes(item.status));
+  const scopedRequests = view === 'active' ? activeRequests : completedRequests;
+  const visible = scopedRequests.filter(item => (filter === 'Todos' || item.status === filter) && normalize(item.title + item.name + item.email + item.id).includes(normalize(search)));
+  const statusFilters = view === 'completed'
+    ? ['Todos', 'Pronta', 'Entregue', 'Orçamento recusado']
+    : ['Todos', 'Recebido', 'Em análise', token ? 'Orçamento enviado' : 'Orçamento simulado', ...(token ? ['Orçamento aprovado', 'Tradutor atribuído', 'Aguardando avaliação'] : [])];
   async function open(request: TranslationRequest) {
     setError(''); setNotice(''); setBusy(true);
     try {
@@ -64,7 +72,17 @@ export function RequestsScreen() {
     setBusy(true); setError('');
     try {
       const result = token ? await sendQuote(selected.id, token) : await updateRequest(selected.id, { status: 'Orçamento simulado' });
-      setSelected(result); setConfirm(false); setNotice(result.autoApproved ? 'Orçamento aprovado automaticamente para teste. Nenhum e-mail foi enviado.' : token ? 'Orçamento aceito pelo provedor de e-mail para envio ao cliente.' : 'Envio simulado. Nenhum e-mail foi enviado ao cliente.'); await refresh();
+      let available: TranslatorOption[] = [];
+      let translatorError = '';
+      if (token && result.status === 'Orçamento aprovado') {
+        try { available = await getTranslators(token); }
+        catch (failure) { translatorError = `O orçamento foi aprovado, mas não foi possível carregar os tradutores: ${(failure as Error).message}`; }
+      }
+      setSelected(result); setTranslators(available); setConfirm(false);
+      setAssignment(current => ({ ...current, translatorId: '', deadline: result.quote?.delivery || result.deadline || current.deadline }));
+      setNotice(result.autoApproved ? 'Orçamento aprovado automaticamente para teste. Nenhum e-mail foi enviado.' : token ? 'Orçamento aceito pelo provedor de e-mail para envio ao cliente.' : 'Envio simulado. Nenhum e-mail foi enviado ao cliente.');
+      if (translatorError) setError(translatorError);
+      await refresh();
     } catch (failure) { setConfirm(false); setError((failure as Error).message); }
     finally { setBusy(false); }
   }
@@ -83,8 +101,9 @@ export function RequestsScreen() {
   return <ScrollView contentContainerStyle={[s.page, width < 700 && { padding: 20 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}>
     <PageHeading title="Solicitações" subtitle="Da primeira mensagem ao orçamento. Tudo começa aqui." action={<Button variant="secondary" icon={RefreshCw} loading={loading} onPress={() => void refresh()}>Atualizar</Button>} />
     <View style={[s.summary, width < 700 && s.summarySmall]}><View style={s.summaryCount}><Txt style={s.summaryNumber}>{requests.filter(item => item.status === 'Recebido').length}</Txt><View><Txt style={s.summaryLabel}>AGUARDANDO ANÁLISE</Txt><Txt style={s.summaryTitle}>Novos pedidos do site</Txt></View></View><View style={s.summaryNote}><Inbox size={19} color={colors.accent} /><Txt style={[common.caption, { flex: 1 }]}>{token ? 'Sincronização automática a cada 30 segundos.' : 'Prévia local deste navegador.'}</Txt></View></View>
-    <View style={[s.toolbar, width < 900 && s.toolbarSmall]}><View style={[s.search, width < 700 && { width: '100%' }]}><Search size={18} color={colors.muted} /><TextInput accessibilityLabel="Buscar solicitações" placeholder="Nome, projeto, e-mail ou protocolo" placeholderTextColor={colors.muted} value={search} onChangeText={setSearch} style={s.searchInput} /></View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} showsVerticalScrollIndicator={false} contentContainerStyle={s.filters}>{['Todos', 'Recebido', 'Em análise', token ? 'Orçamento enviado' : 'Orçamento simulado', ...(token ? ['Orçamento aprovado', 'Tradutor atribuído', 'Aguardando avaliação', 'Pronta', 'Entregue'] : [])].map(value => <Pressable key={value} accessibilityRole="tab" aria-selected={filter === value} accessibilityState={{ selected: filter === value }} onPress={() => setFilter(value)} style={[s.filter, filter === value && s.filterActive]}><Txt style={[s.filterText, filter === value && s.filterTextActive]}>{value}</Txt></Pressable>)}</ScrollView>
+    <View style={s.flowTabs}><Pressable accessibilityRole="tab" aria-selected={view === 'active'} accessibilityState={{ selected: view === 'active' }} onPress={() => { setView('active'); setFilter('Todos'); }} style={[s.flowTab, view === 'active' && s.flowTabActive]}><Txt style={[s.flowTabText, view === 'active' && s.flowTabTextActive]}>Em andamento ({activeRequests.length})</Txt></Pressable><Pressable accessibilityRole="tab" aria-selected={view === 'completed'} accessibilityState={{ selected: view === 'completed' }} onPress={() => { setView('completed'); setFilter('Todos'); }} style={[s.flowTab, view === 'completed' && s.flowTabActive]}><Txt style={[s.flowTabText, view === 'completed' && s.flowTabTextActive]}>Concluídas ({completedRequests.length})</Txt></Pressable></View>
+    <View style={[s.toolbar, width < 900 && s.toolbarSmall]}><View testID="search-field" style={[s.search, width < 700 && { width: '100%' }]}><Search size={18} color={colors.muted} /><TextInput accessibilityLabel="Buscar solicitações" placeholder="Nome, projeto, e-mail ou protocolo" placeholderTextColor={colors.muted} value={search} onChangeText={setSearch} style={s.searchInput} /></View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} showsVerticalScrollIndicator={false} contentContainerStyle={s.filters}>{statusFilters.map(value => <Pressable key={value} accessibilityRole="tab" aria-selected={filter === value} accessibilityState={{ selected: filter === value }} onPress={() => setFilter(value)} style={[s.filter, filter === value && s.filterActive]}><Txt style={[s.filterText, filter === value && s.filterTextActive]}>{value}</Txt></Pressable>)}</ScrollView>
     </View>
     {!!loadError && <View style={s.errorBox}><Txt accessibilityRole="alert" style={{ color: colors.red }}>{loadError}</Txt><Txt style={common.caption}>Os pedidos não foram atualizados. Confira a conexão ou entre novamente se a sessão expirou.</Txt></View>}
     {!!error && !selected && <Txt accessibilityRole="alert" style={s.error}>{error}</Txt>}
@@ -94,7 +113,7 @@ export function RequestsScreen() {
         <View style={[s.requestInfo, width < 700 && s.requestInfoSmall]}><View style={width >= 700 ? s.statusColumn : undefined}><Badge tone={request.status === 'Recebido' ? 'green' : request.status === 'Em análise' ? 'amber' : 'blue'}>{request.status}</Badge></View><Txt style={[common.caption, width >= 700 && s.dateColumn]}>{new Date(request.createdAt).toLocaleDateString('pt-BR')}</Txt><ChevronRight size={17} color={colors.muted} /></View>
       </Pressable>)}
     </View>}
-    {!visible.length && !loading && !loadError && <EmptyState icon={Inbox} title={requests.length ? 'Nenhuma solicitação neste filtro' : 'Sua próxima conexão começa no site'} text={requests.length ? 'Tente outro filtro ou uma nova busca.' : 'Os pedidos enviados pelo formulário de orçamento aparecem aqui para análise da equipe.'} />}
+    {!visible.length && !loading && !loadError && <EmptyState icon={view === 'completed' ? CheckCircle2 : Inbox} title={scopedRequests.length ? 'Nenhuma solicitação neste filtro' : view === 'completed' ? 'Nenhuma solicitação concluída' : 'Sua próxima conexão começa no site'} text={scopedRequests.length ? 'Tente outro filtro ou uma nova busca.' : view === 'completed' ? 'Solicitações entregues ou encerradas ficam organizadas nesta aba.' : 'Os pedidos enviados pelo formulário de orçamento aparecem aqui para análise da equipe.'} />}
     <Dialog open={!!selected} onClose={() => { if (busy) return; if (confirm) setConfirm(false); else close(); }} size="wide" eyebrow={selected?.id} title={confirm ? (token ? 'Revisar e enviar orçamento' : 'Revisar simulação') : 'Detalhes da solicitação'} description={confirm ? 'Confira os dados finais antes de continuar.' : 'Dados recebidos pelo formulário de orçamento.'}>
       {selected && !confirm && <>
         <View style={[s.requestHero, width < 600 && s.requestHeroSmall]}><View style={[s.requestHeroCopy, width < 600 && s.requestHeroCopySmall]}><Badge tone={locked ? 'blue' : selected.status === 'Em análise' ? 'amber' : 'green'}>{selected.status}</Badge><Txt style={[s.detailTitle, width < 600 && s.detailTitleSmall]}>{selected.title}</Txt></View>{selected.status === 'Recebido' && <Button style={width < 600 && s.requestHeroActionSmall} variant="secondary" icon={CheckCircle2} loading={busy} onPress={() => void analyze()}>Iniciar análise</Button>}</View>
@@ -137,6 +156,7 @@ const s = StyleSheet.create({
   page: { padding: 40, flexGrow: 1 },
   summary: { minHeight: 126, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 24, paddingHorizontal: 26, paddingVertical: 22, marginBottom: 24, backgroundColor: '#0D0D0F', borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.line }, summarySmall: { alignItems: 'flex-start', flexDirection: 'column', gap: 16 },
   summaryCount: { flexDirection: 'row', alignItems: 'center', gap: 18 }, summaryNumber: { minWidth: 48, fontSize: 48, lineHeight: 54, fontWeight: '700', letterSpacing: -2, color: colors.accent }, summaryLabel: { fontSize: 10, lineHeight: 16, letterSpacing: 2, color: colors.muted, fontWeight: '600' }, summaryTitle: { fontSize: 19, lineHeight: 27, fontWeight: '600' }, summaryNote: { maxWidth: 330, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  flowTabs: { flexDirection: 'row', gap: 4, borderBottomWidth: 1, borderBottomColor: colors.line }, flowTab: { minHeight: 46, justifyContent: 'center', paddingHorizontal: 17, borderBottomWidth: 2, borderBottomColor: 'transparent' }, flowTabActive: { borderBottomColor: colors.accent }, flowTabText: { fontSize: 14, color: colors.muted }, flowTabTextActive: { color: colors.accent, fontWeight: '600' },
   toolbar: { minHeight: 68, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 20, marginBottom: 12 }, toolbarSmall: { alignItems: 'stretch', flexDirection: 'column', gap: 4 },
   search: { width: 380, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: '#48484F' }, searchInput: { flex: 1, minWidth: 0, minHeight: 48, fontFamily: font, fontSize: 14, color: colors.ink, outlineWidth: 0 }, filters: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8 }, filter: { minHeight: 38, justifyContent: 'center', borderRadius: 10, paddingHorizontal: 13 }, filterActive: { backgroundColor: colors.accentSoft }, filterText: { fontSize: 13, color: colors.muted }, filterTextActive: { color: colors.accent, fontWeight: '600' },
   requestList: { backgroundColor: colors.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.line }, tableHead: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 18, paddingHorizontal: 20, backgroundColor: '#0B0B0D', borderBottomWidth: 1, borderBottomColor: colors.line }, columnLabel: { fontSize: 10, lineHeight: 16, letterSpacing: 1.4, color: colors.muted, fontWeight: '600' }, statusColumn: { width: 160 }, dateColumn: { width: 90 },

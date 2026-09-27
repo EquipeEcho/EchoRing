@@ -51,7 +51,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       })));
       setTasks(services.map(service => ({
         id: service.id, realTaskId: service.id, title: service.title, project: service.id,
-        due: service.deadline || 'A definir', done: service.status === 'Entregue',
+        due: service.deadline || 'A definir', done: ['Pronta', 'Entregue'].includes(service.status),
       })));
     }).catch(() => { if (active) { setProjects([]); setTasks([]); } });
     return () => { active = false; };
