@@ -1,0 +1,4 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
+  "typescript.tsdk": "frontend/node_modules/typescript/lib"
+}
