@@ -1,5 +1,8 @@
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import Constants from 'expo-constants';
+import * as DocumentPicker from 'expo-document-picker';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 export type Attachment = { name: string; size: number; content: string };
 export type WorkflowEvent = { status: string; note: string; actorName: string; createdAt: string };
@@ -35,6 +38,19 @@ function resolveBaseURL() {
 
 const baseURL = resolveBaseURL();
 const storageKey = 'echoring.translation-requests.v1';
+const allowedAttachment = /\.(pdf|docx|txt)$/i;
+const maxAttachmentBytes = 2 * 1024 * 1024;
+const maxAttachmentsTotal = 5 * 1024 * 1024;
+
+function validateAttachments(files: { name: string; size?: number }[]) {
+  if (files.length > 3 || files.some(file => file.size !== undefined && file.size > maxAttachmentBytes)
+    || files.reduce((sum, file) => sum + (file.size || 0), 0) > maxAttachmentsTotal) {
+    throw new Error('Anexe até 3 arquivos, com até 2 MB cada e 5 MB no total.');
+  }
+  if (files.some(file => !allowedAttachment.test(file.name) || file.size === 0)) {
+    throw new Error('Escolha documentos PDF, DOCX ou TXT não vazios.');
+  }
+}
 
 export async function api<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
   const controller = new AbortController();
@@ -120,7 +136,22 @@ export function money(value: string) {
   return Number(value.replace(',', '.')).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 export async function selectDocuments(): Promise<Attachment[]> {
-  if (Platform.OS !== 'web') throw new Error('Abra o site no navegador para anexar documentos.');
+  if (Platform.OS !== 'web') {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'],
+      copyToCacheDirectory: Platform.OS !== 'android',
+      multiple: true,
+    });
+    if (result.canceled) return [];
+    validateAttachments(result.assets);
+    const attachments = await Promise.all(result.assets.map(async asset => {
+      const content = await new File(asset.uri).base64();
+      const padding = content.endsWith('==') ? 2 : content.endsWith('=') ? 1 : 0;
+      return { name: asset.name, size: Math.floor(content.length * 3 / 4) - padding, content };
+    }));
+    validateAttachments(attachments);
+    return attachments;
+  }
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = '.pdf,.docx,.txt'; input.multiple = true;
@@ -128,8 +159,7 @@ export async function selectDocuments(): Promise<Attachment[]> {
     input.onchange = async () => {
       try {
         const files = [...(input.files || [])];
-        if (files.length > 3 || files.some(file => file.size > 2 * 1024 * 1024) || files.reduce((sum, file) => sum + file.size, 0) > 5 * 1024 * 1024) throw new Error('Anexe até 3 arquivos, com até 2 MB cada e 5 MB no total.');
-        if (files.some(file => !/\.(pdf|docx|txt)$/i.test(file.name) || !file.size)) throw new Error('Escolha documentos PDF, DOCX ou TXT não vazios.');
+        validateAttachments(files);
         const attachments = await Promise.all(files.map(file => new Promise<Attachment>((ok, fail) => {
           const reader = new FileReader();
           reader.onerror = () => fail(new Error('Não foi possível ler o documento.'));
@@ -142,16 +172,52 @@ export async function selectDocuments(): Promise<Attachment[]> {
     input.click();
   });
 }
-export function downloadDocument(file: Attachment) {
-  if (Platform.OS !== 'web') return;
+function safeDownloadName(name: string) {
+  return name.split(/[\\/]/).pop()?.replace(/[<>:"|?*\u0000-\u001F]/g, '_').trim() || 'documento';
+}
+
+function mediaTypeFor(name: string) {
+  const extension = name.split('.').pop()?.toLowerCase();
+  if (extension === 'pdf') return 'application/pdf';
+  if (extension === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (extension === 'txt') return 'text/plain';
+  return 'application/octet-stream';
+}
+
+async function shareNativeFile(name: string, content: Uint8Array | string) {
+  const safeName = safeDownloadName(name);
+  const localFile = new File(Paths.cache, `${Date.now()}-${safeName}`);
+  if (typeof content === 'string') localFile.write(content, { encoding: 'base64' });
+  else localFile.write(content);
+  await Sharing.shareAsync(localFile.uri, { mimeType: mediaTypeFor(safeName), dialogTitle: `Salvar ${safeName}` });
+}
+
+export async function downloadDocument(file: Attachment) {
+  if (Platform.OS !== 'web') {
+    try { await shareNativeFile(file.name, file.content); }
+    catch (failure) { Alert.alert('Não foi possível baixar', (failure as Error).message); }
+    return;
+  }
   const bytes = Uint8Array.from(atob(file.content), char => char.charCodeAt(0));
-  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }));
+  const url = URL.createObjectURL(new Blob([bytes], { type: mediaTypeFor(file.name) }));
   const link = document.createElement('a'); link.href = url; link.download = file.name; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export async function downloadProtectedDocument(path: string, name: string, token: string) {
-  if (Platform.OS !== 'web') throw new Error('O download protegido está disponível no portal web.');
-  const url = URL.createObjectURL(await apiFile(path, token));
-  const link = document.createElement('a'); link.href = url; link.download = name; link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  if (Platform.OS === 'web') {
+    const url = URL.createObjectURL(await apiFile(path, token));
+    const link = document.createElement('a'); link.href = url; link.download = name; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return;
+  }
+  try {
+    const response = await fetch(baseURL + path, { headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(typeof body?.detail === 'string' ? body.detail : 'Não foi possível baixar o documento.');
+    }
+    await shareNativeFile(name, new Uint8Array(await response.arrayBuffer()));
+  } catch (failure) {
+    Alert.alert('Não foi possível baixar', (failure as Error).message);
+  }
 }

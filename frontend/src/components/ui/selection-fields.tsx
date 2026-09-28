@@ -42,7 +42,7 @@ export function OptionSelectField({
         <ChevronDown size={18} color={invalid ? colors.red : colors.muted} />
       </Pressable>
     </View>
-    <Dialog open={open} onClose={() => setOpen(false)} size="compact" eyebrow="SELEÇÃO" title={dialogTitle} description={description}>
+    <Dialog open={open} onClose={() => setOpen(false)} size="compact" mobileSheet eyebrow="SELEÇÃO" title={dialogTitle} description={description}>
       <View style={s.optionList}>{options.map(option => {
         const selected = value === option;
         return <Pressable
@@ -119,7 +119,7 @@ export function DateSelectField({ label, value, onChange, disabled, invalid, com
         <CalendarDays size={18} color={invalid ? colors.red : colors.accent} />
       </Pressable>
     </View>
-    <Dialog open={open} onClose={() => setOpen(false)} size="compact" eyebrow="CALENDÁRIO" title="Escolha o prazo" description="Selecione a data desejada para receber o projeto.">
+    <Dialog open={open} onClose={() => setOpen(false)} size="compact" mobileSheet eyebrow="CALENDÁRIO" title="Escolha o prazo" description="Selecione a data desejada para receber o projeto.">
       <View style={s.calendarHeader}>
         <Pressable accessibilityRole="button" accessibilityLabel="Mês anterior" disabled={!canGoBack} onPress={() => setMonth(current => new Date(current.getFullYear(), current.getMonth() - 1, 1, 12))} style={[s.monthButton, !canGoBack && { opacity: 0.3 }]}><ChevronLeft size={19} color={colors.ink} /></Pressable>
         <Txt style={s.monthTitle}>{month.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</Txt>

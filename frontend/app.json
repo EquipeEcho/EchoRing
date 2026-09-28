@@ -31,7 +31,8 @@
           "image": "./assets/images/echoring-mark.png",
           "imageWidth": 118
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

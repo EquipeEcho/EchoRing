@@ -58,7 +58,9 @@ export async function uploadTranslation(serviceId: string, assets: DocumentPicke
       body.append('files', asset.file, asset.name);
     } else {
       body.append('files', {
-        uri: asset.uri, name: asset.name, type: asset.mimeType || 'application/octet-stream',
+        uri: asset.uri,
+        name: asset.name,
+        type: asset.mimeType || 'application/octet-stream',
       } as unknown as Blob);
     }
   }
