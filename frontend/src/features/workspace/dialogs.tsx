@@ -25,7 +25,7 @@ export function WorkspaceDialogs() {
     addRequest({ title: title.trim(), client: client.trim(), languages: `${source} → ${target}` });
   }
   return <>
-    <Dialog open={!!selected} onClose={() => setSelected(null)} eyebrow={selected?.id} title="Detalhes do projeto" description="Acompanhamento operacional e responsáveis.">
+    <Dialog open={!!selected} onClose={() => setSelected(null)} mobileSheet eyebrow={selected?.id} title="Detalhes do projeto" description="Acompanhamento operacional e responsáveis.">
       {selected && <>
         <View style={s.projectHero}><View style={s.projectIcon}><FileText size={25} color={colors.accent} /></View><View style={{ flex: 1, minWidth: 0, gap: 7 }}><Txt style={s.projectTitle}>{selected.title}</Txt><Badge tone={statusTone[selected.status]}>{selected.status}</Badge></View></View>
         <View style={s.detailGrid}>{[['Cliente', selected.client], ['Idiomas', selected.languages], ['Responsável', selected.owner], ['Prazo', selected.deadline]].map(([label, value]) => <View key={label} style={s.detailCell}><Txt style={s.detailLabel}>{label}</Txt><Txt style={s.detailValue}>{value}</Txt></View>)}</View>
@@ -34,7 +34,7 @@ export function WorkspaceDialogs() {
         <View style={s.footerActions}><Button variant="secondary" onPress={() => setSelected(null)}>Fechar detalhes</Button></View>
       </>}
     </Dialog>
-    <Dialog open={newRequest} onClose={() => setNewRequest(false)} eyebrow="REGISTRO INTERNO" title="Nova requisição" description="Crie uma entrada rápida para iniciar o fluxo operacional.">
+    <Dialog open={newRequest} onClose={() => setNewRequest(false)} mobileSheet eyebrow="REGISTRO INTERNO" title="Nova requisição" description="Crie uma entrada rápida para iniciar o fluxo operacional.">
       <View style={s.formIntro}><View style={s.formIntroIcon}><Plus size={21} color={colors.amber} /></View><View style={{ flex: 1, gap: 4 }}><Badge tone="amber">Demonstração</Badge><Txt style={common.caption}>O registro ficará disponível apenas durante esta sessão e não será enviado à empresa.</Txt></View></View>
       <View style={s.formFields}>{[{ number: '01', label: 'Título do projeto', value: title, set: setTitle, placeholder: 'Ex.: Tradução de contrato' }, { number: '02', label: 'Cliente', value: client, set: setClient, placeholder: 'Nome do cliente ou empresa' }].map(field => <View key={field.label} style={s.field}><View style={s.fieldHeading}><Txt style={s.fieldNumber}>{field.number}</Txt><Txt style={s.label}>{field.label}</Txt></View><TextInput accessibilityLabel={field.label} style={s.input} placeholder={field.placeholder} placeholderTextColor={colors.muted} value={field.value} onChangeText={field.set} maxLength={120} /></View>)}
         <View style={s.languageFields}><OptionSelectField prefix="03" label="Idioma de origem" value={source} onChange={setSource} options={languageOptions} dialogTitle="Idioma de origem" description="Selecione o idioma atual do material." /><OptionSelectField prefix="04" label="Idioma de destino" value={target} onChange={setTarget} options={languageOptions} dialogTitle="Idioma de destino" description="Selecione o idioma da entrega." /></View>

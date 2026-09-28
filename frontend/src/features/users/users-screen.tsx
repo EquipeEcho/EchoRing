@@ -111,7 +111,7 @@ export function UsersScreen() {
         <View style={s.directoryFooter}><ShieldCheck size={16} color={colors.muted} /><Txt style={common.caption}>Apenas administradores gerais podem criar novos acessos.</Txt></View>
       </View>}
     </View>
-    <Dialog open={open} onClose={() => { if (!busy) setOpen(false); }} eyebrow="GESTÃO DE ACESSOS" title="Adicionar usuário" description="Crie as credenciais iniciais e defina as permissões.">
+    <Dialog open={open} onClose={() => { if (!busy) setOpen(false); }} mobileSheet eyebrow="GESTÃO DE ACESSOS" title="Adicionar usuário" description="Crie as credenciais iniciais e defina as permissões.">
       <Txt style={common.caption}>A pessoa usará o e-mail e a senha inicial para entrar. O perfil determina as áreas disponíveis.</Txt>
       <Field label="Nome completo" value={data.name} onChange={value => change('name', value)} placeholder="Ex.: Marina Costa" />
       <Field label="E-mail" value={data.email} onChange={value => change('email', value)} placeholder="nome@empresa.com" />
