@@ -33,19 +33,20 @@ Validado ao final de cada história, antes da Sprint Review:
 | Critério                                 |  US01   |   US02  |   US03  |  US04   |    US05 |    US06 |    US07 | US08    | US09    |
 | ---------------------------------------- | :-----: | :-----: | :-----: | :-----: | :-----: | :-----: | :-----: | :-----: | :-----: |
 | Código implementado e funcional          |         |         |         |         |         |         |         |         |         |  
-|PR aprovado por ao menos 1 membro         |         |         |         |         |         |         |         |         |         |    
-| Sem conflitos com `develop`              |         |         |         |         |         |         |         |         |         |                                
-| Testado (fluxo feliz e cenários de erro) |         |         |         |         |         |         |         |         |         |                           
-| Lógica de negócio validada no back-end  |         |         |         |         |         |         |         |         |         |                        
-| Dados persistidos no PostgreSQL       |         |         |         |         |         |         |         |         |         |                             
-| Sem exposição de dados sensíveis       |         |         |         |         |         |         |         |         |         |                            
-| Critérios de aceite verificados pelo PO  |         |         |         |         |         |         |         |         |         |                       
-| Branch de feature excluída após merge   |         |         |         |         |         |         |         |         |         |                           
+|PR aprovado por ao menos 1 membro         |    ✅     |     ✅   |      ✅   |        ✅ |    ✅     |     ✅    |     ✅    |     ✅    |    ✅     |    
+| Sem conflitos com `develop`              |    ✅     |    ✅     |    ✅     |    ✅     |    ✅    |     ✅    |      ✅   |      ✅   |    ✅     |                                
+| Testado (fluxo feliz e cenários de erro) |     ✅    |    ✅     |      ✅   |      ✅   |      ✅   |     ✅    |    ✅     |    ✅     |    ✅     |                           
+| Lógica de negócio validada no back-end  |    ✅     |     ✅    |     ✅    |     ✅    |     ✅    |     ✅    |    ✅     |    ✅     |    ✅     |                        
+| Dados persistidos no PostgreSQL       |   ✅      |    ✅     |    ✅     |    ✅    |      ✅   |     ✅    |    ✅     |   ✅      |  ✅       |                             
+| Sem exposição de dados sensíveis       |    ✅     |    ✅     |     ✅    |      ✅   |      ✅   |      ✅   |      ✅   |      ✅   |      ✅   |                            
+| Critérios de aceite verificados pelo PO  |    ✅     |     ✅    |      ✅   |      ✅   |      ✅   |    ✅     |   ✅      |  ✅       |     ✅    |                       
+| Branch de feature excluída após merge   |   ✅      |     ✅    |     ✅    |     ✅    |    ✅     |   ✅      |     ✅    |    ✅     |    ✅     |                           
 
 
 ## Resultado da Sprint
 
 **Histórias entregues (DoD completo):
+ US01, US02, US03, US04, US05, US06, US07, US08 e US09
 
 **Histórias não entregues:**  
  
