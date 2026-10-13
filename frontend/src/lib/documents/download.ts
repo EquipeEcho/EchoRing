@@ -35,35 +35,45 @@ async function shareNativeFile(name: string, content: Uint8Array | string) {
   });
 }
 
-export async function downloadDocument(file: Attachment) {
-  if (Platform.OS !== 'web') {
-    try {
-      await shareNativeFile(file.name, file.content);
-    } catch (failure) {
-      Alert.alert('Não foi possível baixar', (failure as Error).message);
-    }
-    return;
+function saveWebFile(content: Blob, name: string) {
+  const url = URL.createObjectURL(content);
+  try {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = safeDownloadName(name);
+    link.click();
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  const bytes = Uint8Array.from(atob(file.content), (char) => char.charCodeAt(0));
-  const url = URL.createObjectURL(new Blob([bytes], { type: mediaTypeFor(file.name) }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = file.name;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function reportDownloadError(failure: unknown) {
+  const message = failure instanceof TypeError
+    ? 'Não foi possível conectar. Verifique sua conexão e tente novamente.'
+    : failure instanceof Error ? failure.message : 'Tente novamente em instantes.';
+  if (Platform.OS === 'web') window.alert(`Não foi possível baixar\n\n${message}`);
+  else Alert.alert('Não foi possível baixar', message);
+}
+
+export async function downloadDocument(file: Attachment) {
+  try {
+    if (Platform.OS === 'web') {
+      const bytes = Uint8Array.from(atob(file.content), (char) => char.charCodeAt(0));
+      saveWebFile(new Blob([bytes], { type: mediaTypeFor(file.name) }), file.name);
+    } else {
+      await shareNativeFile(file.name, file.content);
+    }
+  } catch (failure) {
+    reportDownloadError(failure);
+  }
 }
 
 export async function downloadProtectedDocument(path: string, name: string, token: string) {
-  if (Platform.OS === 'web') {
-    const url = URL.createObjectURL(await apiFile(path, token));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = name;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    return;
-  }
   try {
+    if (Platform.OS === 'web') {
+      saveWebFile(await apiFile(path, token), name);
+      return;
+    }
     const response = await fetch(baseURL + path, { headers: { Authorization: `Bearer ${token}` } });
     if (!response.ok) {
       const body = await response.json().catch(() => null);
@@ -73,6 +83,6 @@ export async function downloadProtectedDocument(path: string, name: string, toke
     }
     await shareNativeFile(name, new Uint8Array(await response.arrayBuffer()));
   } catch (failure) {
-    Alert.alert('Não foi possível baixar', (failure as Error).message);
+    reportDownloadError(failure);
   }
 }

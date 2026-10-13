@@ -1,4 +1,5 @@
 import { CheckCircle2, Download, FileCheck2, RefreshCw, RotateCcw } from 'lucide-react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
 
@@ -8,6 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeading } from '@/components/ui/page-heading';
 import { Txt } from '@/components/ui/text';
 import { Messages } from '@/features/deliveries/components/messages';
+import { TaskDetails } from '@/features/deliveries/components/task-details';
 import { TaskFeedback } from '@/features/deliveries/components/task-feedback';
 import { TaskHeader } from '@/features/deliveries/components/task-header';
 import { WorkflowTabs } from '@/features/deliveries/components/workflow-tabs';
@@ -26,16 +28,29 @@ export function StaffReviewsScreen() {
   const common = useCommonStyles();
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
+  const params = useLocalSearchParams<{ task?: string }>();
   const { token, tasks, loading, error, setError, setTasks, refresh, demo } = useTasks();
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState('');
-  const [view, setView] = useState<'review' | 'approved'>('review');
+  const [view, setView] = useState<'auto' | 'active' | 'review' | 'approved'>('auto');
+  const inProgress = tasks.filter((task) => ['Tradutor atribuído', 'Em andamento'].includes(task.status));
   const awaitingReview = tasks.filter((task) =>
     ['Aguardando avaliação', 'Revisão solicitada'].includes(task.status),
   );
   const approved = tasks.filter((task) => ['Pronta', 'Entregue'].includes(task.status));
-  const reviewable = view === 'review' ? awaitingReview : approved;
+  const requestedTask = tasks.find((task) => task.id === params.task);
+  const effectiveView = view === 'auto'
+    ? requestedTask && ['Tradutor atribuído', 'Em andamento'].includes(requestedTask.status)
+      ? 'active'
+      : requestedTask && ['Pronta', 'Entregue'].includes(requestedTask.status)
+        ? 'approved'
+        : 'review'
+    : view;
+  const scoped = effectiveView === 'active' ? inProgress : effectiveView === 'review' ? awaitingReview : approved;
+  const ordered = params.task
+    ? [...scoped].sort((first, second) => Number(second.id === params.task) - Number(first.id === params.task))
+    : scoped;
 
   async function review(task: TranslationService, decision: 'approve' | 'request_revision') {
     const delivery = task.lastDelivery;
@@ -125,17 +140,18 @@ export function StaffReviewsScreen() {
         )}
         <Messages notice={notice} error={error} />
         <WorkflowTabs
-          value={view}
+          value={effectiveView}
           onChange={setView}
           tabs={[
+            { value: 'active', label: 'Em andamento', count: inProgress.length },
             { value: 'review', label: 'Para avaliar', count: awaitingReview.length },
             { value: 'approved', label: 'Finalizadas', count: approved.length },
           ]}
         />
-        {!!reviewable.length && (
+        {!!ordered.length && (
           <View style={styles.queue}>
-            {reviewable.map((task, index) => (
-              <View key={task.id} style={styles.card}>
+            {ordered.map((task, index) => (
+              <View key={task.id} testID={`task-${task.id}`} style={[styles.card, task.id === params.task && styles.highlight]}>
                 <View style={styles.sequence}>
                   <Txt style={styles.sequenceText}>{String(index + 1).padStart(2, '0')}</Txt>
                   <View style={styles.sequenceLine} />
@@ -151,6 +167,14 @@ export function StaffReviewsScreen() {
                     </Txt>
                     <Txt style={common.caption}>Versão {task.lastDelivery?.version || 0}</Txt>
                   </View>
+                  {['Tradutor atribuído', 'Em andamento'].includes(task.status) && <>
+                    <TaskDetails task={task} token={token!} />
+                    <Txt style={common.caption}>
+                      {task.status === 'Tradutor atribuído'
+                        ? 'Aguardando o tradutor iniciar a tradução.'
+                        : 'Tradução em andamento. As versões enviadas aparecerão na aba Para avaliar.'}
+                    </Txt>
+                  </>}
                   {task.lastDelivery && (
                     <View style={styles.deliveryFiles}>
                       {(task.lastDelivery.files?.length
@@ -249,12 +273,14 @@ export function StaffReviewsScreen() {
             ))}
           </View>
         )}
-        {!reviewable.length && !loading && !error && (
+        {!ordered.length && !loading && !error && (
           <EmptyState
             icon={FileCheck2}
-            title={view === 'review' ? 'Nenhuma avaliação pendente' : 'Nenhuma tradução aprovada'}
+            title={effectiveView === 'active' ? 'Nenhuma tradução em andamento' : effectiveView === 'review' ? 'Nenhuma avaliação pendente' : 'Nenhuma tradução aprovada'}
             text={
-              view === 'review'
+              effectiveView === 'active'
+                ? 'As tarefas atribuídas e em tradução aparecerão aqui.'
+                : effectiveView === 'review'
                 ? 'As versões enviadas pelos tradutores aparecerão aqui.'
                 : 'As traduções aprovadas e já entregues ficam organizadas nesta aba.'
             }

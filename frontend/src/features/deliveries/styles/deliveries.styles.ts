@@ -17,6 +17,7 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
   },
   tabs: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 4,
     marginBottom: 20,
     borderBottomWidth: 1,
