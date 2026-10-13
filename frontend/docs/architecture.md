@@ -77,6 +77,7 @@ Crie apenas as pastas necessárias à funcionalidade.
 | Ações do fluxo comercial                          | `src/features/requests/hooks/use-request-workflow.ts` |
 | Traduções e avaliações                            | `src/features/deliveries/screens/`                    |
 | Cadastro e filtros de usuários                    | `src/features/users/hooks/use-user-management.ts`     |
+| Primeiro acesso e cadastro profissional do tradutor | `src/features/translators/`                          |
 | Cores, tipografia e breakpoints                   | `src/theme/tokens.ts`                                 |
 | Requisições HTTP compartilhadas                   | `src/lib/api/client.ts`                               |
 

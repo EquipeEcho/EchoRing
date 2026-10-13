@@ -8,6 +8,7 @@ export type ManagedUser = {
   email: string;
   role: UserRole;
   active: boolean;
+  onboardingRequired?: boolean;
 };
 
 export type NewUser = { name: string; email: string; password: string; role: ManagedRole };

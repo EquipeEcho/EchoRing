@@ -135,7 +135,7 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
   userName: { fontSize: 16, lineHeight: 23, fontWeight: '600' },
   userEmail: { fontSize: 13, lineHeight: 19, color: colors.muted },
   roleColumn: { width: 190, alignItems: 'flex-start' },
-  statusColumn: { width: 100 },
+  statusColumn: { width: 130 },
   mobileMeta: {
     width: '100%',
     flexDirection: 'row',

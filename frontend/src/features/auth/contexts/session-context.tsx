@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 import { demoSession } from '@/features/auth/constants';
 import {
@@ -6,7 +6,7 @@ import {
   storeSession,
   validSession,
 } from '@/features/auth/services/session-storage';
-import { type Session } from '@/features/auth/types';
+import { type Account, type Session } from '@/features/auth/types';
 import { api } from '@/lib/api/client';
 
 const SessionContext = createContext<{
@@ -15,6 +15,7 @@ const SessionContext = createContext<{
   enterDemo: () => void;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => void;
+  updateAccount: (account: Account) => Promise<void>;
 } | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
@@ -58,8 +59,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     await storeSession(authenticated);
     setSession(authenticated);
   }
+  const updateAccount = useCallback(async (account: Account) => {
+    if (!session) return;
+    const updated = { ...session, ...account };
+    if (!validSession(updated)) throw new Error('O servidor retornou uma conta inválida.');
+    await storeSession(updated);
+    setSession(updated);
+  }, [session]);
   return (
-    <SessionContext.Provider value={{ session, ready, enterDemo, signIn, signOut }}>
+    <SessionContext.Provider value={{ session, ready, enterDemo, signIn, signOut, updateAccount }}>
       {children}
     </SessionContext.Provider>
   );

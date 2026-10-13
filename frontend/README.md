@@ -81,7 +81,15 @@ Desktop usa menu lateral; abaixo de 1000 px, a navegacao passa para a barra infe
 flutuante, com abas arredondadas. Login, listas e dialogos compartilham o mesmo tema.
 As listas de projetos passam a apresentar cada registro verticalmente abaixo de 800 px.
 O administrador geral possui a aba **Usuarios** para criar contas de funcionario,
-tradutor e RH. Cadastros, financeiro, relatorios e administracao sao areas previstas, identificadas como
+tradutor e RH. Novos tradutores entram em `/completar-cadastro` no primeiro acesso.
+O formulario exige nome, telefone, localizacao, idiomas e pares de traducao,
+formacao, experiencia e especializacoes. Biografia, servicos, ferramentas,
+certificacoes, portfolio e disponibilidade complementam o perfil opcionalmente.
+O progresso fica na API ao avancar, salvar o rascunho ou escolher **Salvar e sair**,
+permitindo continuar em outra sessao ou dispositivo. O portal e liberado somente
+apos a conclusao validada pelo servidor. Os dados ficam preparados para a futura
+pagina do tradutor. Contas anteriores continuam com o acesso habitual.
+Cadastros, financeiro, relatorios e administracao sao areas previstas, identificadas como
 em preparacao. As demais interacoes implementadas incluem busca, filtros de status,
 detalhes dos projetos, criacao de requisicao demonstrativa, tarefas e notificacoes.
 

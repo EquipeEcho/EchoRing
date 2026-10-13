@@ -214,10 +214,10 @@ export function UsersScreen() {
                       <View
                         style={[
                           styles.statusDot,
-                          { backgroundColor: user.active ? colors.green : colors.red },
+                          { backgroundColor: !user.active ? colors.red : user.onboardingRequired ? colors.amber : colors.green },
                         ]}
                       />
-                      <Txt style={styles.statusText}>{user.active ? 'Ativo' : 'Inativo'}</Txt>
+                      <Txt style={styles.statusText}>{!user.active ? 'Inativo' : user.onboardingRequired ? 'Cadastro pendente' : 'Ativo'}</Txt>
                     </View>
                   )}
                 </View>
@@ -226,10 +226,10 @@ export function UsersScreen() {
                     <View
                       style={[
                         styles.statusDot,
-                        { backgroundColor: user.active ? colors.green : colors.red },
+                        { backgroundColor: !user.active ? colors.red : user.onboardingRequired ? colors.amber : colors.green },
                       ]}
                     />
-                    <Txt style={styles.statusText}>{user.active ? 'Ativo' : 'Inativo'}</Txt>
+                    <Txt style={styles.statusText}>{!user.active ? 'Inativo' : user.onboardingRequired ? 'Cadastro pendente' : 'Ativo'}</Txt>
                   </View>
                 )}
               </View>

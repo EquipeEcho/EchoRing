@@ -11,11 +11,13 @@ export function IconButton({
   label,
   onPress,
   active = false,
+  disabled = false,
 }: {
   icon: LucideIcon;
   label: string;
   onPress: () => void;
   active?: boolean;
+  disabled?: boolean;
 }) {
   const { colors } = useTheme();
   const styles = useStyles();
@@ -25,11 +27,14 @@ export function IconButton({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
+        accessibilityState={{ disabled }}
+        disabled={disabled}
         onPress={onPress}
         onHoverIn={() => setHover(true)}
         onHoverOut={() => setHover(false)}
         style={({ pressed }) => [
           styles.iconButton,
+          disabled && { opacity: 0.5 },
           (hover || active) && { backgroundColor: colors.accentSoft },
           pressed && { opacity: 0.7 },
         ]}

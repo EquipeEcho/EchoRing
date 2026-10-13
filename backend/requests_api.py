@@ -31,6 +31,8 @@ from fastapi.responses import Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from translator_profiles import TranslatorProfileComplete, TranslatorProfileDraft
+
 router = APIRouter()
 bearer = HTTPBearer(auto_error=False)
 _lock = threading.Lock()
@@ -99,6 +101,13 @@ def initialize_schema(connection, schema):
     connection.execute('''CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
         role TEXT NOT NULL, password_hash TEXT NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE
+    )''')
+    # Existing accounts keep their access; only newly invited translators require onboarding.
+    connection.execute('ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_required BOOLEAN NOT NULL DEFAULT FALSE')
+    connection.execute('''CREATE TABLE IF NOT EXISTS translator_profiles (
+        user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        data JSONB NOT NULL DEFAULT '{}'::jsonb, completed_at TIMESTAMPTZ,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     )''')
     connection.execute('''CREATE TABLE IF NOT EXISTS sessions (
         digest TEXT PRIMARY KEY, expires DOUBLE PRECISION NOT NULL, user_id TEXT
@@ -240,7 +249,8 @@ def authenticated_user(credentials: HTTPAuthorizationCredentials | None = Depend
     digest = hashlib.sha256(credentials.credentials.encode()).hexdigest()
     with database() as connection:
         session = connection.execute(
-            '''SELECT sessions.expires, users.id, users.name, users.email, users.role, users.active
+            '''SELECT sessions.expires, users.id, users.name, users.email, users.role, users.active,
+                      users.onboarding_required
                FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.digest = ?''',
             (digest,),
         ).fetchone()
@@ -257,11 +267,22 @@ def staff(user: dict = Depends(authenticated_user)):
     return user
 
 
-def translator(user: dict = Depends(authenticated_user)):
+def translator_account(user: dict = Depends(authenticated_user)):
     """Restringe a rota a usuários com papel de tradutor."""
     if user['role'] != 'translator':
         raise HTTPException(403, 'Somente tradutores podem acessar esta área.')
     return user
+
+
+def workspace_user(user: dict = Depends(authenticated_user)):
+    """Confere o cadastro no servidor, inclusive quando o cliente altera a sessão local."""
+    if user['role'] == 'translator' and user.get('onboarding_required'):
+        raise HTTPException(403, 'Conclua seu cadastro de tradutor antes de acessar projetos e entregas.')
+    return user
+
+
+def translator(user: dict = Depends(workspace_user)):
+    return translator_account(user)
 
 
 def administrator(user: dict = Depends(authenticated_user)):
@@ -273,7 +294,10 @@ def administrator(user: dict = Depends(authenticated_user)):
 
 def public_user(user):
     """Remove do retorno os campos internos e sensíveis do usuário."""
-    return {key: user[key] for key in ('name', 'email', 'role')}
+    return {
+        **{key: user[key] for key in ('name', 'email', 'role')},
+        'onboardingRequired': user['role'] == 'translator' and bool(user.get('onboarding_required')),
+    }
 
 
 class Login(BaseModel):
@@ -349,7 +373,7 @@ class UserCreate(BaseModel):
 
 def user_record(user):
     """Formata um usuário para a API sem incluir seu hash de senha."""
-    return {**{key: user[key] for key in ('id', 'name', 'email', 'role')}, 'active': bool(user['active'])}
+    return {'id': user['id'], **public_user(user), 'active': bool(user['active'])}
 
 
 @router.get('/users')
@@ -357,7 +381,7 @@ def list_users(admin: dict = Depends(administrator)):
     """Lista as contas cadastradas depois de sincronizar as contas do ambiente."""
     with database() as connection:
         sync_configured_accounts(connection, configured_accounts())
-        users = connection.execute('SELECT id, name, email, role, active FROM users ORDER BY LOWER(name)').fetchall()
+        users = connection.execute('SELECT id, name, email, role, active, onboarding_required FROM users ORDER BY LOWER(name)').fetchall()
     return [user_record(user) for user in users]
 
 
@@ -370,10 +394,10 @@ def create_user(data: UserCreate, admin: dict = Depends(administrator)):
                 raise HTTPException(409, 'Já existe uma conta com este e-mail.')
             user_id = secrets.token_hex(16)
             connection.execute(
-                'INSERT INTO users (id, email, name, role, password_hash, active) VALUES (?, ?, ?, ?, ?, TRUE)',
-                (user_id, data.email, data.name, data.role, hash_password(data.password)),
+                'INSERT INTO users (id, email, name, role, password_hash, active, onboarding_required) VALUES (?, ?, ?, ?, ?, TRUE, ?)',
+                (user_id, data.email, data.name, data.role, hash_password(data.password), data.role == 'translator'),
             )
-            user = connection.execute('SELECT id, name, email, role, active FROM users WHERE id = ?', (user_id,)).fetchone()
+            user = connection.execute('SELECT id, name, email, role, active, onboarding_required FROM users WHERE id = ?', (user_id,)).fetchone()
     except psycopg.IntegrityError as error:
         raise HTTPException(409, 'Já existe uma conta com este e-mail.') from error
     return user_record(user)
@@ -385,9 +409,64 @@ def list_translators(user: dict = Depends(staff)):
     with database() as connection:
         sync_configured_accounts(connection, configured_accounts())
         users = connection.execute(
-            "SELECT id, name, email, role, active FROM users WHERE role = 'translator' AND active = TRUE ORDER BY LOWER(name)"
+            "SELECT id, name, email, role, active, onboarding_required FROM users WHERE role = 'translator' AND active = TRUE AND onboarding_required = FALSE ORDER BY LOWER(name)"
         ).fetchall()
     return [user_record(item) for item in users]
+
+
+def translator_profile_record(connection, user):
+    record = connection.execute('SELECT data, completed_at, updated_at FROM translator_profiles WHERE user_id = ?', (user['id'],)).fetchone()
+    profile = TranslatorProfileDraft.model_validate(json_data(record['data']) if record else {'fullName': user['name']})
+    return {
+        'profile': profile.model_dump(), 'account': public_user(user),
+        'completedAt': record['completed_at'].isoformat() if record and record['completed_at'] else None,
+        'updatedAt': record['updated_at'].isoformat() if record else None,
+    }
+
+
+@router.get('/translator-profile/me')
+def read_translator_profile(user: dict = Depends(translator_account)):
+    """Dados privados do próprio tradutor, reutilizáveis pela futura página de perfil."""
+    with database() as connection:
+        current = connection.execute('SELECT * FROM users WHERE id = ?', (user['id'],)).fetchone()
+        return translator_profile_record(connection, dict(current))
+
+
+@router.patch('/translator-profile/me')
+def save_translator_profile_draft(data: TranslatorProfileDraft, user: dict = Depends(translator_account)):
+    """Salva o formulário incompleto sem liberar o acesso ao portal."""
+    with database() as connection:
+        current = connection.execute('SELECT * FROM users WHERE id = ? FOR UPDATE', (user['id'],)).fetchone()
+        if not current['onboarding_required']:
+            raise HTTPException(409, 'Seu cadastro já está concluído. Atualizações devem utilizar o perfil completo.')
+        previous = connection.execute('SELECT data FROM translator_profiles WHERE user_id = ?', (user['id'],)).fetchone()
+        merged = TranslatorProfileDraft.model_validate({
+            **(json_data(previous['data']) if previous else {'fullName': current['name']}),
+            **data.model_dump(exclude_unset=True),
+        })
+        connection.execute(
+            '''INSERT INTO translator_profiles (user_id, data, updated_at) VALUES (?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at''',
+            (user['id'], Jsonb(merged.model_dump()), now()),
+        )
+        return translator_profile_record(connection, dict(current))
+
+
+@router.put('/translator-profile/me')
+def complete_translator_profile(data: TranslatorProfileComplete, user: dict = Depends(translator_account)):
+    """Persiste o perfil e conclui o primeiro acesso na mesma transação."""
+    with database() as connection:
+        current = connection.execute('SELECT * FROM users WHERE id = ? FOR UPDATE', (user['id'],)).fetchone()
+        timestamp = now()
+        connection.execute(
+            '''INSERT INTO translator_profiles (user_id, data, completed_at, updated_at) VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET data = excluded.data,
+               completed_at = COALESCE(translator_profiles.completed_at, excluded.completed_at),
+               updated_at = excluded.updated_at''',
+            (user['id'], Jsonb(data.model_dump()), timestamp, timestamp),
+        )
+        connection.execute('UPDATE users SET name = ?, onboarding_required = FALSE WHERE id = ?', (data.fullName, user['id']))
+        return translator_profile_record(connection, {**dict(current), 'name': data.fullName, 'onboarding_required': False})
 
 
 class Attachment(BaseModel):
@@ -919,7 +998,7 @@ def assign_translator(request_id: str, assignment: TranslatorAssignment, user: d
             raise HTTPException(409, 'A solicitação precisa ter um orçamento aprovado antes da atribuição.')
         if connection.execute('SELECT 1 FROM services WHERE request_id = ?', (request_id,)).fetchone():
             raise HTTPException(409, 'Esta solicitação já possui uma tarefa.')
-        assigned = connection.execute("SELECT id, name, email FROM users WHERE id = ? AND role = 'translator' AND active = TRUE", (assignment.translatorId,)).fetchone()
+        assigned = connection.execute("SELECT id, name, email FROM users WHERE id = ? AND role = 'translator' AND active = TRUE AND onboarding_required = FALSE", (assignment.translatorId,)).fetchone()
         if not assigned:
             raise HTTPException(422, 'Selecione um tradutor ativo.')
         task_id = 'TRD-' + secrets.token_hex(6).upper()
@@ -939,7 +1018,7 @@ def assign_translator(request_id: str, assignment: TranslatorAssignment, user: d
 
 
 @router.get('/tasks')
-def list_tasks(user: dict = Depends(authenticated_user)):
+def list_tasks(user: dict = Depends(workspace_user)):
     """Lista todas as tarefas para a equipe ou apenas as atribuídas ao tradutor."""
     if user['role'] == 'translator':
         query, values = 'SELECT * FROM services WHERE translator_id = ? ORDER BY created_at DESC', (user['id'],)
@@ -960,7 +1039,7 @@ def list_assigned_services(user: dict = Depends(translator)):
 
 
 @router.get('/tasks/{task_id}')
-def task_detail(task_id: str, user: dict = Depends(authenticated_user)):
+def task_detail(task_id: str, user: dict = Depends(workspace_user)):
     """Retorna a tarefa depois de conferir se a conta pode acessá-la."""
     with database() as connection:
         service = read_service(connection, task_id)
@@ -997,7 +1076,7 @@ def original_attachment(connection, service, attachment_index):
 
 
 @router.get('/tasks/{task_id}/attachments/{attachment_index}')
-def download_original(task_id: str, attachment_index: int, user: dict = Depends(authenticated_user)):
+def download_original(task_id: str, attachment_index: int, user: dict = Depends(workspace_user)):
     """Entrega o documento original apenas a quem tem acesso à tarefa."""
     with database() as connection:
         service = read_service(connection, task_id)
