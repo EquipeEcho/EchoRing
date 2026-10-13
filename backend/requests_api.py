@@ -8,7 +8,6 @@ import json
 import os
 import re
 import secrets
-import smtplib
 import threading
 import time
 import zipfile
