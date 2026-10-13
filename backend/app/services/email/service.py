@@ -1,8 +1,23 @@
 import os
 import smtplib
 import ssl
+from pathlib import Path
 
 from fastapi import HTTPException
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+TEMPLATES_DIR = Path(__file__).parent / 'templates'
+
+env = Environment(
+    loader=FileSystemLoader(TEMPLATES_DIR),
+    autoescape=select_autoescape(['html']),
+)
+
+
+def render_email(template, context=None):
+    """Monta o HTML de templates/<template>.html com os dados do context."""
+    dados = {'empresa': 'Aliança Traduções', **(context or {})}
+    return env.get_template(f'{template}.html').render(**dados)
 
 
 def _smtp_send(message):
