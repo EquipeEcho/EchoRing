@@ -1,0 +1,190 @@
+:root {
+  color-scheme: dark;
+  --theme-canvas: #050506;
+  --theme-accent: #ff375f;
+  --theme-on-accent: #050506;
+  --theme-focus-ring: rgba(255, 55, 95, 0.45);
+  --theme-hover-border: #774051;
+  background: var(--theme-canvas);
+  --font-display: InterRegular, system-ui, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+  --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
+  --font-serif: Georgia, 'Times New Roman', serif;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --theme-canvas: #f7f7fa;
+  --theme-accent: #cc244b;
+  --theme-on-accent: #fff;
+  --theme-focus-ring: rgba(204, 36, 75, 0.5);
+  --theme-hover-border: #cc244b;
+}
+
+body,
+#root {
+  background: var(--theme-canvas);
+}
+
+/* Keep wheel, trackpad, touch and keyboard scrolling without visual rails. */
+html,
+body,
+#root,
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  caret-color: var(--theme-accent);
+}
+
+[role='button']:focus-visible,
+[role='checkbox']:focus-visible,
+[role='radio']:focus-visible,
+[role='tab']:focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 3px;
+  box-shadow:
+    0 0 0 1px rgba(255, 55, 95, 0.2),
+    0 8px 22px rgba(255, 55, 95, 0.08);
+}
+
+a:focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 3px;
+  text-decoration-color: var(--theme-accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+input::selection,
+textarea::selection {
+  background-color: var(--theme-accent);
+  color: var(--theme-on-accent);
+}
+
+[data-testid='search-field'] {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+[data-testid='search-field']:focus-within {
+  border-color: var(--theme-accent);
+  background-color: rgba(255, 55, 95, 0.035);
+  box-shadow: 0 10px 18px -16px rgba(255, 55, 95, 0.9);
+}
+
+[data-testid='auth-input']:focus-within {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 3px var(--theme-focus-ring);
+}
+
+[data-testid='auth-input'] input:focus-visible {
+  outline: none;
+}
+
+[data-testid='language-globe'] {
+  animation: world-breathe 9s ease-in-out infinite;
+}
+[data-testid='hero-orbit'] {
+  animation: world-turn 40s linear infinite;
+}
+[data-testid='language-chip-one'] {
+  animation: word-float 6s ease-in-out infinite;
+}
+[data-testid='language-chip-two'] {
+  animation: word-float 7s ease-in-out -2s infinite;
+}
+[data-testid='language-chip-three'] {
+  animation: word-float 8s ease-in-out -4s infinite;
+}
+[data-testid='quote-stage'] {
+  animation: word-enter 220ms ease-out both;
+}
+[data-testid='landing-field'] input,
+[data-testid='landing-field'] textarea {
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+[data-testid='landing-field']:focus-within input,
+[data-testid='landing-field']:focus-within textarea {
+  border-color: var(--theme-accent) !important;
+  box-shadow: 0 0 0 3px rgba(255, 55, 95, 0.1);
+}
+[data-testid='landing-services'] button {
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease,
+    background-color 180ms ease;
+}
+[data-testid='landing-services'] button:hover {
+  border-color: var(--theme-hover-border);
+  transform: translateY(-4px);
+}
+
+@keyframes world-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes world-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes word-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+@keyframes word-enter {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-testid='search-field'] {
+    transition: none;
+  }
+  [data-testid='language-globe'],
+  [data-testid^='language-chip-'],
+  [data-testid='hero-orbit'],
+  [data-testid='quote-stage'] {
+    animation: none;
+  }
+  [data-testid='landing-services'] button,
+  [data-testid='landing-field'] input,
+  [data-testid='landing-field'] textarea {
+    transition: none;
+  }
+  [data-testid='landing-services'] button:hover {
+    transform: none;
+  }
+}

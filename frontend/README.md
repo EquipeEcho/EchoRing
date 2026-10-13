@@ -21,9 +21,9 @@ O Metro usa dois workers para limitar a carga durante a compilacao.
 
 ## Acesso demonstrativo
 
-A landing page publica inclui solucoes de traducao, etapas do atendimento, FAQ e
-formulario de orcamento com documentos. O mapa pontilhado, as rotas orbitais e as palavras flutuantes respeitam a
-preferencia de movimento reduzido na web. O formulario centralizado usa tres etapas
+A landing page publica inclui solucoes de traducao, idiomas, etapas do atendimento,
+FAQ e formulario de orcamento com documentos. A navegacao entre secoes respeita a
+preferencia de movimento reduzido na web. O formulario usa tres etapas
 (projeto, documentos e contato), preserva os dados ao voltar e permite inverter idiomas.
 
 Por padrao, `EXPO_PUBLIC_REQUESTS_MODE=demo`: envie dados ficticios pelo site e
@@ -47,20 +47,36 @@ Requisicoes e tarefas sao dados ficticios em memoria e voltam ao estado inicial 
 
 ## Estrutura
 
-| Pasta | Responsabilidade |
-| --- | --- |
-| `src/app` | Rotas publicas e grupo protegido `(workspace)` |
-| `src/features/auth` | Login por perfil, recuperacao de acesso e persistencia da sessao |
-| `src/features/workspace` | Dados demonstrativos, telas e formularios |
-| `src/features/users` | Cadastro e listagem de contas pelo administrador geral |
-| `src/features/landing` | Site publico e formulario de solicitacao |
-| `src/features/requests` | Caixa de entrada, documentos, rascunhos e envio de orcamento |
-| `src/components/layout` | Menu lateral, cabecalho e navegacao mobile |
-| `src/components/ui` | Botoes, campos visuais, textos, badges e dialogos |
-| `src/constants/design.ts` | Cores, tipografia e breakpoint de navegacao |
-| `tests` | Testes de navegacao, formularios e responsividade |
+| Pasta                     | Responsabilidade                                                 |
+| ------------------------- | ---------------------------------------------------------------- |
+| `src/app`                 | Entradas de rota e layouts do Expo Router                        |
+| `src/features/auth`       | Login por perfil, recuperacao de acesso e persistencia da sessao |
+| `src/features/workspace`  | Dashboard, projetos, tarefas, navegacao e dados demonstrativos   |
+| `src/features/users`      | Cadastro e listagem de contas pelo administrador geral           |
+| `src/features/landing`    | Site publico e formulario de solicitacao                         |
+| `src/features/requests`   | Caixa de entrada, documentos, rascunhos e envio de orcamento     |
+| `src/features/deliveries` | Envio de traducoes, avaliacao, revisao e entregas                |
+| `src/components/ui`       | Botoes, campos visuais, textos, badges e dialogos                |
+| `src/lib`                 | Cliente HTTP e download de documentos compartilhados             |
+| `src/theme`               | Cores, tipografia, breakpoints e estilos compartilhados          |
+| `src/styles`              | Estilos globais da web                                           |
+| `src/types`               | Tipos compartilhados e declaracoes do Expo                       |
+| `src/utils`               | Formatacao de valores e tamanhos de arquivos                     |
+| `assets/images`           | Imagens separadas em marca, landing page e previas               |
+| `tests/e2e`               | Testes de navegacao, formularios e responsividade                |
+| `tests/fixtures`          | Documentos ficticios usados nos testes                           |
+| `docs`                    | Guia de organizacao e convencoes do frontend                     |
+
+Cada funcionalidade separa `screens`, `components`, `hooks`, `contexts`, `services`,
+`styles`, `data` e tipos conforme sua necessidade. As rotas importam as telas;
+componentes compartilhados ficam fora das funcionalidades. Consulte o
+[guia de arquitetura](docs/architecture.md) para localizar arquivos e seguir o padrao.
 
 O visual usa fundo preto, superficies em grafite, texto claro e destaque rosa.
+O modo escuro e o padrao. O botao de sol/lua nos cabecalhos alterna para um tema claro
+com fundos suaves, cards brancos e destaque rosa, aplicado tambem aos campos e dialogos.
+A preferencia fica no `localStorage` (`echoring.theme.v1`) e sincroniza entre abas;
+no Android e iOS, fica no `expo-secure-store`. O tema nao segue automaticamente o sistema.
 Desktop usa menu lateral; abaixo de 1000 px, a navegacao passa para a barra inferior
 flutuante, com abas arredondadas. Login, listas e dialogos compartilham o mesmo tema.
 As listas de projetos passam a apresentar cada registro verticalmente abaixo de 800 px.
@@ -73,6 +89,7 @@ detalhes dos projetos, criacao de requisicao demonstrativa, tarefas e notificaco
 
 ```powershell
 npm.cmd run typecheck
+npm.cmd run lint
 npm.cmd run test:e2e
 ```
 
@@ -109,7 +126,7 @@ as tarefas da API, enquanto o acesso demonstrativo mantem seus dados ficticios.
 Tipografia: Inter, incluida no bundle pelo pacote
 `@expo-google-fonts/inter` (OFL-1.1). Os pesos regular, medio, semibold e bold
 sao carregados localmente por `expo-font`, sem requisicoes a servicos de fontes externos.
-Os tamanhos compartilhados e as cores ficam em `src/constants/design.ts`.
+Os tamanhos compartilhados e as cores ficam em `src/theme/tokens.ts`.
 
 Icones: Lucide. A tela de acesso usa fundo preto e uma apresentacao tipografica
 no desktop, com listas e icones rosa. O tema escuro tambem se aplica ao foco

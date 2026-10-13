@@ -1,6 +1,7 @@
 import { Redirect } from 'expo-router';
-import { OperationsScreen } from '@/features/workspace/screens';
-import { useSession } from '@/features/auth/session';
+
+import { useSession } from '@/features/auth/contexts/session-context';
+import { OperationsScreen } from '@/features/workspace/screens/operations-screen';
 
 export default function OperationsRoute() {
   const { session } = useSession();
