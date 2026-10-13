@@ -14,13 +14,16 @@ import { WorkflowTabs } from '@/features/deliveries/components/workflow-tabs';
 import { useTasks } from '@/features/deliveries/hooks/use-tasks';
 import { downloadDelivery, reviewDelivery } from '@/features/deliveries/services/delivery-service';
 import { downloadDemoDocument } from '@/features/deliveries/services/demo-documents';
-import { styles } from '@/features/deliveries/styles/deliveries.styles';
+import { useStyles } from '@/features/deliveries/styles/deliveries.styles';
 import { type TranslationService } from '@/features/deliveries/types';
-import { common } from '@/theme/common.styles';
-import { colors } from '@/theme/tokens';
+import { useCommonStyles } from '@/theme/common.styles';
 import { formatBytes } from '@/utils/formatters';
+import { useTheme } from '@/theme/theme-context';
 
 export function StaffReviewsScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const { token, tasks, loading, error, setError, setTasks, refresh, demo } = useTasks();

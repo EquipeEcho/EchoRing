@@ -3,8 +3,8 @@ import { TextInput, View } from 'react-native';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { Txt } from '@/components/ui/text';
-import { styles } from '@/features/users/styles/users.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/users/styles/users.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function UserField({
   label,
@@ -23,6 +23,8 @@ export function UserField({
   visible?: boolean;
   onToggle?: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   return (
     <View style={styles.field}>
       <Txt style={styles.label}>{label}</Txt>

@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Txt } from '@/components/ui/text';
 import { AuthFrame } from '@/features/auth/components/auth-frame';
 import { EmailField } from '@/features/auth/components/email-field';
-import { styles } from '@/features/auth/styles/auth.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/auth/styles/auth.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function RecoveryScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [sent, setSent] = useState(false);

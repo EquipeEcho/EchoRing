@@ -4,15 +4,18 @@ import { Pressable, View } from 'react-native';
 
 import { Brand } from '@/components/ui/brand';
 import { Txt } from '@/components/ui/text';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useSession } from '@/features/auth/contexts/session-context';
-import { styles } from '@/features/landing/styles/landing.styles';
+import { useStyles } from '@/features/landing/styles/landing.styles';
 import type { LandingSectionProps, NavigateSection } from '@/features/landing/types';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme-context';
 
 export function LandingHeader({
   layout,
   onNavigate: go,
 }: LandingSectionProps & { onNavigate: NavigateSection }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { headerHeight, mobile, narrow } = layout;
   const { session } = useSession();
   return (
@@ -25,7 +28,7 @@ export function LandingHeader({
       >
         <Brand compact={mobile} />
       </Pressable>
-      <View style={styles.headerLinks}>
+      <View style={[styles.headerLinks, mobile && { gap: 10 }]}>
         {!mobile && (
           <>
             <Pressable accessibilityRole="button" onPress={() => go('services')}>
@@ -42,6 +45,7 @@ export function LandingHeader({
             </Pressable>
           </>
         )}
+        <ThemeToggle />
         <Pressable
           accessibilityRole="button"
           onPress={() => router.push(session ? '/dashboard' : '/login')}

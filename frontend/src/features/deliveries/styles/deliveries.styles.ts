@@ -1,8 +1,7 @@
-import { StyleSheet } from 'react-native';
+import { font } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
 
-import { colors, font } from '@/theme/tokens';
-
-export const styles = StyleSheet.create({
+export const useStyles = createThemedStyles((colors, selectColor) => ({
   page: { padding: 40, paddingTop: 28, paddingBottom: 40, flexGrow: 1 },
   pageSmall: { padding: 20, paddingTop: 26 },
   inner: { width: '100%', maxWidth: 1050, alignSelf: 'center' },
@@ -61,7 +60,7 @@ export const styles = StyleSheet.create({
   },
   card: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.line },
   highlight: { borderWidth: 1, borderColor: colors.accent },
-  sequence: { width: 62, alignItems: 'center', paddingTop: 25, backgroundColor: '#0C0C0E' },
+  sequence: { width: 62, alignItems: 'center', paddingTop: 25, backgroundColor: selectColor('#0C0C0E', colors.surface) },
   sequenceText: {
     fontSize: 11,
     lineHeight: 17,
@@ -69,7 +68,7 @@ export const styles = StyleSheet.create({
     letterSpacing: 1.5,
     fontWeight: '600',
   },
-  sequenceLine: { flex: 1, width: 1, marginTop: 12, backgroundColor: '#3B2630' },
+  sequenceLine: { flex: 1, width: 1, marginTop: 12, backgroundColor: selectColor('#3B2630', colors.accentSoft) },
   cardBody: { flex: 1, minWidth: 0, gap: 18, paddingHorizontal: 22, paddingVertical: 22 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 14 },
   fileIcon: {
@@ -136,13 +135,13 @@ export const styles = StyleSheet.create({
   },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   field: { gap: 8 },
-  label: { fontSize: 12, lineHeight: 18, color: '#CBCBD0', fontWeight: '600' },
+  label: { fontSize: 12, lineHeight: 18, color: selectColor('#CBCBD0', colors.ink), fontWeight: '600' },
   input: {
     minHeight: 50,
     borderRadius: 11,
     backgroundColor: colors.canvas,
     borderWidth: 1,
-    borderColor: '#39393E',
+    borderColor: selectColor('#39393E', colors.controlLine),
     paddingHorizontal: 14,
     fontFamily: font,
     fontSize: 14,
@@ -150,4 +149,4 @@ export const styles = StyleSheet.create({
     outlineWidth: 0,
   },
   textarea: { minHeight: 96, paddingVertical: 13, textAlignVertical: 'top' },
-});
+}));

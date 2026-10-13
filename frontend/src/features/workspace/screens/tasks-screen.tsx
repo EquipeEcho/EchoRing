@@ -9,10 +9,12 @@ import { FilterTab } from '@/features/workspace/components/filter-tab';
 import { TaskRow } from '@/features/workspace/components/task-row';
 import { WorkspacePage } from '@/features/workspace/components/workspace-page';
 import { useWorkspace } from '@/features/workspace/contexts/workspace-context';
-import { styles } from '@/features/workspace/styles/workspace.styles';
-import { common } from '@/theme/common.styles';
+import { useStyles } from '@/features/workspace/styles/workspace.styles';
+import { useCommonStyles } from '@/theme/common.styles';
 
 export function TasksScreen() {
+  const styles = useStyles();
+  const common = useCommonStyles();
   const { tasks } = useWorkspace();
   const [filter, setFilter] = useState('Pendentes');
   const visible = tasks.filter(

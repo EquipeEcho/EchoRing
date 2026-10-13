@@ -11,11 +11,14 @@ import { roleLabel } from '@/features/auth/constants';
 import { UserField } from '@/features/users/components/user-field';
 import { roles } from '@/features/users/constants';
 import { useUserManagement } from '@/features/users/hooks/use-user-management';
-import { styles } from '@/features/users/styles/users.styles';
-import { common } from '@/theme/common.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/users/styles/users.styles';
+import { useCommonStyles } from '@/theme/common.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function UsersScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
   const { width } = useWindowDimensions();
   const compact = width < 760;
   const {

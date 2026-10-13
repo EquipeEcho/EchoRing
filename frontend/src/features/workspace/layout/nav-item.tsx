@@ -3,8 +3,8 @@ import { type LucideIcon } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { styles } from '@/features/workspace/styles/workspace-shell.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/workspace/styles/workspace-shell.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function NavItem({
   title,
@@ -19,6 +19,8 @@ export function NavItem({
   active: boolean;
   badge?: number;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"

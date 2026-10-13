@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { colors } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function Dialog({
   open,
@@ -32,6 +33,8 @@ export function Dialog({
   mobileSheet?: boolean;
   children: ReactNode;
 }) {
+  const { colors } = useTheme();
+  const s = useStyles();
   const { width } = useWindowDimensions();
   const mobile = width < 600;
   return (
@@ -86,10 +89,10 @@ export function Dialog({
   );
 }
 
-const s = StyleSheet.create({
+const useStyles = createThemedStyles((colors, selectColor) => ({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.84)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -101,12 +104,12 @@ const s = StyleSheet.create({
     maxWidth: 600,
     maxHeight: '88%',
     flexShrink: 1,
-    backgroundColor: '#101012',
+    backgroundColor: selectColor('#101012', colors.surface),
     borderWidth: 1,
-    borderColor: '#303034',
+    borderColor: selectColor('#303034', colors.controlLine),
     borderRadius: 24,
     overflow: 'hidden',
-    boxShadow: '0 32px 100px rgba(0,0,0,0.72)',
+    boxShadow: selectColor('0 32px 100px rgba(0,0,0,0.72)', '0 32px 100px rgba(25,25,45,0.10)'),
   },
   compact: { maxWidth: 460 },
   wide: { maxWidth: 880 },
@@ -124,7 +127,7 @@ const s = StyleSheet.create({
     paddingVertical: 19,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
-    backgroundColor: '#0D0D0F',
+    backgroundColor: selectColor('#0D0D0F', colors.surface),
   },
   headerMobile: { minHeight: 80, paddingHorizontal: 20, paddingVertical: 15 },
   headerCopy: { flex: 1, minWidth: 0, gap: 3 },
@@ -146,10 +149,10 @@ const s = StyleSheet.create({
     borderColor: colors.line,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#141416',
+    backgroundColor: selectColor('#141416', colors.surface),
   },
-  closeHover: { borderColor: '#574149', backgroundColor: colors.accentSoft },
+  closeHover: { borderColor: selectColor('#574149', colors.accent), backgroundColor: colors.accentSoft },
   scroll: { flex: 1, minHeight: 0 },
   content: { paddingHorizontal: 28, paddingVertical: 26, gap: 22 },
   contentMobile: { paddingHorizontal: 20, paddingVertical: 22, gap: 20 },
-});
+}));

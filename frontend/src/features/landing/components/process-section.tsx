@@ -1,10 +1,11 @@
 import { View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { styles } from '@/features/landing/styles/landing.styles';
+import { useStyles } from '@/features/landing/styles/landing.styles';
 import type { LandingSectionProps } from '@/features/landing/types';
 
 export function ProcessSection({ layout, onLayout }: LandingSectionProps) {
+  const styles = useStyles();
   const { mobile, narrow } = layout;
   return (
     <View onLayout={onLayout} style={[styles.section, mobile && styles.sectionMobile]}>

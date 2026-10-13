@@ -1,8 +1,7 @@
-import { StyleSheet } from 'react-native';
+import { font } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
 
-import { colors, font } from '@/theme/tokens';
-
-export const styles = StyleSheet.create({
+export const useStyles = createThemedStyles((colors, selectColor) => ({
   page: { padding: 40, flexGrow: 1 },
   summary: {
     minHeight: 126,
@@ -13,7 +12,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 26,
     paddingVertical: 22,
     marginBottom: 24,
-    backgroundColor: '#0D0D0F',
+    backgroundColor: selectColor('#0D0D0F', colors.surface),
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: colors.line,
@@ -64,7 +63,7 @@ export const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#48484F',
+    borderBottomColor: selectColor('#48484F', colors.controlLine),
   },
   searchInput: {
     flex: 1,
@@ -92,7 +91,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 18,
     paddingHorizontal: 20,
-    backgroundColor: '#0B0B0D',
+    backgroundColor: selectColor('#0B0B0D', colors.surface),
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
@@ -133,7 +132,7 @@ export const styles = StyleSheet.create({
   requestInfo: { flexDirection: 'row', alignItems: 'center', gap: 18 },
   requestInfoSmall: { justifyContent: 'space-between' },
   requestTitle: { fontSize: 17, lineHeight: 24, fontWeight: '600' },
-  requestMeta: { fontSize: 12, lineHeight: 18, color: '#777780' },
+  requestMeta: { fontSize: 12, lineHeight: 18, color: colors.muted },
   requestHero: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -170,7 +169,7 @@ export const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.accentSoft,
     borderWidth: 1,
-    borderColor: '#572234',
+    borderColor: selectColor('#572234', colors.accent),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -210,7 +209,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 17,
     backgroundColor: colors.canvas,
     borderLeftWidth: 3,
-    borderLeftColor: '#5B2638',
+    borderLeftColor: selectColor('#5B2638', colors.accent),
   },
   sectionEyebrow: {
     fontSize: 9,
@@ -250,7 +249,7 @@ export const styles = StyleSheet.create({
   quotePanel: {
     gap: 18,
     padding: 22,
-    backgroundColor: '#0B0B0D',
+    backgroundColor: selectColor('#0B0B0D', colors.surface),
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: colors.line,
@@ -267,13 +266,13 @@ export const styles = StyleSheet.create({
   quoteTitle: { fontSize: 21, lineHeight: 28, fontWeight: '700' },
   quoteFields: { flexDirection: 'row', gap: 14 },
   quoteField: { flex: 1, minWidth: 0, gap: 8 },
-  label: { fontSize: 12, lineHeight: 18, color: '#CBCBD0', fontWeight: '600' },
+  label: { fontSize: 12, lineHeight: 18, color: selectColor('#CBCBD0', colors.ink), fontWeight: '600' },
   input: {
     minHeight: 50,
     borderRadius: 11,
     backgroundColor: colors.canvas,
     borderWidth: 1,
-    borderColor: '#39393E',
+    borderColor: selectColor('#39393E', colors.controlLine),
     paddingHorizontal: 14,
     fontFamily: font,
     fontSize: 14,
@@ -295,7 +294,7 @@ export const styles = StyleSheet.create({
   assignment: {
     gap: 16,
     padding: 22,
-    backgroundColor: '#0B0B0D',
+    backgroundColor: selectColor('#0B0B0D', colors.surface),
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: colors.line,
@@ -355,4 +354,4 @@ export const styles = StyleSheet.create({
   errorBox: { gap: 10, padding: 20, backgroundColor: colors.redSoft, borderRadius: 20 },
   error: { color: colors.red, fontSize: 14, lineHeight: 22 },
   notice: { color: colors.green, fontSize: 14, lineHeight: 22 },
-});
+}));

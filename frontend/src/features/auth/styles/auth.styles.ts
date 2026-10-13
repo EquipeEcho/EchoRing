@@ -1,8 +1,7 @@
-import { StyleSheet } from 'react-native';
+import { font, fonts, typeScale } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
 
-import { colors, font, fonts, typeScale } from '@/theme/tokens';
-
-export const styles = StyleSheet.create({
+export const useStyles = createThemedStyles((colors, selectColor) => ({
   background: { flex: 1, overflow: 'hidden', backgroundColor: colors.canvas },
   page: { flexGrow: 1, paddingHorizontal: 48, paddingVertical: 30, minHeight: '100%' },
   pageSmall: { paddingHorizontal: 22, paddingTop: 24, paddingBottom: 18 },
@@ -44,7 +43,7 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
     padding: 36,
-    boxShadow: '0 24px 70px rgba(0,0,0,0.45)',
+    boxShadow: selectColor('0 24px 70px rgba(0,0,0,0.45)', '0 24px 70px rgba(25,25,45,0.10)'),
   },
   formSmall: {
     paddingHorizontal: 0,
@@ -126,4 +125,4 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-});
+}));

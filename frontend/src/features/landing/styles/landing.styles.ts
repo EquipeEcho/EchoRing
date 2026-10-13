@@ -1,8 +1,9 @@
-import { Platform, StyleSheet } from 'react-native';
+import { Platform } from 'react-native';
 
-import { colors, font } from '@/theme/tokens';
+import { font } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
 
-export const styles = StyleSheet.create({
+export const useStyles = createThemedStyles((colors, selectColor) => ({
   container: { width: '100%', maxWidth: 1440, alignSelf: 'center' },
   header: {
     height: 108,
@@ -38,26 +39,26 @@ export const styles = StyleSheet.create({
     overflow: 'hidden',
     paddingHorizontal: 56,
     paddingVertical: 48,
-    backgroundColor: '#070707',
+    backgroundColor: selectColor('#070707', colors.surface),
   },
   heroMobile: { paddingHorizontal: 22, paddingVertical: 30, justifyContent: 'center' },
   heroShort: { paddingVertical: 18 },
   heroImage: { position: 'absolute', inset: 0, width: '100%', height: '100%', borderRadius: 2 },
-  heroShade: { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.16)' },
+  heroShade: { position: 'absolute', inset: 0, backgroundColor: selectColor('rgba(0,0,0,0.16)', 'rgba(247,247,250,0.94)') },
   heroCopy: { width: '100%', maxWidth: 610, zIndex: 1 },
   heroImageMobile: {
     opacity: 0.66,
     ...Platform.select({ web: { objectPosition: '64% center' } as any, default: {} }),
   },
-  heroShadeMobile: { backgroundColor: 'rgba(0,0,0,0.38)' },
+  heroShadeMobile: { backgroundColor: selectColor('rgba(0,0,0,0.38)', 'rgba(247,247,250,0.94)') },
   heroTag: { flexDirection: 'row', alignItems: 'center', marginBottom: 22 },
   dot: { height: 6, width: 6, borderRadius: 3, backgroundColor: colors.accent },
-  heroTagText: { fontSize: 13, letterSpacing: 6, color: '#B4AFB3', fontWeight: '500' },
+  heroTagText: { fontSize: 13, letterSpacing: 6, color: selectColor('#B4AFB3', colors.muted), fontWeight: '500' },
   heroTagMobile: { marginBottom: 14 },
   heroTagTextMobile: { fontSize: 11, letterSpacing: 4 },
   heroTagShort: { marginBottom: 9 },
   heroTitle: { fontSize: 82, lineHeight: 88, fontWeight: '700', letterSpacing: -3.4 },
-  heroDescription: { fontSize: 21, lineHeight: 31, color: '#B5B1B4', maxWidth: 520, marginTop: 24 },
+  heroDescription: { fontSize: 21, lineHeight: 31, color: selectColor('#B5B1B4', colors.muted), maxWidth: 520, marginTop: 24 },
   heroDescriptionMobile: { fontSize: 17, lineHeight: 25, marginTop: 18, maxWidth: 390 },
   heroDescriptionShort: { fontSize: 16, lineHeight: 23, marginTop: 12 },
   heroActions: {
@@ -80,8 +81,8 @@ export const styles = StyleSheet.create({
     gap: 18,
     marginTop: 92,
   },
-  heroKeyword: { fontSize: 10, letterSpacing: 3, color: '#AAA3A8' },
-  keywordRule: { width: 32, height: 1, backgroundColor: '#64575D' },
+  heroKeyword: { fontSize: 10, letterSpacing: 3, color: selectColor('#AAA3A8', colors.muted) },
+  keywordRule: { width: 32, height: 1, backgroundColor: selectColor('#64575D', colors.elevated) },
   heroKeywordsMobile: { justifyContent: 'center', gap: 10, marginTop: 28 },
   heroKeywordsShort: { marginTop: 18 },
   section: { paddingVertical: 88, paddingHorizontal: 16 },
@@ -112,22 +113,22 @@ export const styles = StyleSheet.create({
     minHeight: 284,
     padding: 26,
     borderRadius: 22,
-    backgroundColor: '#0E0E10',
+    backgroundColor: selectColor('#0E0E10', colors.surface),
     borderWidth: 1,
-    borderColor: '#2B292D',
+    borderColor: selectColor('#2B292D', colors.line),
     overflow: 'hidden',
     ...Platform.select({
       web: {
         transitionDuration: '220ms',
         transitionProperty: 'transform, border-color, box-shadow, background-color',
-        boxShadow: '0 18px 50px rgba(0,0,0,0.28)',
+        boxShadow: selectColor('0 18px 50px rgba(0,0,0,0.28)', '0 18px 50px rgba(25,25,45,0.10)'),
       } as any,
       default: {},
     }),
   },
   serviceHover: {
-    backgroundColor: '#151216',
-    borderColor: '#713044',
+    backgroundColor: selectColor('#151216', colors.surface),
+    borderColor: selectColor('#713044', colors.accent),
     transform: [{ translateY: -7 }, { scale: 1.008 }],
     ...Platform.select({
       web: { boxShadow: '0 24px 70px rgba(255,54,91,0.12)' } as any,
@@ -141,7 +142,7 @@ export const styles = StyleSheet.create({
     borderRadius: 85,
     right: -76,
     top: -86,
-    backgroundColor: '#3B111E',
+    backgroundColor: selectColor('#3B111E', colors.accentSoft),
     opacity: 0.72,
   },
   serviceAccent: {
@@ -166,16 +167,16 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: '#251219',
+    backgroundColor: selectColor('#251219', colors.accentSoft),
     borderWidth: 1,
-    borderColor: '#5B2636',
+    borderColor: selectColor('#5B2636', colors.accent),
     ...Platform.select({
       web: { boxShadow: '0 8px 30px rgba(255,54,91,0.12)' } as any,
       default: {},
     }),
   },
   serviceNumber: {
-    color: '#6D6267',
+    color: colors.muted,
     fontSize: 12,
     lineHeight: 18,
     fontWeight: '600',
@@ -196,13 +197,13 @@ export const styles = StyleSheet.create({
     marginTop: 24,
     paddingTop: 18,
     borderTopWidth: 1,
-    borderTopColor: '#262428',
+    borderTopColor: selectColor('#262428', colors.line),
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
   },
   serviceCta: {
-    color: '#B8ADB1',
+    color: selectColor('#B8ADB1', colors.muted),
     fontSize: 10,
     lineHeight: 15,
     fontWeight: '600',
@@ -258,7 +259,7 @@ export const styles = StyleSheet.create({
   },
   quoteIntro: { flex: 1, width: '100%', maxWidth: 590, alignItems: 'flex-start', gap: 15 },
   quoteAccent: { width: 42, height: 3, backgroundColor: colors.accent, marginBottom: 3 },
-  quoteTagText: { fontSize: 11, letterSpacing: 4, color: '#B6AFB3' },
+  quoteTagText: { fontSize: 11, letterSpacing: 4, color: selectColor('#B6AFB3', colors.muted) },
   quoteTitle: { fontSize: 58, lineHeight: 62, letterSpacing: -2, fontWeight: '700' },
   quoteDescription: { fontSize: 18, lineHeight: 27, color: colors.muted, maxWidth: 520 },
   quoteBenefits: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: 18, marginTop: 24 },
@@ -267,9 +268,9 @@ export const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: '#211218',
+    backgroundColor: selectColor('#211218', colors.elevated),
     borderWidth: 1,
-    borderColor: '#3F202A',
+    borderColor: selectColor('#3F202A', colors.accent),
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 3,
@@ -280,12 +281,12 @@ export const styles = StyleSheet.create({
   form: {
     width: '54%',
     maxWidth: 680,
-    backgroundColor: '#111112',
+    backgroundColor: selectColor('#111112', colors.surface),
     borderWidth: 1,
-    borderColor: '#34272C',
+    borderColor: selectColor('#34272C', colors.controlLine),
     borderRadius: 18,
     padding: 32,
-    boxShadow: '0 24px 80px rgba(0,0,0,0.38)',
+    boxShadow: selectColor('0 24px 80px rgba(0,0,0,0.38)', '0 24px 80px rgba(25,25,45,0.10)'),
   },
   formTitle: { fontSize: 27, lineHeight: 34, fontWeight: '600', letterSpacing: -0.6 },
   previewNote: {
@@ -317,7 +318,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   formStepCurrent: { backgroundColor: colors.accent, borderColor: colors.accent },
-  formStepDone: { backgroundColor: colors.accentSoft, borderColor: '#5C283A' },
+  formStepDone: { backgroundColor: colors.accentSoft, borderColor: selectColor('#5C283A', colors.accent) },
   formStepLabel: { fontSize: 13, color: colors.muted, fontWeight: '500' },
   formStageHeader: { gap: 7, marginBottom: 24 },
   formStage: { minHeight: 280 },
@@ -343,9 +344,9 @@ export const styles = StyleSheet.create({
   input: {
     minHeight: 48,
     borderRadius: 12,
-    backgroundColor: '#1B1B1E',
+    backgroundColor: selectColor('#1B1B1E', colors.elevated),
     borderWidth: 1,
-    borderColor: '#353539',
+    borderColor: selectColor('#353539', colors.controlLine),
     fontFamily: font,
     color: colors.ink,
     fontSize: 15,
@@ -368,7 +369,7 @@ export const styles = StyleSheet.create({
     borderRadius: 13,
     backgroundColor: colors.surface,
   },
-  choiceActive: { backgroundColor: colors.accentSoft, borderColor: '#9C3D59' },
+  choiceActive: { backgroundColor: colors.accentSoft, borderColor: selectColor('#9C3D59', colors.accent) },
   choiceText: { flex: 1, minWidth: 0, fontSize: 12, lineHeight: 17, color: colors.muted },
   upload: {
     alignItems: 'center',
@@ -377,9 +378,9 @@ export const styles = StyleSheet.create({
     paddingVertical: 30,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#61404E',
+    borderColor: selectColor('#61404E', colors.accent),
     borderRadius: 22,
-    backgroundColor: '#1C1319',
+    backgroundColor: selectColor('#1C1319', colors.elevated),
   },
   uploadIcon: {
     width: 60,
@@ -494,4 +495,4 @@ export const styles = StyleSheet.create({
   footerMobile: { flexDirection: 'column', alignItems: 'flex-start', paddingHorizontal: 0 },
   footerLinks: { flexDirection: 'row', flexWrap: 'wrap', gap: 28 },
   footerLink: { fontSize: 14, color: colors.muted },
-});
+}));

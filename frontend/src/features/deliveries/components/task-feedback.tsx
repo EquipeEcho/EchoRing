@@ -1,12 +1,15 @@
 import { View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { styles } from '@/features/deliveries/styles/deliveries.styles';
+import { useStyles } from '@/features/deliveries/styles/deliveries.styles';
 import { type TranslationService } from '@/features/deliveries/types';
-import { common } from '@/theme/common.styles';
-import { colors } from '@/theme/tokens';
+import { useCommonStyles } from '@/theme/common.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function TaskFeedback({ task }: { task: TranslationService }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
   if (task.status !== 'Revisão solicitada') return null;
   return (
     <View style={styles.feedback}>

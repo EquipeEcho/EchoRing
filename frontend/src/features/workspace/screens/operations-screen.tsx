@@ -11,10 +11,11 @@ import { FilterTab } from '@/features/workspace/components/filter-tab';
 import { ProjectList } from '@/features/workspace/components/project-list';
 import { WorkspacePage } from '@/features/workspace/components/workspace-page';
 import { useWorkspace } from '@/features/workspace/contexts/workspace-context';
-import { styles } from '@/features/workspace/styles/workspace.styles';
+import { useStyles } from '@/features/workspace/styles/workspace.styles';
 import { matchesSearch } from '@/features/workspace/utils/search';
 
 export function OperationsScreen() {
+  const styles = useStyles();
   const { projects, search, setNewRequest } = useWorkspace();
   const { session } = useSession();
   const employee = session?.role === 'employee' || session?.role === 'admin';

@@ -2,8 +2,8 @@ import { TextInput, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
 import type { QuoteForm } from '@/features/landing/hooks/use-quote-form';
-import { styles } from '@/features/landing/styles/landing.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/landing/styles/landing.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function QuoteField({
   form,
@@ -20,6 +20,8 @@ export function QuoteField({
   placeholder: string;
   multiline?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { registerInput, invalid, busy, data, change } = form;
   return (
     <View

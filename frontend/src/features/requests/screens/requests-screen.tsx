@@ -24,13 +24,16 @@ import { formatSelectedDate } from '@/components/ui/fields/date-utils';
 import { PageHeading } from '@/components/ui/page-heading';
 import { Txt } from '@/components/ui/text';
 import { useRequestWorkflow } from '@/features/requests/hooks/use-request-workflow';
-import { styles } from '@/features/requests/styles/requests.styles';
+import { useStyles } from '@/features/requests/styles/requests.styles';
 import { downloadDocument } from '@/lib/documents/download';
-import { common } from '@/theme/common.styles';
-import { colors } from '@/theme/tokens';
+import { useCommonStyles } from '@/theme/common.styles';
 import { money } from '@/utils/formatters';
+import { useTheme } from '@/theme/theme-context';
 
 export function RequestsScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
   const { width } = useWindowDimensions();
   const {
     loading,

@@ -8,12 +8,15 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Txt } from '@/components/ui/text';
 import { statusTone } from '@/features/workspace/constants/status';
 import { useWorkspace } from '@/features/workspace/contexts/workspace-context';
-import { styles } from '@/features/workspace/styles/workspace.styles';
+import { useStyles } from '@/features/workspace/styles/workspace.styles';
 import { type Project } from '@/features/workspace/types';
-import { common } from '@/theme/common.styles';
-import { colors } from '@/theme/tokens';
+import { useCommonStyles } from '@/theme/common.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function ProjectList({ projects }: { projects: Project[] }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
   const { width } = useWindowDimensions();
   const { setSelected, setSearch, search } = useWorkspace();
   const wide = width >= 800;

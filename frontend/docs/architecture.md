@@ -90,6 +90,11 @@ Crie apenas as pastas necessárias à funcionalidade.
   por funcionalidades diferentes. Componentes específicos ficam na funcionalidade.
 - Use `src/theme/tokens.ts` para cores e tipografia compartilhadas. Componentes
   pequenos da UI mantêm seus estilos no próprio arquivo; telas usam `styles/`.
+- Leia a paleta ativa com `useTheme()` de `src/theme/theme-context.tsx`. Crie
+  estilos com `createThemedStyles()` e use o hook retornado dentro do componente;
+  as duas folhas são criadas uma vez e o tema muda sem reiniciar o estado da tela.
+  Use `colors.onAccent` para textos sobre fundos de destaque. O segundo argumento
+  da fábrica, `selectColor(escuro, claro)`, preserva variações existentes do tema escuro.
 - Centralize chamadas HTTP em `src/lib/api/client.ts`. Os serviços de cada
   funcionalidade definem os endpoints e os contratos usados pelo frontend.
 - Separe dados demonstrativos em `data/` e persistência em `services/`.

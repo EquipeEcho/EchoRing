@@ -4,12 +4,12 @@ import {
   ActivityIndicator,
   Pressable,
   type StyleProp,
-  StyleSheet,
   type ViewStyle,
 } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { colors } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function Button({
   children,
@@ -30,6 +30,8 @@ export function Button({
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const primary = variant === 'primary';
   return (
     <Pressable
@@ -50,18 +52,18 @@ export function Button({
       ]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={primary ? colors.canvas : colors.accent} />
+        <ActivityIndicator size="small" color={primary ? colors.onAccent : colors.accent} />
       ) : (
-        Icon && <Icon size={17} color={primary ? colors.canvas : colors.accent} />
+        Icon && <Icon size={17} color={primary ? colors.onAccent : colors.accent} />
       )}
-      <Txt style={[styles.buttonText, { color: primary ? colors.canvas : colors.accent }]}>
+      <Txt style={[styles.buttonText, { color: primary ? colors.onAccent : colors.accent }]}>
         {children}
       </Txt>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((colors) => ({
   button: {
     minHeight: 48,
     borderRadius: 16,
@@ -82,4 +84,4 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     textAlign: 'center',
   },
-});
+}));

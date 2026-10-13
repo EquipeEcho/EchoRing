@@ -3,15 +3,17 @@ import { Image, Pressable, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Txt } from '@/components/ui/text';
-import { styles } from '@/features/landing/styles/landing.styles';
+import { useStyles } from '@/features/landing/styles/landing.styles';
 import type { LandingSectionProps, NavigateSection } from '@/features/landing/types';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme-context';
 
 export function HeroSection({
   layout,
   onLayout,
   onNavigate: go,
 }: LandingSectionProps & { onNavigate: NavigateSection }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { mobile, short, heroHeight, pageGutter, heroType } = layout;
   return (
     <View

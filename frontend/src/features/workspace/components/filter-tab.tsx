@@ -1,8 +1,8 @@
 import { Pressable } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { styles } from '@/features/workspace/styles/workspace.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/workspace/styles/workspace.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function FilterTab({
   label,
@@ -13,6 +13,8 @@ export function FilterTab({
   active: boolean;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="tab"

@@ -1,8 +1,9 @@
 import { ScrollView, useWindowDimensions, View } from 'react-native';
 
-import { styles } from '@/features/workspace/styles/workspace.styles';
+import { useStyles } from '@/features/workspace/styles/workspace.styles';
 
 export function WorkspacePage({ children }: { children: React.ReactNode }) {
+  const styles = useStyles();
   const { width } = useWindowDimensions();
   return (
     <ScrollView

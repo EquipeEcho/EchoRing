@@ -1,14 +1,12 @@
-import { StyleSheet } from 'react-native';
+import { createThemedStyles } from '@/theme/create-themed-styles';
 
-import { colors } from '@/theme/tokens';
-
-export const styles = StyleSheet.create({
+export const useStyles = createThemedStyles((colors, selectColor) => ({
   page: { padding: 40, paddingTop: 28, paddingBottom: 40, flexGrow: 1 },
   pageInner: { width: '100%', maxWidth: 1400, alignSelf: 'center' },
   metrics: {
     flexDirection: 'row',
     marginBottom: 26,
-    backgroundColor: '#0D0D0F',
+    backgroundColor: selectColor('#0D0D0F', colors.surface),
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: colors.line,
@@ -58,7 +56,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     marginBottom: 12,
-    backgroundColor: '#0B0B0D',
+    backgroundColor: selectColor('#0B0B0D', colors.surface),
     borderLeftWidth: 3,
     borderLeftColor: colors.accent,
     borderBottomWidth: 1,
@@ -178,7 +176,7 @@ export const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderWidth: 1,
-    borderColor: '#777780',
+    borderColor: selectColor('#777780', colors.controlLine),
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
@@ -246,7 +244,7 @@ export const styles = StyleSheet.create({
     gap: 20,
     paddingHorizontal: 24,
     paddingVertical: 22,
-    backgroundColor: '#0D0D0F',
+    backgroundColor: selectColor('#0D0D0F', colors.surface),
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: colors.line,
@@ -294,4 +292,4 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
   areaItemTitle: { flex: 1, fontSize: 14, lineHeight: 21, fontWeight: '500' },
-});
+}));

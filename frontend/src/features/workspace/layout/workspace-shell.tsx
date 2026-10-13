@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { IconButton } from '@/components/ui/icon-button';
 import { Txt } from '@/components/ui/text';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { roleLabel } from '@/features/auth/constants';
 import { useSession } from '@/features/auth/contexts/session-context';
 import { useInbox } from '@/features/requests/contexts/inbox-context';
@@ -31,11 +32,15 @@ import {
   mobilePrimaryModulesFor,
   modulesFor,
 } from '@/features/workspace/navigation/modules';
-import { styles } from '@/features/workspace/styles/workspace-shell.styles';
-import { common } from '@/theme/common.styles';
-import { colors, desktopWidth } from '@/theme/tokens';
+import { useStyles } from '@/features/workspace/styles/workspace-shell.styles';
+import { useCommonStyles } from '@/theme/common.styles';
+import { desktopWidth } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme-context';
 
 export function WorkspaceShell() {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
   const { width } = useWindowDimensions();
   const desktop = width >= desktopWidth;
   const pathname = usePathname();
@@ -184,6 +189,7 @@ export function WorkspaceShell() {
                   )}
                 </View>
               )}
+              <ThemeToggle />
               <View>
                 {desktop ? (
                   <IconButton

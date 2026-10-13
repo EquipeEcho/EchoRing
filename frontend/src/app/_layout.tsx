@@ -11,9 +11,10 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { SessionProvider, useSession } from '@/features/auth/contexts/session-context';
 import '@/styles/global.css';
-import { colors } from '@/theme/tokens';
+import { ThemeProvider, useTheme } from '@/theme/theme-context';
 
 function Routes() {
+  const { colors, theme, ready: themeReady } = useTheme();
   const { ready } = useSession();
   const [fontsLoaded, fontError] = useFonts({
     InterRegular: Inter_400Regular,
@@ -21,7 +22,7 @@ function Routes() {
     InterSemibold: Inter_600SemiBold,
     InterBold: Inter_700Bold,
   });
-  const loaded = ready && (fontsLoaded || !!fontError);
+  const loaded = ready && themeReady && (fontsLoaded || !!fontError);
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync().catch(() => {});
   }, [loaded]);
@@ -39,27 +40,31 @@ function Routes() {
       </View>
     );
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        animation: 'none',
-        contentStyle: { backgroundColor: colors.canvas },
-      }}
-    >
-      <Stack.Screen name="index" />
-      <Stack.Screen name="login" />
-      <Stack.Screen name="recuperar-senha" />
-      <Stack.Screen name="orcamento/[id]" />
-      <Stack.Screen name="(workspace)" />
-    </Stack>
+    <>
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: 'none',
+          contentStyle: { backgroundColor: colors.canvas },
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="recuperar-senha" />
+        <Stack.Screen name="orcamento/[id]" />
+        <Stack.Screen name="(workspace)" />
+      </Stack>
+    </>
   );
 }
 
 export default function RootLayout() {
   return (
-    <SessionProvider>
-      <StatusBar style="light" />
-      <Routes />
-    </SessionProvider>
+    <ThemeProvider>
+      <SessionProvider>
+        <Routes />
+      </SessionProvider>
+    </ThemeProvider>
   );
 }

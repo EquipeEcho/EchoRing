@@ -2,10 +2,12 @@ import { AlertCircle, CheckCircle2 } from 'lucide-react-native';
 import { View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { styles } from '@/features/deliveries/styles/deliveries.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/deliveries/styles/deliveries.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function Messages({ notice, error }: { notice: string; error: string }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   return (
     <>
       {!!notice && (

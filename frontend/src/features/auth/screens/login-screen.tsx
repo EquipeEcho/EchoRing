@@ -9,10 +9,12 @@ import { Txt } from '@/components/ui/text';
 import { AuthFrame } from '@/features/auth/components/auth-frame';
 import { EmailField } from '@/features/auth/components/email-field';
 import { useSession } from '@/features/auth/contexts/session-context';
-import { styles } from '@/features/auth/styles/auth.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/auth/styles/auth.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function LoginScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { session, enterDemo, signIn } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

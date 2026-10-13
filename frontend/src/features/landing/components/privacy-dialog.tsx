@@ -3,9 +3,10 @@ import { Dialog } from '@/components/ui/dialog';
 import { Txt } from '@/components/ui/text';
 import type { QuoteForm } from '@/features/landing/hooks/use-quote-form';
 import { apiMode } from '@/features/requests/constants/request-mode';
-import { common } from '@/theme/common.styles';
+import { useCommonStyles } from '@/theme/common.styles';
 
 export function PrivacyDialog({ form }: { form: QuoteForm }) {
+  const common = useCommonStyles();
   const { privacy, setPrivacy } = form;
   return (
     <Dialog

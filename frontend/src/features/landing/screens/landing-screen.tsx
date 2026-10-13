@@ -13,10 +13,12 @@ import { ServicesSection } from '@/features/landing/components/services-section'
 import { useLandingLayout } from '@/features/landing/hooks/use-landing-layout';
 import { useQuoteForm } from '@/features/landing/hooks/use-quote-form';
 import { useSectionNavigation } from '@/features/landing/hooks/use-section-navigation';
-import { styles } from '@/features/landing/styles/landing.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/landing/styles/landing.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function LandingScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const layout = useLandingLayout();
   const { scroll, go, registerSection } = useSectionNavigation();
   const form = useQuoteForm(() => go('quote'));

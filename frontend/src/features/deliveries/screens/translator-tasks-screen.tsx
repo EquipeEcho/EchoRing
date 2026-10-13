@@ -15,12 +15,15 @@ import { WorkflowTabs } from '@/features/deliveries/components/workflow-tabs';
 import { useTasks } from '@/features/deliveries/hooks/use-tasks';
 import { startTask, uploadTranslation } from '@/features/deliveries/services/delivery-service';
 import { selectTranslationDocument } from '@/features/deliveries/services/document-picker';
-import { styles } from '@/features/deliveries/styles/deliveries.styles';
-import { common } from '@/theme/common.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/deliveries/styles/deliveries.styles';
+import { useCommonStyles } from '@/theme/common.styles';
 import { formatBytes } from '@/utils/formatters';
+import { useTheme } from '@/theme/theme-context';
 
 export function TranslatorTasksScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
   const { width } = useWindowDimensions();
   const params = useLocalSearchParams<{ task?: string }>();
   const { token, tasks, loading, error, setError, refresh } = useTasks();

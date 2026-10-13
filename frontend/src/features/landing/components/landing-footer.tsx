@@ -2,14 +2,16 @@ import { Pressable, View } from 'react-native';
 
 import { Brand } from '@/components/ui/brand';
 import { Txt } from '@/components/ui/text';
-import { styles } from '@/features/landing/styles/landing.styles';
+import { useStyles } from '@/features/landing/styles/landing.styles';
 import type { LandingSectionProps, NavigateSection } from '@/features/landing/types';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme-context';
 
 export function LandingFooter({
   layout,
   onNavigate: go,
 }: LandingSectionProps & { onNavigate: NavigateSection }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { mobile } = layout;
   return (
     <View style={[styles.footer, mobile && styles.footerMobile]}>

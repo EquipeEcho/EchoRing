@@ -14,12 +14,15 @@ import { ProjectList } from '@/features/workspace/components/project-list';
 import { TaskRow } from '@/features/workspace/components/task-row';
 import { WorkspacePage } from '@/features/workspace/components/workspace-page';
 import { useWorkspace } from '@/features/workspace/contexts/workspace-context';
-import { styles } from '@/features/workspace/styles/workspace.styles';
+import { useStyles } from '@/features/workspace/styles/workspace.styles';
 import { matchesSearch } from '@/features/workspace/utils/search';
-import { common } from '@/theme/common.styles';
-import { colors } from '@/theme/tokens';
+import { useCommonStyles } from '@/theme/common.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function DashboardScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
   const { projects, tasks, search, setNewRequest } = useWorkspace();
   const { session } = useSession();
   const employee = session?.role === 'employee' || session?.role === 'admin';

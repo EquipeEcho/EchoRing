@@ -73,6 +73,10 @@ componentes compartilhados ficam fora das funcionalidades. Consulte o
 [guia de arquitetura](docs/architecture.md) para localizar arquivos e seguir o padrao.
 
 O visual usa fundo preto, superficies em grafite, texto claro e destaque rosa.
+O modo escuro e o padrao. O botao de sol/lua nos cabecalhos alterna para um tema claro
+com fundos suaves, cards brancos e destaque rosa, aplicado tambem aos campos e dialogos.
+A preferencia fica no `localStorage` (`echoring.theme.v1`) e sincroniza entre abas;
+no Android e iOS, fica no `expo-secure-store`. O tema nao segue automaticamente o sistema.
 Desktop usa menu lateral; abaixo de 1000 px, a navegacao passa para a barra inferior
 flutuante, com abas arredondadas. Login, listas e dialogos compartilham o mesmo tema.
 As listas de projetos passam a apresentar cada registro verticalmente abaixo de 800 px.

@@ -1,7 +1,8 @@
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { colors } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function Brand({
   compact = false,
@@ -12,6 +13,8 @@ export function Brand({
   inverse?: boolean;
   wordmarkOnly?: boolean;
 }) {
+  const { colors, theme } = useTheme();
+  const styles = useStyles();
   return (
     <View accessible accessibilityLabel="Echo Ring, traduções que conectam" style={styles.brand}>
       {!wordmarkOnly && (
@@ -27,7 +30,7 @@ export function Brand({
             style={[
               styles.brandName,
               compact && styles.brandNameCompact,
-              inverse && { color: colors.white },
+              inverse && { color: theme === 'dark' ? colors.white : colors.navigationText },
             ]}
           >
             echo
@@ -46,7 +49,7 @@ export function Brand({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((colors) => ({
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brandMark: { width: 42, height: 42 },
   brandMarkCompact: { width: 34, height: 34 },
@@ -61,4 +64,4 @@ const styles = StyleSheet.create({
     letterSpacing: 2.25,
     fontWeight: '600',
   },
-});
+}));

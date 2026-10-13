@@ -10,11 +10,14 @@ import { Txt } from '@/components/ui/text';
 import { WorkspacePage } from '@/features/workspace/components/workspace-page';
 import { areaItems } from '@/features/workspace/constants/areas';
 import { modules } from '@/features/workspace/navigation/modules';
-import { styles } from '@/features/workspace/styles/workspace.styles';
-import { common } from '@/theme/common.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/workspace/styles/workspace.styles';
+import { useCommonStyles } from '@/theme/common.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function AreaScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
   const { module } = useLocalSearchParams<{ module: string }>();
   const area = modules.find((item) => item.href === '/area/' + module);
   if (!area)

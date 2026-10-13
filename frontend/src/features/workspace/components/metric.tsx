@@ -2,7 +2,7 @@ import { type LucideIcon } from 'lucide-react-native';
 import { View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { styles } from '@/features/workspace/styles/workspace.styles';
+import { useStyles } from '@/features/workspace/styles/workspace.styles';
 
 export function Metric({
   title,
@@ -17,6 +17,7 @@ export function Metric({
   icon: LucideIcon;
   compact: boolean;
 }) {
+  const styles = useStyles();
   return (
     <View style={[styles.metric, compact && styles.metricCompact]}>
       <View style={[styles.metricIcon, { borderColor: color }]}>

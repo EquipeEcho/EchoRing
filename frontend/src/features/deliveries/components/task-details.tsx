@@ -5,13 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Txt } from '@/components/ui/text';
 import { TaskFeedback } from '@/features/deliveries/components/task-feedback';
 import { downloadOriginal } from '@/features/deliveries/services/delivery-service';
-import { styles } from '@/features/deliveries/styles/deliveries.styles';
+import { useStyles } from '@/features/deliveries/styles/deliveries.styles';
 import { type TranslationService } from '@/features/deliveries/types';
-import { common } from '@/theme/common.styles';
-import { colors } from '@/theme/tokens';
+import { useCommonStyles } from '@/theme/common.styles';
 import { formatBytes } from '@/utils/formatters';
+import { useTheme } from '@/theme/theme-context';
 
 export function TaskDetails({ task, token }: { task: TranslationService; token: string }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
   return (
     <>
       <View style={styles.metadata}>

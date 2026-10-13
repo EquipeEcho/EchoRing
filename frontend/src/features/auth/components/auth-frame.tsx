@@ -12,10 +12,13 @@ import {
 
 import { Brand } from '@/components/ui/brand';
 import { Txt } from '@/components/ui/text';
-import { styles } from '@/features/auth/styles/auth.styles';
-import { colors } from '@/theme/tokens';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { useStyles } from '@/features/auth/styles/auth.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function AuthFrame({ children }: { children: ReactNode }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { width } = useWindowDimensions();
   const small = width < 600;
   return (
@@ -31,13 +34,16 @@ export function AuthFrame({ children }: { children: ReactNode }) {
           showsHorizontalScrollIndicator={false}
         >
           <View style={styles.top}>
-            <Brand />
-            <Link href="/" asChild>
-              <Pressable accessibilityRole="link" style={styles.backToSite}>
-                <Txt style={styles.link}>Voltar ao site</Txt>
-                <ArrowUpRight size={16} color={colors.accent} />
-              </Pressable>
-            </Link>
+            <Brand compact={small} wordmarkOnly={width < 380} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: small ? 6 : 12 }}>
+              <ThemeToggle />
+              <Link href="/" asChild>
+                <Pressable accessibilityRole="link" style={styles.backToSite}>
+                  <Txt style={styles.link}>Voltar ao site</Txt>
+                  <ArrowUpRight size={16} color={colors.accent} />
+                </Pressable>
+              </Link>
+            </View>
           </View>
           <View style={[styles.center, width >= 1100 && styles.centerWide]}>
             {width >= 1100 && (

@@ -3,10 +3,10 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Dialog } from '@/components/ui/dialog';
-import { styles } from '@/components/ui/fields/selection-fields.styles';
+import { useStyles } from '@/components/ui/fields/selection-fields.styles';
 import { type FieldBaseProps } from '@/components/ui/fields/types';
 import { Txt } from '@/components/ui/text';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme-context';
 
 export function OptionSelectField({
   label,
@@ -26,6 +26,8 @@ export function OptionSelectField({
   dialogTitle?: string;
   description?: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -86,7 +88,7 @@ export function OptionSelectField({
                 ]}
               >
                 <View style={[styles.radio, selected && styles.radioSelected]}>
-                  {selected && <Check size={13} color={colors.canvas} strokeWidth={3} />}
+                  {selected && <Check size={13} color={colors.onAccent} strokeWidth={3} />}
                 </View>
                 <Txt style={[styles.optionText, selected && { color: colors.ink }]}>{option}</Txt>
               </Pressable>

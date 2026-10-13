@@ -1,8 +1,8 @@
 import { TextInput, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { styles } from '@/features/auth/styles/auth.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/auth/styles/auth.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function EmailField({
   value,
@@ -15,6 +15,8 @@ export function EmailField({
   error?: string;
   onSubmit?: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   return (
     <View style={styles.field}>
       <Txt style={styles.label}>E-mail</Txt>

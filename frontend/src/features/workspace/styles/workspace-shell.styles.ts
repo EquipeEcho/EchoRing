@@ -1,8 +1,7 @@
-import { StyleSheet } from 'react-native';
+import { font } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
 
-import { colors, font } from '@/theme/tokens';
-
-export const styles = StyleSheet.create({
+export const useStyles = createThemedStyles((colors, selectColor) => ({
   safe: { flex: 1, backgroundColor: colors.canvas },
   root: { flex: 1, flexDirection: 'row', minHeight: 0 },
   sidebar: {
@@ -38,10 +37,10 @@ export const styles = StyleSheet.create({
     borderLeftWidth: 2,
     borderLeftColor: 'transparent',
   },
-  navActive: { backgroundColor: '#191014', borderLeftColor: colors.accent },
+  navActive: { backgroundColor: selectColor('#191014', colors.navigationActive), borderLeftColor: colors.accent },
   navLabel: { fontSize: 15, lineHeight: 22, color: colors.navigationText, flex: 1 },
   count: { backgroundColor: colors.accent, paddingHorizontal: 8, borderRadius: 10 },
-  countText: { fontSize: 12, lineHeight: 20, color: colors.navigationText },
+  countText: { fontSize: 12, lineHeight: 20, color: colors.onAccent },
   separator: { height: 1, backgroundColor: colors.navigationLine, marginVertical: 24 },
   sidebarBottom: { padding: 16, borderTopWidth: 1, borderTopColor: colors.navigationLine },
   help: {
@@ -65,12 +64,12 @@ export const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: '#3A1C2A',
     borderWidth: 1,
-    borderColor: '#5A2A3B',
+    borderColor: selectColor('#5A2A3B', colors.accent),
     alignItems: 'center',
     justifyContent: 'center',
   },
   mobileAvatar: { borderRadius: 21, backgroundColor: '#402348', borderColor: '#402348' },
-  profileName: { fontSize: 14, lineHeight: 21, fontWeight: '600', color: colors.white },
+  profileName: { fontSize: 14, lineHeight: 21, fontWeight: '600', color: selectColor(colors.white, colors.navigationText) },
   profileRole: { fontSize: 12, color: colors.navigationMuted, lineHeight: 18 },
   main: { flex: 1, minWidth: 0, minHeight: 0, backgroundColor: colors.canvas },
   header: {
@@ -95,7 +94,7 @@ export const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#48484F',
+    borderBottomColor: selectColor('#48484F', colors.controlLine),
     borderTopLeftRadius: 10,
     borderTopRightRadius: 10,
   },
@@ -145,10 +144,10 @@ export const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 8,
     padding: 5,
-    boxShadow: '0 12px 40px rgba(0,0,0,0.55)',
+    boxShadow: selectColor('0 12px 40px rgba(0,0,0,0.55)', '0 12px 40px rgba(25,25,45,0.10)'),
   },
   bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 32 },
   bottomActive: { backgroundColor: colors.accentSoft },
   bottomIcon: { width: 44, height: 27, justifyContent: 'center', alignItems: 'center' },
   bottomLabel: { maxWidth: '100%', fontSize: 11, lineHeight: 17, color: colors.ink },
-});
+}));

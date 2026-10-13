@@ -14,7 +14,8 @@ import Svg, {
 } from 'react-native-svg';
 
 import { Txt } from '@/components/ui/text';
-import { colors } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
+import { useTheme } from '@/theme/theme-context';
 
 const continents = [
   'M115 151 L135 129 158 119 174 128 191 128 203 144 193 159 173 164 167 179 151 187 159 200 153 214 137 208 133 190 119 178 Z',
@@ -28,6 +29,8 @@ const continents = [
 ];
 
 export function HeroWorld() {
+  const { colors, theme } = useTheme();
+  const s = useStyles();
   return (
     <View
       style={s.world}
@@ -176,11 +179,11 @@ export function HeroWorld() {
       </View>
       <View testID="language-chip-two" style={[s.chip, s.chipPink, { top: '32%', right: '0%' }]}>
         <View style={s.chipTop}>
-          <Txt style={[s.code, { color: '#FFD7E2' }]}>EN</Txt>
-          <ArrowUpRight size={13} color="#FF8EA7" />
+          <Txt style={[s.code, { color: theme === 'dark' ? '#FFD7E2' : colors.accent }]}>EN</Txt>
+          <ArrowUpRight size={13} color={theme === 'dark' ? '#FF8EA7' : colors.accent} />
         </View>
         <Txt style={s.hello}>Hello.</Txt>
-        <Txt style={[s.language, { color: '#DA9AAC' }]}>ENGLISH</Txt>
+        <Txt style={[s.language, { color: theme === 'dark' ? '#DA9AAC' : colors.muted }]}>ENGLISH</Txt>
       </View>
       <View testID="language-chip-three" style={[s.chip, { bottom: '8%', left: '12%' }]}>
         <View style={s.chipTop}>
@@ -198,7 +201,7 @@ export function HeroWorld() {
   );
 }
 
-const s = StyleSheet.create({
+const useStyles = createThemedStyles((colors, selectColor) => ({
   world: { width: '100%', aspectRatio: 1, position: 'relative' },
   seal: {
     position: 'absolute',
@@ -206,9 +209,9 @@ const s = StyleSheet.create({
     left: '42%',
     width: '16%',
     height: '16%',
-    backgroundColor: '#100B10',
+    backgroundColor: selectColor('#100B10', colors.surface),
     borderWidth: 1,
-    borderColor: '#703146',
+    borderColor: selectColor('#703146', colors.accent),
     borderRadius: 100,
     alignItems: 'center',
     justifyContent: 'center',
@@ -218,15 +221,15 @@ const s = StyleSheet.create({
   chip: {
     position: 'absolute',
     width: 130,
-    backgroundColor: '#19171BEF',
+    backgroundColor: selectColor('#19171BEF', colors.elevated),
     borderWidth: 1,
-    borderColor: '#3B2932',
+    borderColor: selectColor('#3B2932', colors.accent),
     borderRadius: 19,
     paddingHorizontal: 17,
     paddingVertical: 13,
-    boxShadow: '0 16px 35px rgba(0,0,0,0.45)',
+    boxShadow: selectColor('0 16px 35px rgba(0,0,0,0.45)', '0 16px 35px rgba(25,25,45,0.10)'),
   },
-  chipPink: { backgroundColor: '#3D1826F5', borderColor: '#8D3450' },
+  chipPink: { backgroundColor: selectColor('#3D1826F5', colors.accentSoft), borderColor: selectColor('#8D3450', colors.accent) },
   chipTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -245,6 +248,6 @@ const s = StyleSheet.create({
     gap: 9,
     alignItems: 'center',
   },
-  captionLine: { width: 18, height: 1, backgroundColor: '#7C354B' },
-  captionText: { fontSize: 8, lineHeight: 14, color: '#A27889', letterSpacing: 1.2 },
-});
+  captionLine: { width: 18, height: 1, backgroundColor: selectColor('#7C354B', colors.accentSoft) },
+  captionText: { fontSize: 8, lineHeight: 14, color: selectColor('#A27889', colors.muted), letterSpacing: 1.2 },
+}));

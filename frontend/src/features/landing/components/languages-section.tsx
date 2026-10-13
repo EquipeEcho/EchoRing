@@ -2,11 +2,13 @@ import { View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
 import { LanguageFlag } from '@/features/landing/components/language-flag';
-import { styles } from '@/features/landing/styles/landing.styles';
+import { useStyles } from '@/features/landing/styles/landing.styles';
 import type { LandingSectionProps } from '@/features/landing/types';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme-context';
 
 export function LanguagesSection({ layout, onLayout }: LandingSectionProps) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { mobile, narrow, wide } = layout;
   return (
     <View

@@ -3,15 +3,17 @@ import { Pressable, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
 import { landingServices } from '@/features/landing/constants';
-import { styles } from '@/features/landing/styles/landing.styles';
+import { useStyles } from '@/features/landing/styles/landing.styles';
 import type { LandingSectionProps } from '@/features/landing/types';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme-context';
 
 export function ServicesSection({
   layout,
   onLayout,
   onSelectService,
 }: LandingSectionProps & { onSelectService: (service: string) => void }) {
+  const { colors, theme } = useTheme();
+  const styles = useStyles();
   const { mobile, narrow, wide } = layout;
   return (
     <View
@@ -85,7 +87,7 @@ export function ServicesSection({
             <View style={styles.serviceBottom}>
               <Txt style={styles.serviceCta}>EXPLORAR SOLUÇÃO</Txt>
               <View style={styles.serviceArrow}>
-                <ArrowRight size={18} color={colors.ink} />
+                <ArrowRight size={18} color={theme === 'dark' ? colors.ink : colors.onAccent} />
               </View>
             </View>
           </Pressable>

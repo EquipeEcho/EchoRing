@@ -1,8 +1,6 @@
-import { StyleSheet } from 'react-native';
+import { createThemedStyles } from '@/theme/create-themed-styles';
 
-import { colors } from '@/theme/tokens';
-
-export const styles = StyleSheet.create({
+export const useStyles = createThemedStyles((colors) => ({
   page: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -42,4 +40,4 @@ export const styles = StyleSheet.create({
   choices: { gap: 10 },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 10 },
   error: { color: colors.red, fontSize: 14, lineHeight: 21 },
-});
+}));

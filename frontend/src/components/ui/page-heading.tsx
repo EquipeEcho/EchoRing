@@ -1,8 +1,9 @@
 import { type ReactNode } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { colors, typeScale } from '@/theme/tokens';
+import { typeScale } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
 
 export function PageHeading({
   title,
@@ -13,6 +14,7 @@ export function PageHeading({
   subtitle: string;
   action?: ReactNode;
 }) {
+  const styles = useStyles();
   const { width } = useWindowDimensions();
   return (
     <View style={styles.heading}>
@@ -31,7 +33,7 @@ export function PageHeading({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((colors) => ({
   heading: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -50,4 +52,4 @@ const styles = StyleSheet.create({
   },
   title: { ...typeScale.title, fontWeight: '700', letterSpacing: -1.7 },
   subtitle: { fontSize: 15, lineHeight: 22, color: colors.muted },
-});
+}));

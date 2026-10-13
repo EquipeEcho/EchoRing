@@ -1,8 +1,6 @@
-import { StyleSheet } from 'react-native';
+import { createThemedStyles } from '@/theme/create-themed-styles';
 
-import { colors } from '@/theme/tokens';
-
-export const styles = StyleSheet.create({
+export const useStyles = createThemedStyles((colors, selectColor) => ({
   field: { flex: 1, minWidth: 0, gap: 8, marginBottom: 18 },
   fieldCompact: { flex: 0, flexShrink: 0, flexBasis: 'auto', width: '100%' },
   fieldHeading: { minHeight: 19, flexDirection: 'row', alignItems: 'center', gap: 9 },
@@ -21,11 +19,11 @@ export const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 15,
     borderRadius: 12,
-    backgroundColor: '#1B1B1E',
+    backgroundColor: selectColor('#1B1B1E', colors.elevated),
     borderWidth: 1,
-    borderColor: '#353539',
+    borderColor: selectColor('#353539', colors.controlLine),
   },
-  controlHover: { borderColor: '#74505E', backgroundColor: '#201D20' },
+  controlHover: { borderColor: selectColor('#74505E', colors.accent), backgroundColor: selectColor('#201D20', colors.elevated) },
   controlInvalid: { borderColor: colors.red },
   value: { flex: 1, minWidth: 0, fontSize: 15, lineHeight: 22 },
   placeholder: { color: colors.muted },
@@ -44,14 +42,14 @@ export const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.canvas,
   },
-  optionSelected: { borderColor: '#85405A', backgroundColor: colors.accentSoft },
-  optionHover: { borderColor: '#704354', backgroundColor: '#1B1518' },
+  optionSelected: { borderColor: selectColor('#85405A', colors.accent), backgroundColor: colors.accentSoft },
+  optionHover: { borderColor: selectColor('#704354', colors.accent), backgroundColor: selectColor('#1B1518', colors.elevated) },
   radio: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#5C5A62',
+    borderColor: selectColor('#5C5A62', colors.controlLine),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -93,12 +91,12 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dayToday: { borderWidth: 1, borderColor: '#76505D' },
+  dayToday: { borderWidth: 1, borderColor: selectColor('#76505D', colors.accent) },
   daySelected: { backgroundColor: colors.accent },
   dayDisabled: { opacity: 0.52 },
   dayHover: { backgroundColor: colors.accentSoft },
   dayText: { fontSize: 13, color: colors.ink },
-  dayTextSelected: { color: colors.canvas, fontWeight: '700' },
+  dayTextSelected: { color: colors.onAccent, fontWeight: '700' },
   calendarActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -106,4 +104,4 @@ export const styles = StyleSheet.create({
     gap: 8,
     paddingTop: 4,
   },
-});
+}));

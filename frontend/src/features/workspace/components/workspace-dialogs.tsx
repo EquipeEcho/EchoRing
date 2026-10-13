@@ -10,11 +10,14 @@ import { OptionSelectField } from '@/components/ui/fields/option-select-field';
 import { Txt } from '@/components/ui/text';
 import { statusTone } from '@/features/workspace/constants/status';
 import { useWorkspace } from '@/features/workspace/contexts/workspace-context';
-import { styles } from '@/features/workspace/styles/dialogs.styles';
-import { common } from '@/theme/common.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/workspace/styles/dialogs.styles';
+import { useCommonStyles } from '@/theme/common.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function WorkspaceDialogs() {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
   const { selected, setSelected, newRequest, setNewRequest, addRequest } = useWorkspace();
   const [title, setTitle] = useState('');
   const [client, setClient] = useState('');

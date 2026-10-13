@@ -1,17 +1,22 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { CheckCircle2, CircleX, ShieldCheck } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, useWindowDimensions, View } from 'react-native';
 
 import { Brand } from '@/components/ui/brand';
 import { Button } from '@/components/ui/button';
 import { Txt } from '@/components/ui/text';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { submitQuoteDecision } from '@/features/requests/services/request-service';
-import { styles } from '@/features/requests/styles/quote-response.styles';
-import { common } from '@/theme/common.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/requests/styles/quote-response.styles';
+import { useCommonStyles } from '@/theme/common.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function QuoteResponseScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
+  const { width } = useWindowDimensions();
   const params = useLocalSearchParams<{ id: string; decision?: string; '#': string }>();
   const [token] = useState(typeof params['#'] === 'string' ? params['#'] : '');
   const [choice, setChoice] = useState<'approve' | 'decline'>(
@@ -45,7 +50,10 @@ export function QuoteResponseScreen() {
   return (
     <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
       <View style={styles.card}>
-        <Brand />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Brand compact={width < 600} />
+          <ThemeToggle />
+        </View>
         {result ? (
           <View style={styles.center}>
             {result === 'Orçamento aprovado' ? (

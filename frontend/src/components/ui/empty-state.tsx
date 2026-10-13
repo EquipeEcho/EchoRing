@@ -1,9 +1,10 @@
 import { type LucideIcon } from 'lucide-react-native';
 import { type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { colors } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function EmptyState({
   icon: Icon,
@@ -16,6 +17,8 @@ export function EmptyState({
   text: string;
   action?: ReactNode;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}>
@@ -28,7 +31,7 @@ export function EmptyState({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((colors) => ({
   empty: { paddingVertical: 56, paddingHorizontal: 22, alignItems: 'center', gap: 12 },
   emptyIcon: {
     width: 64,
@@ -41,4 +44,4 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontWeight: '600', fontSize: 17, textAlign: 'center' },
   emptyText: { textAlign: 'center', color: colors.muted, maxWidth: 380, fontSize: 13 },
-});
+}));

@@ -1,15 +1,14 @@
-import { StyleSheet } from 'react-native';
+import { font } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
 
-import { colors, font } from '@/theme/tokens';
-
-export const styles = StyleSheet.create({
+export const useStyles = createThemedStyles((colors, selectColor) => ({
   page: { padding: 40, paddingTop: 28, paddingBottom: 48, flexGrow: 1 },
   pageSmall: { padding: 20, paddingTop: 26 },
   inner: { width: '100%', maxWidth: 1200, alignSelf: 'center' },
   notice: {
     backgroundColor: colors.greenSoft,
     borderWidth: 1,
-    borderColor: '#29533F',
+    borderColor: selectColor('#29533F', colors.accent),
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
@@ -30,7 +29,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 28,
     paddingVertical: 24,
     marginBottom: 28,
-    backgroundColor: '#0D0D0F',
+    backgroundColor: selectColor('#0D0D0F', colors.surface),
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: colors.line,
@@ -70,7 +69,7 @@ export const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#48484F',
+    borderBottomColor: selectColor('#48484F', colors.controlLine),
   },
   searchInput: {
     flex: 1,
@@ -98,7 +97,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 18,
     paddingHorizontal: 22,
-    backgroundColor: '#0B0B0D',
+    backgroundColor: selectColor('#0B0B0D', colors.surface),
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
@@ -128,7 +127,7 @@ export const styles = StyleSheet.create({
     borderRadius: 13,
     backgroundColor: colors.accentSoft,
     borderWidth: 1,
-    borderColor: '#552132',
+    borderColor: selectColor('#552132', colors.accent),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -189,4 +188,4 @@ export const styles = StyleSheet.create({
   roleTitle: { fontSize: 14, fontWeight: '600' },
   error: { color: colors.red, fontSize: 13, lineHeight: 19 },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 10 },
-});
+}));

@@ -1,8 +1,10 @@
 import { type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { colors, typeScale } from '@/theme/tokens';
+import { typeScale } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function Badge({
   children,
@@ -11,6 +13,8 @@ export function Badge({
   children: ReactNode;
   tone?: 'green' | 'amber' | 'red' | 'blue' | 'neutral';
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const tones = {
     green: [colors.green, colors.greenSoft],
     amber: [colors.amber, colors.amberSoft],
@@ -27,7 +31,7 @@ export function Badge({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles(() => ({
   badge: {
     paddingHorizontal: 11,
     paddingVertical: 4,
@@ -37,4 +41,4 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignSelf: 'flex-start',
   },
-});
+}));

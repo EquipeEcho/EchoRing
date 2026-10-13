@@ -1,8 +1,10 @@
 import { StyleSheet, Text } from 'react-native';
 
-import { colors, fonts, typeScale } from '@/theme/tokens';
+import { fonts, typeScale } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
 
 export function Txt({ children, style, ...props }: React.ComponentProps<typeof Text>) {
+  const styles = useStyles();
   const resolved = StyleSheet.flatten(style);
   const weight = resolved?.fontWeight;
   const family =
@@ -28,6 +30,6 @@ export function Txt({ children, style, ...props }: React.ComponentProps<typeof T
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((colors) => ({
   text: { ...typeScale.body, color: colors.ink, letterSpacing: 0 },
-});
+}));

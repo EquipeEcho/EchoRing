@@ -4,11 +4,13 @@ import { Pressable, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
 import { useWorkspace } from '@/features/workspace/contexts/workspace-context';
-import { styles } from '@/features/workspace/styles/workspace.styles';
+import { useStyles } from '@/features/workspace/styles/workspace.styles';
 import { type Task } from '@/features/workspace/types';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme-context';
 
 export function TaskRow({ task }: { task: Task }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { toggleTask } = useWorkspace();
   return (
     <Pressable

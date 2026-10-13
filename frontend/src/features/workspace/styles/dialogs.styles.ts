@@ -1,8 +1,7 @@
-import { StyleSheet } from 'react-native';
+import { font } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
 
-import { colors, font } from '@/theme/tokens';
-
-export const styles = StyleSheet.create({
+export const useStyles = createThemedStyles((colors, selectColor) => ({
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -82,7 +81,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#6A5126',
+    borderColor: selectColor('#6A5126', colors.accent),
   },
   formFields: { gap: 20 },
   field: { gap: 9 },
@@ -93,7 +92,7 @@ export const styles = StyleSheet.create({
     minHeight: 52,
     backgroundColor: colors.canvas,
     borderWidth: 1,
-    borderColor: '#38383D',
+    borderColor: selectColor('#38383D', colors.controlLine),
     borderRadius: 12,
     paddingHorizontal: 16,
     fontFamily: font,
@@ -109,4 +108,4 @@ export const styles = StyleSheet.create({
     gap: 10,
     paddingTop: 4,
   },
-});
+}));

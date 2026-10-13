@@ -1,7 +1,7 @@
 import { Pressable, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { styles } from '@/features/deliveries/styles/deliveries.styles';
+import { useStyles } from '@/features/deliveries/styles/deliveries.styles';
 
 export function WorkflowTabs<T extends string>({
   value,
@@ -12,6 +12,7 @@ export function WorkflowTabs<T extends string>({
   onChange: (value: T) => void;
   tabs: { value: T; label: string; count: number }[];
 }) {
+  const styles = useStyles();
   return (
     <View accessibilityRole="tablist" style={styles.tabs}>
       {tabs.map((tab) => (

@@ -8,11 +8,14 @@ import { Txt } from '@/components/ui/text';
 import { useSession } from '@/features/auth/contexts/session-context';
 import { WorkspacePage } from '@/features/workspace/components/workspace-page';
 import { mobileMoreModulesFor } from '@/features/workspace/navigation/modules';
-import { styles } from '@/features/workspace/styles/workspace.styles';
-import { common } from '@/theme/common.styles';
-import { colors } from '@/theme/tokens';
+import { useStyles } from '@/features/workspace/styles/workspace.styles';
+import { useCommonStyles } from '@/theme/common.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function MoreScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
   const { session } = useSession();
   const items = mobileMoreModulesFor(session?.role ?? 'translator');
   return (

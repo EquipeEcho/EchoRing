@@ -1,9 +1,10 @@
 import { type LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { colors } from '@/theme/tokens';
+import { createThemedStyles } from '@/theme/create-themed-styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function IconButton({
   icon: Icon,
@@ -16,6 +17,8 @@ export function IconButton({
   onPress: () => void;
   active?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const [hover, setHover] = useState(false);
   return (
     <View style={{ position: 'relative', zIndex: hover ? 20 : 1 }}>
@@ -42,7 +45,7 @@ export function IconButton({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((colors, selectColor) => ({
   iconButton: {
     width: 44,
     height: 44,
@@ -65,5 +68,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minWidth: 100,
   },
-  tooltipText: { color: colors.white, fontSize: 11, textAlign: 'center' },
-});
+  tooltipText: { color: selectColor(colors.white, colors.ink), fontSize: 11, textAlign: 'center' },
+}));

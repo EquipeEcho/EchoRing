@@ -5,10 +5,10 @@ import { Pressable, View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { dateFromValue, dateKey, formatSelectedDate } from '@/components/ui/fields/date-utils';
-import { styles } from '@/components/ui/fields/selection-fields.styles';
+import { useStyles } from '@/components/ui/fields/selection-fields.styles';
 import { type FieldBaseProps } from '@/components/ui/fields/types';
 import { Txt } from '@/components/ui/text';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme-context';
 
 export function DateSelectField({
   label,
@@ -19,6 +19,8 @@ export function DateSelectField({
   compact,
   prefix,
 }: FieldBaseProps) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const today = useMemo(() => {
     const date = new Date();
     return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12);
@@ -153,7 +155,7 @@ export function DateSelectField({
                     style={[
                       styles.dayText,
                       isSelected && styles.dayTextSelected,
-                      isPast && { color: '#55545A' },
+                      isPast && { color: colors.disabled },
                     ]}
                   >
                     {date.getDate()}

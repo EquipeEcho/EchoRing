@@ -3,11 +3,13 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { styles } from '@/features/landing/styles/landing.styles';
+import { useStyles } from '@/features/landing/styles/landing.styles';
 import type { LandingSectionProps } from '@/features/landing/types';
-import { colors } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme-context';
 
 export function FaqSection({ layout }: LandingSectionProps) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { mobile, narrow } = layout;
   const [faq, setFaq] = useState<number | null>(null);
   return (

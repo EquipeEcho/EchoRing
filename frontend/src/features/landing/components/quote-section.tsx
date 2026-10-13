@@ -26,17 +26,20 @@ import { Txt } from '@/components/ui/text';
 import { QuoteField } from '@/features/landing/components/quote-field';
 import { initialIntake, landingServices } from '@/features/landing/constants';
 import type { QuoteForm } from '@/features/landing/hooks/use-quote-form';
-import { styles } from '@/features/landing/styles/landing.styles';
+import { useStyles } from '@/features/landing/styles/landing.styles';
 import type { LandingSectionProps } from '@/features/landing/types';
 import { apiMode } from '@/features/requests/constants/request-mode';
-import { common } from '@/theme/common.styles';
-import { colors } from '@/theme/tokens';
+import { useCommonStyles } from '@/theme/common.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function QuoteSection({
   layout,
   onLayout,
   form,
 }: LandingSectionProps & { form: QuoteForm }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
   const { width, mobile, narrow, wide } = layout;
   const {
     step,
@@ -202,7 +205,7 @@ export function QuoteSection({
                       <Txt
                         style={{
                           fontSize: 12,
-                          color: step === index ? colors.canvas : colors.muted,
+                          color: step === index ? colors.onAccent : colors.muted,
                           fontWeight: '600',
                         }}
                       >
@@ -257,7 +260,7 @@ export function QuoteSection({
                             styles.choice,
                             mobile && { flexBasis: '44%' },
                             data.service === service.title && styles.choiceActive,
-                            hovered && { borderColor: '#895064' },
+                            hovered && { borderColor: colors.accent },
                           ]}
                         >
                           <service.icon
@@ -346,7 +349,7 @@ export function QuoteSection({
                     onPress={attach}
                     style={({ hovered }) => [
                       styles.upload,
-                      hovered && { borderColor: colors.accent, backgroundColor: '#20141A' },
+                      hovered && { borderColor: colors.accent, backgroundColor: colors.accentSoft },
                     ]}
                   >
                     <View style={styles.uploadIcon}>
@@ -451,7 +454,7 @@ export function QuoteSection({
                         },
                       ]}
                     >
-                      {data.consent && <Check size={15} color={colors.canvas} strokeWidth={3} />}
+                      {data.consent && <Check size={15} color={colors.onAccent} strokeWidth={3} />}
                     </Pressable>
                     <View style={{ flex: 1 }}>
                       <Txt style={common.caption}>
