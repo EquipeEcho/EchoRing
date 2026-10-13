@@ -9,14 +9,12 @@ import os
 import re
 import secrets
 import smtplib
-import ssl
 import threading
 import time
 import zipfile
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from email.message import EmailMessage
 from pathlib import Path
 from typing import Literal
 from urllib.parse import quote as urlquote
@@ -30,7 +28,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator, model_validator
-from app.services.email.service import _smtp_send
+from app.services.email.service import EmailNotConfiguredError, send_email
 
 router = APIRouter()
 bearer = HTTPBearer(auto_error=False)
@@ -781,7 +779,7 @@ def update_request(request_id: str, changes: Update, user: dict = Depends(staff)
 
 
 def deliver_quote(data, response_token=None):
-    """Monta o orçamento em texto e HTML com links pessoais de aprovação e recusa."""
+    """Envia o orçamento ao cliente com links pessoais de aprovação e recusa."""
     quote_data = data['quote']
     amount = f"{Decimal(quote_data['amount'].replace(',', '.')):,.2f}".replace(',', '_').replace('.', ',').replace('_', '.')
     quote_id = quote_data.get('id', 'ORCAMENTO')
@@ -789,26 +787,20 @@ def deliver_quote(data, response_token=None):
     token = response_token or 'token-nao-disponivel'
     approve_url = f'{frontend}/orcamento/{urlquote(quote_id, safe="")}?decision=approve#{urlquote(token, safe="")}'
     decline_url = f'{frontend}/orcamento/{urlquote(quote_id, safe="")}?decision=decline#{urlquote(token, safe="")}'
-    optional_message = f"\nMensagem da equipe: {quote_data['message']}\n" if quote_data.get('message') else ''
-    message = EmailMessage()
-    message['From'] = os.getenv('SMTP_FROM', '')
-    message['To'] = data['email']
-    message['Subject'] = f"Orçamento Aliança Traduções · {data['id']}"
-    message.set_content(
-        f"Olá, {data['name']}!\n\nSegue nossa proposta para {data['title']}.\n\n"
-        f"Serviço: {data['service']}\nIdiomas: {data['source']} → {data['target']}\n"
-        f"Valor: R$ {amount}\nPrazo: {quote_data['delivery']}\n{optional_message}\n"
-        f"Aprovar orçamento: {approve_url}\nRecusar orçamento: {decline_url}\n\n"
-        f"Os links são pessoais e devem ser usados apenas por você.\n\nAliança Traduções\nProtocolo: {data['id']}"
-    )
-    message.add_alternative(
-        f"<h2>Orçamento para {data['title']}</h2><p><strong>Serviço:</strong> {data['service']}<br>"
-        f"<strong>Idiomas:</strong> {data['source']} → {data['target']}<br>"
-        f"<strong>Valor:</strong> R$ {amount}<br><strong>Prazo:</strong> {quote_data['delivery']}</p>"
-        f"<p>{quote_data.get('message', '')}</p><p><a href=\"{approve_url}\">Aprovar orçamento</a> &nbsp; "
-        f"<a href=\"{decline_url}\">Recusar orçamento</a></p><p>Protocolo: {data['id']}</p>", subtype='html')
-    _smtp_send(message)
-
+    try:
+        send_email(
+            to=data['email'],
+            subject=f"Orçamento Aliança Traduções · {data['id']}",
+            template='orcamento',
+            context={
+                'nome': data['name'], 'titulo': data['title'], 'servico': data['service'],
+                'origem': data['source'], 'destino': data['target'], 'valor': amount,
+                'prazo': quote_data['delivery'], 'mensagem': quote_data.get('message', ''),
+                'aprovar_url': approve_url, 'recusar_url': decline_url, 'protocolo': data['id'],
+            },
+        )
+    except EmailNotConfiguredError as error:
+        raise HTTPException(503, 'O envio de e-mails não foi configurado. Os dados continuam salvos.') from error
 
 @router.post('/requests/{request_id}/send-quote')
 def send_quote(request_id: str, user: dict = Depends(staff)):
