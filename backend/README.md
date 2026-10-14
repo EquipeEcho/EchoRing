@@ -2,9 +2,10 @@
 
 O formulário público envia pedidos para a API; a caixa de entrada privada permite
 analisar documentos, salvar a proposta e enviar o orçamento pelo SMTP da empresa.
-Toda a persistência da aplicação fica no PostgreSQL: usuários, sessões,
-solicitações, orçamentos, tarefas, documentos, versões e histórico. Solicitações
-usam `JSONB` e os arquivos finais usam `BYTEA`; o runtime não depende de SQLite.
+A persistência fica no PostgreSQL (usuários, sessões, solicitações, orçamentos,
+tarefas, documentos, versões e histórico), exceto o perfil do tradutor, que fica
+no MongoDB. Solicitações usam `JSONB` e os arquivos finais usam `BYTEA`; o runtime
+não depende de SQLite.
 
 ## Rodar no Windows
 
@@ -37,9 +38,10 @@ Contas criadas pelo administrador são persistidas no PostgreSQL e já podem usa
 Novos tradutores criados pelo administrador recebem `onboardingRequired: true` e
 concluem seu cadastro antes de acessar projetos e entregas. Contas que já existiam
 e contas iniciais configuradas no ambiente mantêm o acesso anterior.
-Rascunhos e perfis completos ficam em `translator_profiles`, vinculados ao usuário;
-os campos e pares de idiomas são persistidos em JSONB. A conclusão grava os dados,
-atualiza o nome e libera o acesso na mesma transação. O schema é atualizado
+Rascunhos e perfis completos ficam no MongoDB, na collection `translator_profiles`,
+com o id do usuário como `_id`. A conclusão salva o perfil no Mongo e só depois
+atualiza o nome e libera o acesso no PostgreSQL; se o Mongo falhar, a conta continua
+pendente e o tradutor pode tentar de novo. O schema do PostgreSQL é atualizado
 automaticamente ao iniciar o acesso ao banco, sem excluir dados existentes.
 Recuperação real de senha e alteração de senha ainda não estão implementadas.
 
@@ -150,4 +152,4 @@ migração; o script não apaga o arquivo de origem.
 ```
 
 Os testes criam e removem schemas PostgreSQL exclusivos, usam credenciais fictícias
-e simulam o SMTP. O PostgreSQL configurado no `.env` deve estar acessível.
+e simulam o SMTP e o MongoDB. O PostgreSQL configurado no `.env` deve estar acessível.
