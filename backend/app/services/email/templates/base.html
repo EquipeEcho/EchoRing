@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>{{ empresa }}</title></head>
+<body style="margin:0;background:#F0F0F3;font-family:Arial,sans-serif;color:#111113;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px;">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border-radius:12px;overflow:hidden;">
+        <tr><td style="background:#111113;padding:20px 28px;color:#fff;font-size:18px;font-weight:bold;">{{ empresa }}</td></tr>
+        <tr><td style="padding:28px;font-size:15px;line-height:1.6;">
+          {% block conteudo %}{% endblock %}
+        </td></tr>
+        <tr><td style="padding:16px 28px;border-top:1px solid #E0E1E6;font-size:12px;color:#60646C;">
+          {% block rodape %}E-mail automático da {{ empresa }}.{% endblock %}
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
