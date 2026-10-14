@@ -12,4 +12,4 @@ def get_db():
     global _client
     if _client is None:
         _client = MongoClient(os.getenv('MONGO_URL', 'mongodb://localhost:27017'), serverSelectionTimeoutMS=5000)
-    return _client[os.getenv('MONGO_DB', 'echoring')]
+    return _client[os.getenv('MONGO_DB', 'EchoRing')]
