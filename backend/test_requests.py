@@ -14,6 +14,7 @@ from main import app
 import requests_api
 import mongomock
 from app import mongo
+from app.services.email import service as email_service
 
 
 class RequestsTests(unittest.TestCase):
@@ -30,6 +31,7 @@ class RequestsTests(unittest.TestCase):
             'TRANSLATOR_EMAIL': 'translator@example.test', 'TRANSLATOR_PASSWORD': 'translator-password-long-enough',
             'TRANSLATOR_NAME': 'Test Translator',
             'SMTP_HOST': '', 'SMTP_FROM': '',
+            'EMAIL_DRY_RUN': 'false',
             'AUTO_APPROVE_QUOTES': 'false',
         })
         self.environment.start()
@@ -287,7 +289,7 @@ class RequestsTests(unittest.TestCase):
     def test_smtp_uses_tls_and_sends_to_request_email(self):
         """Confere TLS, destinatário, valor formatado e links no e-mail de orçamento."""
         data = {**self.intake, 'id': 'SOL-TEST', 'quote': self.quote}
-        with patch.dict(os.environ, {'SMTP_HOST': 'smtp.example.test', 'SMTP_FROM': 'staff@example.test', 'SMTP_SECURITY': 'starttls'}), patch.object(requests_api.smtplib, 'SMTP') as smtp:
+        with patch.dict(os.environ, {'SMTP_HOST': 'smtp.example.test', 'SMTP_FROM': 'staff@example.test', 'SMTP_SECURITY': 'starttls'}), patch.object(email_service.smtplib, 'SMTP') as smtp:
             requests_api.deliver_quote(data)
             connection = smtp.return_value.__enter__.return_value
             connection.starttls.assert_called_once()
