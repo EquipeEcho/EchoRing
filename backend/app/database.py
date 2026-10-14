@@ -5,7 +5,8 @@ MONGO_URL = os.getenv("MONGO_URL", "mongodb://admin:admin@db-mongo:27017/?authSo
 client = MongoClient(MONGO_URL)
 
 db = client["EchoRing"]        # use o nome do banco que aparece no Compass
-usuarios = db["usuario"]       # mesma collection que você criou
+usuarios = db["usuario"]      # mesma collection que você criou
+tarefas = db["tarefas"]
 
 # são esses índices que fazem o DuplicateKeyError acontecer
 usuarios.create_index("email", unique=True)

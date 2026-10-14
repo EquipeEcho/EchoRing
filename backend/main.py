@@ -4,11 +4,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from dotenv import load_dotenv
+from app.routes import tarefas
+from requests_api import router
 
 load_dotenv()
 
-from requests_api import router
-
+app.include_router(tarefas.router)
 
 class BodyLimitMiddleware:
     def __init__(self, app):
