@@ -32,6 +32,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from translator_profiles import TranslatorProfileComplete, TranslatorProfileDraft
+from app.repositories import translator_profile_store as profile_store
 
 router = APIRouter()
 bearer = HTTPBearer(auto_error=False)
@@ -104,11 +105,6 @@ def initialize_schema(connection, schema):
     )''')
     # Existing accounts keep their access; only newly invited translators require onboarding.
     connection.execute('ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_required BOOLEAN NOT NULL DEFAULT FALSE')
-    connection.execute('''CREATE TABLE IF NOT EXISTS translator_profiles (
-        user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-        data JSONB NOT NULL DEFAULT '{}'::jsonb, completed_at TIMESTAMPTZ,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )''')
     connection.execute('''CREATE TABLE IF NOT EXISTS sessions (
         digest TEXT PRIMARY KEY, expires DOUBLE PRECISION NOT NULL, user_id TEXT
     )''')
@@ -414,13 +410,14 @@ def list_translators(user: dict = Depends(staff)):
     return [user_record(item) for item in users]
 
 
-def translator_profile_record(connection, user):
-    record = connection.execute('SELECT data, completed_at, updated_at FROM translator_profiles WHERE user_id = ?', (user['id'],)).fetchone()
-    profile = TranslatorProfileDraft.model_validate(json_data(record['data']) if record else {'fullName': user['name']})
+def translator_profile_record(user):
+    """Junta o perfil salvo no Mongo com os dados da conta no PostgreSQL."""
+    record = profile_store.find_profile(user['id'])
+    profile = TranslatorProfileDraft.model_validate(record['data'] if record else {'fullName': user['name']})
     return {
         'profile': profile.model_dump(), 'account': public_user(user),
-        'completedAt': record['completed_at'].isoformat() if record and record['completed_at'] else None,
-        'updatedAt': record['updated_at'].isoformat() if record else None,
+        'completedAt': record.get('completed_at') if record else None,
+        'updatedAt': record.get('updated_at') if record else None,
     }
 
 
@@ -429,7 +426,7 @@ def read_translator_profile(user: dict = Depends(translator_account)):
     """Dados privados do próprio tradutor, reutilizáveis pela futura página de perfil."""
     with database() as connection:
         current = connection.execute('SELECT * FROM users WHERE id = ?', (user['id'],)).fetchone()
-        return translator_profile_record(connection, dict(current))
+    return translator_profile_record(dict(current))
 
 
 @router.patch('/translator-profile/me')
@@ -439,35 +436,23 @@ def save_translator_profile_draft(data: TranslatorProfileDraft, user: dict = Dep
         current = connection.execute('SELECT * FROM users WHERE id = ? FOR UPDATE', (user['id'],)).fetchone()
         if not current['onboarding_required']:
             raise HTTPException(409, 'Seu cadastro já está concluído. Atualizações devem utilizar o perfil completo.')
-        previous = connection.execute('SELECT data FROM translator_profiles WHERE user_id = ?', (user['id'],)).fetchone()
+        previous = profile_store.find_profile(user['id'])
         merged = TranslatorProfileDraft.model_validate({
-            **(json_data(previous['data']) if previous else {'fullName': current['name']}),
+            **(previous['data'] if previous else {'fullName': current['name']}),
             **data.model_dump(exclude_unset=True),
         })
-        connection.execute(
-            '''INSERT INTO translator_profiles (user_id, data, updated_at) VALUES (?, ?, ?)
-               ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at''',
-            (user['id'], Jsonb(merged.model_dump()), now()),
-        )
-        return translator_profile_record(connection, dict(current))
+        profile_store.save_draft(user['id'], merged.model_dump(), now())
+    return translator_profile_record(dict(current))
 
 
 @router.put('/translator-profile/me')
 def complete_translator_profile(data: TranslatorProfileComplete, user: dict = Depends(translator_account)):
-    """Persiste o perfil e conclui o primeiro acesso na mesma transação."""
+    """Salva o perfil no Mongo e depois libera a conta no PostgreSQL."""
     with database() as connection:
         current = connection.execute('SELECT * FROM users WHERE id = ? FOR UPDATE', (user['id'],)).fetchone()
-        timestamp = now()
-        connection.execute(
-            '''INSERT INTO translator_profiles (user_id, data, completed_at, updated_at) VALUES (?, ?, ?, ?)
-               ON CONFLICT(user_id) DO UPDATE SET data = excluded.data,
-               completed_at = COALESCE(translator_profiles.completed_at, excluded.completed_at),
-               updated_at = excluded.updated_at''',
-            (user['id'], Jsonb(data.model_dump()), timestamp, timestamp),
-        )
+        profile_store.save_complete(user['id'], data.model_dump(), now())
         connection.execute('UPDATE users SET name = ?, onboarding_required = FALSE WHERE id = ?', (data.fullName, user['id']))
-        return translator_profile_record(connection, {**dict(current), 'name': data.fullName, 'onboarding_required': False})
-
+    return translator_profile_record({**dict(current), 'name': data.fullName, 'onboarding_required': False})
 
 class Attachment(BaseModel):
     """Representa um anexo e valida seu conteúdo real, não apenas a extensão."""
