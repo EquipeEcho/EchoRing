@@ -84,7 +84,9 @@ export function useUserManagement() {
         [...current, created].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
       );
       setOpen(false);
-      setNotice(`${created.name} já pode acessar a plataforma como ${roleLabel[created.role]}.`);
+      setNotice(created.onboardingRequired
+        ? `${created.name} já pode entrar na conta. O tradutor concluirá o cadastro no primeiro acesso.`
+        : `${created.name} já pode acessar a plataforma como ${roleLabel[created.role]}.`);
     } catch (failure) {
       setError((failure as Error).message);
     } finally {

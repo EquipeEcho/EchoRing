@@ -21,6 +21,7 @@ export function validSession(value: unknown): value is Session {
     knownRole &&
     typeof candidate.name === 'string' &&
     typeof candidate.email === 'string' &&
+    (candidate.onboardingRequired === undefined || typeof candidate.onboardingRequired === 'boolean') &&
     (candidate.demo === true ||
       (typeof candidate.token === 'string' &&
         typeof candidate.expires === 'number' &&

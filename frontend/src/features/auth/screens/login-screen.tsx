@@ -9,6 +9,7 @@ import { Txt } from '@/components/ui/text';
 import { AuthFrame } from '@/features/auth/components/auth-frame';
 import { EmailField } from '@/features/auth/components/email-field';
 import { useSession } from '@/features/auth/contexts/session-context';
+import { needsTranslatorOnboarding } from '@/features/auth/types';
 import { useStyles } from '@/features/auth/styles/auth.styles';
 import { useTheme } from '@/theme/theme-context';
 
@@ -43,7 +44,7 @@ export function LoginScreen() {
       setBusy(false);
     }
   }
-  if (session) return <Redirect href="/dashboard" />;
+  if (session) return <Redirect href={needsTranslatorOnboarding(session) ? '/completar-cadastro' : '/dashboard'} />;
   return (
     <AuthFrame>
       <View style={styles.accessTag}>

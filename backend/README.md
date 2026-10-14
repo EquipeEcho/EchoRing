@@ -34,6 +34,13 @@ o logout revoga o token. O acesso demonstrativo do frontend não acessa pedidos 
 As variáveis `STAFF_*` continuam disponíveis para a conta interna já existente. O backend
 separa as permissões: tradutores não acessam os endpoints de solicitações da equipe.
 Contas criadas pelo administrador são persistidas no PostgreSQL e já podem usar o login.
+Novos tradutores criados pelo administrador recebem `onboardingRequired: true` e
+concluem seu cadastro antes de acessar projetos e entregas. Contas que já existiam
+e contas iniciais configuradas no ambiente mantêm o acesso anterior.
+Rascunhos e perfis completos ficam em `translator_profiles`, vinculados ao usuário;
+os campos e pares de idiomas são persistidos em JSONB. A conclusão grava os dados,
+atualiza o nome e libera o acesso na mesma transação. O schema é atualizado
+automaticamente ao iniciar o acesso ao banco, sem excluir dados existentes.
 Recuperação real de senha e alteração de senha ainda não estão implementadas.
 
 No `frontend/.env`, ative:
@@ -80,6 +87,9 @@ reconciliar o bloqueio `sending` do pedido no banco.
 | POST | `/auth/logout` | Bearer token; revoga a sessão |
 | GET | `/users` | Somente administrador geral; lista contas sem senhas |
 | POST | `/users` | Somente administrador geral; cria funcionário, tradutor ou RH |
+| GET | `/translator-profile/me` | Tradutor autenticado; lê somente seu próprio cadastro |
+| PATCH | `/translator-profile/me` | Tradutor com cadastro pendente; salva ou atualiza o rascunho |
+| PUT | `/translator-profile/me` | Tradutor autenticado; valida e persiste seu perfil completo |
 | GET | `/requests` | Bearer token; anexos sem conteúdo na listagem |
 | GET | `/requests/{id}` | Bearer token; detalhes e documentos |
 | PATCH | `/requests/{id}` | Bearer token; análise e rascunho |

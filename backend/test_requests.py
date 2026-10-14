@@ -150,6 +150,102 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(self.client.post('/users', headers=admin_headers, json={**new_user, 'email': 'short@example.test', 'password': 'short'}).status_code, 422)
         self.assertEqual(self.client.post('/users', headers=admin_headers, json={**new_user, 'email': 'other@example.test', 'role': 'admin'}).status_code, 422)
 
+    def invited_translator(self, email='invited@example.test'):
+        admin = self.client.post('/auth/login', json={'email': 'admin@example.test', 'password': 'admin-password-long-enough'}).json()
+        admin_headers = {'Authorization': 'Bearer ' + admin['token']}
+        created = self.client.post('/users', headers=admin_headers, json={
+            'name': 'Invited Translator', 'email': email, 'password': 'invited-translator-password', 'role': 'translator',
+        })
+        self.assertEqual(created.status_code, 201)
+        login = self.client.post('/auth/login', json={'email': email, 'password': 'invited-translator-password'})
+        self.assertEqual(login.status_code, 200)
+        return created.json(), login.json(), {'Authorization': 'Bearer ' + login.json()['token']}
+
+    def complete_profile(self):
+        return {
+            'fullName': 'Marina Costa', 'phone': '+55 (11) 99999-0000', 'whatsapp': True,
+            'country': 'Brasil', 'city': 'São Paulo', 'timezone': 'UTC-3',
+            'professionalTitle': 'Tradutora técnica', 'bio': 'Traduções com foco em comunicação clara.',
+            'languages': [{'name': 'Português', 'level': 'Nativo'}, {'name': 'Inglês', 'level': 'Fluente'}],
+            'translationPairs': [{'source': 'Inglês', 'target': 'Português'}],
+            'education': 'Graduação em Letras e formação complementar em tradução.',
+            'experienceYears': 0, 'experienceSummary': 'Projetos acadêmicos de tradução e revisão de textos técnicos.',
+            'specializations': ['Técnica', 'Tecnologia'], 'services': ['Tradução', 'Revisão'],
+            'tools': ['Editor de textos'], 'certifications': 'Curso de revisão, concluído em 2025.',
+            'portfolioLinks': ['https://example.test/portfolio'], 'availabilityHours': 20,
+            'availabilityNotes': 'Disponível em dias úteis.', 'otherInformation': 'Experiência com glossários.',
+        }
+
+    def test_new_translator_must_complete_registration_and_profile_is_persistent(self):
+        created, session, headers = self.invited_translator()
+        self.assertTrue(created['onboardingRequired'])
+        self.assertTrue(session['onboardingRequired'])
+        initial = self.client.get('/translator-profile/me', headers=headers)
+        self.assertEqual(initial.status_code, 200)
+        self.assertEqual(initial.json()['profile']['fullName'], created['name'])
+        self.assertIsNone(initial.json()['completedAt'])
+        self.assertEqual(self.client.get('/tasks', headers=headers).status_code, 403)
+        self.assertEqual(self.client.get('/services', headers=headers).status_code, 403)
+        self.assertNotIn(created['id'], {item['id'] for item in self.client.get('/translators', headers=self.headers).json()})
+        draft = self.client.patch('/translator-profile/me', headers=headers, json={'phone': '+55 11 99999-0000', 'country': 'Brasil'})
+        self.assertEqual(draft.status_code, 200)
+        self.assertTrue(draft.json()['account']['onboardingRequired'])
+        self.assertIsNone(draft.json()['completedAt'])
+        partial = self.client.patch('/translator-profile/me', headers=headers, json={'city': 'São Paulo'})
+        self.assertEqual(partial.status_code, 200)
+        self.assertEqual(partial.json()['profile']['phone'], '+55 11 99999-0000')
+        with TestClient(app) as second_client:
+            restored = second_client.get('/translator-profile/me', headers=headers).json()
+            self.assertEqual(restored['profile']['city'], 'São Paulo')
+            self.assertEqual(restored['profile']['fullName'], created['name'])
+        saved = self.client.put('/translator-profile/me', headers=headers, json=self.complete_profile())
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertFalse(saved.json()['account']['onboardingRequired'])
+        self.assertIsNotNone(saved.json()['completedAt'])
+        self.assertEqual(saved.json()['profile'], self.complete_profile())
+        self.assertFalse(self.client.get('/auth/me', headers=headers).json()['onboardingRequired'])
+        self.assertEqual(self.client.get('/tasks', headers=headers).status_code, 200)
+        self.assertIn(created['id'], {item['id'] for item in self.client.get('/translators', headers=self.headers).json()})
+        login = self.client.post('/auth/login', json={'email': session['email'], 'password': 'invited-translator-password'})
+        self.assertFalse(login.json()['onboardingRequired'])
+        self.assertEqual(login.json()['name'], 'Marina Costa')
+
+    def test_translator_profile_rejects_incomplete_invalid_and_forged_data(self):
+        _, _, headers = self.invited_translator()
+        for changes in [
+            {'fullName': ''}, {'phone': 'invalid'}, {'city': ''}, {'country': ''},
+            {'languages': [{'name': 'Inglês', 'level': 'Fluente'}]},
+            {'languages': [{'name': 'English', 'level': 'Fluente'}, {'name': 'ENGLISH', 'level': 'Nativo'}]},
+            {'translationPairs': []}, {'translationPairs': [{'source': 'Inglês', 'target': 'Inglês'}]},
+            {'translationPairs': [{'source': 'Inglês', 'target': 'Latim'}]},
+            {'translationPairs': [{'source': 'Inglês', 'target': 'Português'}] * 2},
+            {'education': ''}, {'experienceYears': None}, {'experienceYears': -1},
+            {'experienceYears': True}, {'experienceSummary': ''}, {'specializations': []},
+            {'portfolioLinks': ['javascript:alert(1)']}, {'portfolioLinks': ['https://user:password@example.test']},
+            {'availabilityHours': 81}, {'onboardingRequired': False}, {'user_id': 'someone-else'},
+        ]:
+            with self.subTest(changes=changes):
+                response = self.client.put('/translator-profile/me', headers=headers, json={**self.complete_profile(), **changes})
+                self.assertEqual(response.status_code, 422, response.text)
+        self.assertTrue(self.client.get('/auth/me', headers=headers).json()['onboardingRequired'])
+        self.assertEqual(self.client.patch('/translator-profile/me', headers=headers, json={'tools': ['x' * 81]}).status_code, 422)
+
+    def test_profile_is_owner_only_and_late_draft_cannot_overwrite_completion(self):
+        _, _, headers = self.invited_translator()
+        self.assertEqual(self.client.get('/translator-profile/me').status_code, 401)
+        self.assertEqual(self.client.get('/translator-profile/me', headers=self.headers).status_code, 403)
+        self.assertEqual(self.client.put('/translator-profile/me', headers=self.headers, json=self.complete_profile()).status_code, 403)
+        completed = self.client.put('/translator-profile/me', headers=headers, json=self.complete_profile()).json()
+        self.assertEqual(self.client.patch('/translator-profile/me', headers=headers, json={'bio': 'Late draft'}).status_code, 409)
+        self.assertEqual(self.client.get('/translator-profile/me', headers=headers).json()['profile']['bio'], self.complete_profile()['bio'])
+        changed = self.client.put('/translator-profile/me', headers=headers, json={**self.complete_profile(), 'bio': 'Atualização do perfil completo.'})
+        self.assertEqual(changed.status_code, 200)
+        self.assertEqual(changed.json()['completedAt'], completed['completedAt'])
+        legacy, legacy_headers = self.translator_session()
+        self.assertFalse(legacy['onboardingRequired'])
+        self.assertEqual(self.client.get('/tasks', headers=legacy_headers).status_code, 200)
+        self.assertEqual(self.client.get('/translator-profile/me', headers=legacy_headers).json()['profile']['bio'], '')
+
     def test_rejects_invalid_consent_email_languages_and_documents(self):
         """Rejeita solicitações com campos inseguros, arquivos falsos ou corpo grande demais."""
         for changes in [{'consent': False}, {'email': 'bad\r\nBcc: example@test.local'}, {'target': 'English'}, {'name': '   '}, {'attachments': [{'name': 'fake.pdf', 'size': 3, 'content': 'YWJj'}]}, {'attachments': [{'name': '../sample.txt', 'size': 3, 'content': 'YWJj'}]}]:
