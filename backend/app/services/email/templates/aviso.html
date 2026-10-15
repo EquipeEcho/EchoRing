@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+  <h2>{{ titulo }}</h2>
+  {% if nome %}<p>Olá, {{ nome }}!</p>{% endif %}
+  <p style="white-space:pre-line;">{{ mensagem }}</p>
+  {% if botao_url %}
+    <a href="{{ botao_url }}" style="display:inline-block;background:#FF365B;color:#fff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:8px;">{{ botao_texto or 'Acessar' }}</a>
+  {% endif %}
+{% endblock %}
