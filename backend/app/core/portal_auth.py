@@ -89,7 +89,8 @@ def authenticated_user(credentials: HTTPAuthorizationCredentials | None = Depend
     digest = hashlib.sha256(credentials.credentials.encode()).hexdigest()
     with database() as connection:
         session = connection.execute(
-            '''SELECT sessions.expires, users.id, users.name, users.email, users.role, users.active
+            '''SELECT sessions.expires, users.id, users.name, users.email, users.role, users.active,
+                      users.onboarding_required
                FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.digest = ?''',
             (digest,),
         ).fetchone()
@@ -105,21 +106,39 @@ def staff(user: dict = Depends(authenticated_user)):
     return user
 
 
-def translator(user: dict = Depends(authenticated_user)):
+def translator_account(user: dict = Depends(authenticated_user)):
+    """Restringe a rota a usuários com papel de tradutor."""
     if user['role'] != 'translator':
         raise HTTPException(403, 'Somente tradutores podem acessar esta área.')
     return user
 
 
+def workspace_user(user: dict = Depends(authenticated_user)):
+    """Confere o cadastro no servidor, inclusive quando o cliente altera a sessão local."""
+    if user['role'] == 'translator' and user.get('onboarding_required'):
+        raise HTTPException(403, 'Conclua seu cadastro de tradutor antes de acessar projetos e entregas.')
+    return user
+
+
+def translator(user: dict = Depends(workspace_user)):
+    return translator_account(user)
+
+
 def administrator(user: dict = Depends(authenticated_user)):
+    """Restringe o gerenciamento de contas ao administrador geral."""
     if user['role'] != 'admin':
         raise HTTPException(403, 'Somente o administrador geral pode gerenciar usuários.')
     return user
 
 
 def public_user(user):
-    return {key: user[key] for key in ('name', 'email', 'role')}
+    """Remove do retorno os campos internos e sensíveis do usuário."""
+    return {
+        **{key: user[key] for key in ('name', 'email', 'role')},
+        'onboardingRequired': user['role'] == 'translator' and bool(user.get('onboarding_required')),
+    }
 
 
 def user_record(user):
-    return {**{key: user[key] for key in ('id', 'name', 'email', 'role')}, 'active': bool(user['active'])}
+    """Formata um usuário para a API sem incluir seu hash de senha."""
+    return {'id': user['id'], **public_user(user), 'active': bool(user['active'])}

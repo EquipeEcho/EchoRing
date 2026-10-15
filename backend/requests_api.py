@@ -4,23 +4,25 @@ import smtplib
 from fastapi import APIRouter
 from psycopg import sql
 
-from app.core.email_service import _smtp_send, deliver_final, deliver_quote
+from app.core.email_service import deliver_quote
 from app.core.portal_auth import (
-     PASSWORD_ITERATIONS,
-     SESSION_SECONDS,
-     _attempts,
-     administrator,
-     authenticated_user,
-     bearer,
-     configured_accounts,
-     hash_password,
-     password_matches,
-     public_user,
-     staff,
-     sync_configured_accounts,
-     throttle,
-     translator,
-     user_record,
+    PASSWORD_ITERATIONS,
+    SESSION_SECONDS,
+    _attempts,
+    administrator,
+    authenticated_user,
+    bearer,
+    configured_accounts,
+    hash_password,
+    password_matches,
+    public_user,
+    staff,
+    sync_configured_accounts,
+    throttle,
+    translator,
+    translator_account,
+    user_record,
+    workspace_user,
 )
 from app.core.workflow import (
      add_event,
