@@ -12,6 +12,8 @@ from fastapi.testclient import TestClient
 
 from main import app
 import requests_api
+import mongomock
+from app import mongo
 from app.services.email import service as email_service
 
 
@@ -33,6 +35,8 @@ class RequestsTests(unittest.TestCase):
             'AUTO_APPROVE_QUOTES': 'false',
         })
         self.environment.start()
+        self.mongo = patch.object(mongo, '_client', mongomock.MongoClient())
+        self.mongo.start()
         requests_api._attempts.clear()
         self.client = TestClient(app)
         response = self.client.post('/staff/login', json={'email': 'staff@example.test', 'password': 'test-password-long-enough'})
@@ -52,6 +56,7 @@ class RequestsTests(unittest.TestCase):
         """Fecha o cliente e remove do PostgreSQL tudo que o teste criou."""
         self.client.close()
         self.drop_schema(self.schema)
+        self.mongo.stop()
         self.environment.stop()
 
     def drop_schema(self, schema):
