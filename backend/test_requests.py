@@ -12,6 +12,10 @@ from fastapi.testclient import TestClient
 
 from main import app
 import requests_api
+import mongomock
+from app import mongo
+from app.repositories import translator_profile_store
+from app.services.email import service as email_service
 
 
 class RequestsTests(unittest.TestCase):
@@ -28,9 +32,12 @@ class RequestsTests(unittest.TestCase):
             'TRANSLATOR_EMAIL': 'translator@example.test', 'TRANSLATOR_PASSWORD': 'translator-password-long-enough',
             'TRANSLATOR_NAME': 'Test Translator',
             'SMTP_HOST': '', 'SMTP_FROM': '',
+            'EMAIL_DRY_RUN': 'false',
             'AUTO_APPROVE_QUOTES': 'false',
         })
         self.environment.start()
+        self.mongo = patch.object(mongo, '_client', mongomock.MongoClient())
+        self.mongo.start()
         requests_api._attempts.clear()
         self.client = TestClient(app)
         response = self.client.post('/staff/login', json={'email': 'staff@example.test', 'password': 'test-password-long-enough'})
@@ -50,6 +57,7 @@ class RequestsTests(unittest.TestCase):
         """Fecha o cliente e remove do PostgreSQL tudo que o teste criou."""
         self.client.close()
         self.drop_schema(self.schema)
+        self.mongo.stop()
         self.environment.stop()
 
     def drop_schema(self, schema):
@@ -195,6 +203,11 @@ class RequestsTests(unittest.TestCase):
         partial = self.client.patch('/translator-profile/me', headers=headers, json={'city': 'São Paulo'})
         self.assertEqual(partial.status_code, 200)
         self.assertEqual(partial.json()['profile']['phone'], '+55 11 99999-0000')
+        profile_in_mongo = translator_profile_store.find_profile(created['id'])
+        self.assertEqual(profile_in_mongo['data']['city'], 'São Paulo')
+        self.assertIsNone(profile_in_mongo.get('completed_at'))
+        with requests_api.database() as connection:
+            self.assertIsNone(connection.execute("SELECT to_regclass('translator_profiles') AS profile_table").fetchone()['profile_table'])
         with TestClient(app) as second_client:
             restored = second_client.get('/translator-profile/me', headers=headers).json()
             self.assertEqual(restored['profile']['city'], 'São Paulo')
@@ -204,6 +217,9 @@ class RequestsTests(unittest.TestCase):
         self.assertFalse(saved.json()['account']['onboardingRequired'])
         self.assertIsNotNone(saved.json()['completedAt'])
         self.assertEqual(saved.json()['profile'], self.complete_profile())
+        profile_in_mongo = translator_profile_store.find_profile(created['id'])
+        self.assertEqual(profile_in_mongo['data'], self.complete_profile())
+        self.assertEqual(profile_in_mongo['completed_at'], saved.json()['completedAt'])
         self.assertFalse(self.client.get('/auth/me', headers=headers).json()['onboardingRequired'])
         self.assertEqual(self.client.get('/tasks', headers=headers).status_code, 200)
         self.assertIn(created['id'], {item['id'] for item in self.client.get('/translators', headers=self.headers).json()})
@@ -283,7 +299,7 @@ class RequestsTests(unittest.TestCase):
     def test_smtp_uses_tls_and_sends_to_request_email(self):
         """Confere TLS, destinatário, valor formatado e links no e-mail de orçamento."""
         data = {**self.intake, 'id': 'SOL-TEST', 'quote': self.quote}
-        with patch.dict(os.environ, {'SMTP_HOST': 'smtp.example.test', 'SMTP_FROM': 'staff@example.test', 'SMTP_SECURITY': 'starttls'}), patch.object(requests_api.smtplib, 'SMTP') as smtp:
+        with patch.dict(os.environ, {'SMTP_HOST': 'smtp.example.test', 'SMTP_FROM': 'staff@example.test', 'SMTP_SECURITY': 'starttls'}), patch.object(email_service.smtplib, 'SMTP') as smtp:
             requests_api.deliver_quote(data)
             connection = smtp.return_value.__enter__.return_value
             connection.starttls.assert_called_once()

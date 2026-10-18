@@ -18,6 +18,8 @@ services:
     depends_on:
       db-postgres:
         condition: service_healthy
+      db-mongo:
+        condition: service_started
 
   app-node:
     build:
@@ -53,8 +55,7 @@ services:
       retries: 10
       start_period: 5s
 
-  # Mantido para compatibilidade com trabalhos existentes da equipe.
-  # A API principal persiste todos os seus dados somente no PostgreSQL.
+  # Perfis dos tradutores (collection translator_profiles).
   db-mongo:
     image: mongo:6-jammy
     ports:
