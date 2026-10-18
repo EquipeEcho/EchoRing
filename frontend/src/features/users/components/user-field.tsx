@@ -28,7 +28,7 @@ export function UserField({
   return (
     <View style={styles.field}>
       <Txt style={styles.label}>{label}</Txt>
-      <View style={styles.inputWrap}>
+      <View testID="form-field" style={styles.inputWrap}>
         <TextInput
           accessibilityLabel={label}
           value={value}

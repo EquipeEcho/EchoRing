@@ -24,8 +24,8 @@ export function Metric({
         <Icon size={19} color={color} strokeWidth={1.8} />
       </View>
       <View style={styles.metricCopy}>
-        <Txt style={[styles.metricValue, { color }]}>{value}</Txt>
-        <Txt style={styles.metricLabel}>{title}</Txt>
+        <Txt style={[styles.metricValue, { color }, compact && { fontSize: 28, lineHeight: 32 }]}>{value}</Txt>
+        <Txt style={[styles.metricLabel, compact && { fontSize: 11, lineHeight: 16 }]}>{title}</Txt>
       </View>
     </View>
   );

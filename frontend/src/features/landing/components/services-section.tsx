@@ -85,7 +85,7 @@ export function ServicesSection({
             <Txt style={styles.serviceTitle}>{service.title}</Txt>
             <Txt style={styles.serviceText}>{service.text}</Txt>
             <View style={styles.serviceBottom}>
-              <Txt style={styles.serviceCta}>EXPLORAR SOLUÇÃO</Txt>
+              <Txt style={styles.serviceCta}>SOLICITAR ORÇAMENTO</Txt>
               <View style={styles.serviceArrow}>
                 <ArrowRight size={18} color={theme === 'dark' ? colors.ink : colors.onAccent} />
               </View>

@@ -2,9 +2,9 @@ import { font } from '@/theme/tokens';
 import { createThemedStyles } from '@/theme/create-themed-styles';
 
 export const useStyles = createThemedStyles((colors, selectColor) => ({
-  page: { padding: 40, paddingTop: 28, paddingBottom: 40, flexGrow: 1 },
+  page: { padding: 32, paddingTop: 32, paddingBottom: 40, flexGrow: 1 },
   pageSmall: { padding: 20, paddingTop: 26 },
-  inner: { width: '100%', maxWidth: 1050, alignSelf: 'center' },
+  inner: { width: '100%', maxWidth: 1180, alignSelf: 'center' },
   demoBanner: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -55,8 +55,8 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
   },
   queue: {
     backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
+    borderWidth: 1,
+    borderRadius: 16,
     borderColor: colors.line,
   },
   card: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.line },
@@ -88,6 +88,7 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
     backgroundColor: colors.canvas,
     borderLeftWidth: 3,
     borderLeftColor: colors.accent,
+    borderRadius: 8,
   },
   eyebrow: {
     fontSize: 9,

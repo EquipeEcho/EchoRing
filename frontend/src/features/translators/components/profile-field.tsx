@@ -18,7 +18,10 @@ export function ProfileField({
   const { colors } = useTheme();
   return (
     <View style={styles.field}>
-      <Txt style={styles.label}>{label}</Txt>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <Txt style={[styles.label, { flex: 1 }]}>{label}</Txt>
+        {multiline && <Txt style={styles.note}>{value.length}/{maxLength}</Txt>}
+      </View>
       <TextInput
         accessibilityLabel={label}
         aria-invalid={!!error}

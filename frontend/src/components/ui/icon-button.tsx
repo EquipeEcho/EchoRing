@@ -54,7 +54,7 @@ const useStyles = createThemedStyles((colors, selectColor) => ({
   iconButton: {
     width: 44,
     height: 44,
-    borderRadius: 15,
+    borderRadius: 12,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,

@@ -62,7 +62,7 @@ export function ProjectList({ projects }: { projects: Project[] }) {
           style={({ hovered }) => [
             styles.projectRow,
             !wide && styles.projectMobile,
-            hovered && { backgroundColor: colors.surface },
+            hovered && { backgroundColor: colors.elevated },
           ]}
         >
           <View style={styles.projectMain}>
@@ -76,7 +76,15 @@ export function ProjectList({ projects }: { projects: Project[] }) {
               <Txt style={styles.projectMeta}>
                 {project.client} · {project.id}
               </Txt>
-              {!wide && <Txt style={styles.languages}>{project.languages}</Txt>}
+              <Txt style={styles.languages}>{project.languages}</Txt>
+              {wide && <View
+                accessibilityRole="progressbar"
+                accessibilityLabel={`Andamento de ${project.title}`}
+                accessibilityValue={{ min: 0, max: 100, now: project.progress }}
+                style={styles.progressTrack}
+              >
+                <View style={[styles.progressFill, { width: `${project.progress}%` }]} />
+              </View>}
             </View>
           </View>
           <View style={[styles.rowStatus, !wide && styles.mobileStatus]}>

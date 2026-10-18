@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 
 import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
 import { PageHeading } from '@/components/ui/page-heading';
 import { Txt } from '@/components/ui/text';
 import { FilterTab } from '@/features/workspace/components/filter-tab';
@@ -15,10 +16,10 @@ import { useCommonStyles } from '@/theme/common.styles';
 export function TasksScreen() {
   const styles = useStyles();
   const common = useCommonStyles();
-  const { tasks } = useWorkspace();
+  const { tasks, search, setSearch } = useWorkspace();
   const [filter, setFilter] = useState('Pendentes');
   const visible = tasks.filter(
-    (task) => filter === 'Todas' || (filter === 'Concluídas' ? task.done : !task.done),
+    (task) => (filter === 'Todas' || (filter === 'Concluídas' ? task.done : !task.done)) && `${task.title} ${task.project}`.toLocaleLowerCase('pt-BR').includes(search.trim().toLocaleLowerCase('pt-BR')),
   );
   return (
     <WorkspacePage>
@@ -47,8 +48,9 @@ export function TasksScreen() {
         {!visible.length && (
           <EmptyState
             icon={CheckCheck}
-            title="Tudo em dia por aqui"
-            text="Nenhuma tarefa nesta lista."
+            title={search ? 'Nenhuma tarefa encontrada' : 'Tudo em dia por aqui'}
+            text={search ? 'Tente outro título ou código de projeto.' : 'Nenhuma tarefa nesta lista. Consulte as outras abas para ver todas as atividades.'}
+            action={search ? <Button variant="secondary" onPress={() => setSearch('')}>Limpar busca</Button> : undefined}
           />
         )}
       </View>

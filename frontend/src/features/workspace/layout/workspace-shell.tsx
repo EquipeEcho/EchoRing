@@ -10,14 +10,15 @@ import {
   Search,
   X,
 } from 'lucide-react-native';
-import { useRef, useState } from 'react';
-import { Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Platform, Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui/badge';
 import { Brand } from '@/components/ui/brand';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { Txt } from '@/components/ui/text';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -55,8 +56,19 @@ export function WorkspaceShell() {
   const [read, setRead] = useState(false);
   const [help, setHelp] = useState(false);
   const searchInput = useRef<TextInput>(null);
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const focusSearch = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchInput.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', focusSearch);
+    return () => window.removeEventListener('keydown', focusSearch);
+  }, []);
   const section =
-    visibleModules.find((item) => pathname === item.href)?.title ??
+    visibleModules.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.title ??
     (pathname === '/tarefas' ? 'Minhas tarefas' : pathname === '/mais' ? 'Mais' : 'Meu espaço');
   const { requests } = useInbox();
   const received = requests.filter((item) => item.status === 'Recebido').length;
@@ -106,6 +118,7 @@ export function WorkspaceShell() {
               showsVerticalScrollIndicator={false}
               showsHorizontalScrollIndicator={false}
             >
+              <Txt style={styles.navSection}>ESPAÇO DE TRABALHO</Txt>
               {visibleModules
                 .filter((item) =>
                   ['/dashboard', '/operacao', '/entregas', '/solicitacoes'].includes(item.href),
@@ -114,7 +127,7 @@ export function WorkspaceShell() {
                   <NavItem
                     key={item.href}
                     {...item}
-                    active={pathname === item.href}
+                    active={pathname === item.href || pathname.startsWith(`${item.href}/`)}
                     badge={item.href === '/solicitacoes' ? received : undefined}
                   />
                 ))}
@@ -140,6 +153,7 @@ export function WorkspaceShell() {
               )}
             </ScrollView>
             <View style={styles.sidebarBottom}>
+              {session?.demo && <View style={styles.demoLabel}><Txt style={styles.demoLabelText}>AMBIENTE DE DEMONSTRAÇÃO</Txt></View>}
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setHelp(true)}
@@ -156,10 +170,10 @@ export function WorkspaceShell() {
         <View style={styles.main}>
           <View style={[styles.header, !desktop && styles.mobileHeader]}>
             {desktop ? (
-              <View style={common.row}>
-                <Txt style={styles.breadcrumb}>Aliança Traduções</Txt>
+              <View style={[common.row, { flex: 1, minWidth: 0, marginRight: 20 }]}>
+                {width >= 1200 && <Txt style={styles.breadcrumb}>Aliança Traduções</Txt>}
                 <ChevronRight size={12} color={colors.muted} />
-                <Txt style={styles.breadcrumb}>{section}</Txt>
+                <Txt numberOfLines={1} style={[styles.breadcrumb, { color: colors.ink, flexShrink: 1, fontWeight: '600' }]}>{section}</Txt>
               </View>
             ) : (
               <Brand wordmarkOnly />
@@ -169,14 +183,16 @@ export function WorkspaceShell() {
                 <View testID="search-field" style={styles.search}>
                   <Search size={17} color={colors.muted} />
                   <TextInput
+                    ref={searchInput}
                     accessibilityLabel="Buscar projetos"
-                    placeholder="Buscar projeto ou cliente..."
+                    placeholder={pathname === '/tarefas' ? 'Buscar tarefas...' : 'Buscar projeto ou cliente...'}
                     placeholderTextColor={colors.muted}
                     value={search}
                     onChangeText={setSearch}
-                    onSubmitEditing={() => router.push('/operacao')}
+                    onSubmitEditing={() => router.push(pathname === '/tarefas' ? '/tarefas' : '/operacao')}
                     style={styles.searchInput}
                   />
+                  {!search && width >= 1200 && <Txt style={styles.shortcut}>Ctrl K</Txt>}
                   {!!search && (
                     <Pressable
                       accessibilityRole="button"
@@ -207,7 +223,7 @@ export function WorkspaceShell() {
                     <Bell size={24} color={colors.ink} strokeWidth={1.8} />
                   </Pressable>
                 )}
-                {!read && <View pointerEvents="none" style={styles.notificationDot} />}
+                {!read && (session?.demo || pending > 0 || received > 0) && <View pointerEvents="none" style={styles.notificationDot} />}
               </View>
               {!desktop && profileButton}
             </View>
@@ -230,7 +246,7 @@ export function WorkspaceShell() {
                 value={search}
                 onChangeText={setSearch}
                 style={styles.searchInput}
-                onSubmitEditing={() => router.push('/operacao')}
+                onSubmitEditing={() => router.push(pathname === '/tarefas' ? '/tarefas' : '/operacao')}
               />
               {!!search && (
                 <Pressable
@@ -261,7 +277,7 @@ export function WorkspaceShell() {
                 const active =
                   pathname === item.href ||
                   (item.href === '/mais' &&
-                    mobileMoreModules.some((module) => module.href === pathname));
+                    mobileMoreModules.some((module) => module.href === pathname || pathname.startsWith(`${module.href}/`)));
                 const Icon = item.icon;
                 return (
                   <Pressable
@@ -338,8 +354,8 @@ export function WorkspaceShell() {
         title="Notificações"
         description="Acompanhe prazos, entregas e movimentações recentes."
       >
-        <Badge tone="neutral">Dados demonstrativos</Badge>
-        {[
+        {session?.demo && <Badge tone="neutral">Dados demonstrativos</Badge>}
+        {(session?.demo ? [
           [
             'Tradução pronta para revisão',
             'Lucas enviou o contrato de Almeida & Associados.',
@@ -350,7 +366,10 @@ export function WorkspaceShell() {
             'O manual da Vértice Engenharia tem entrega hoje.',
             'Há 40 minutos',
           ],
-        ].map(([title, text, time]) => (
+        ] : [
+          ...(received > 0 && (role === 'admin' || role === 'employee') ? [[`${received} solicitações aguardando análise`, 'Abra Solicitações para analisar os documentos e preparar propostas.', 'Situação atual']] : []),
+          ...tasks.filter(task => !task.done).slice(0, 5).map(task => [task.title, `${task.project} · ${task.due}`, 'Tarefa pendente']),
+        ]).map(([title, text, time]) => (
           <View
             key={title}
             style={{
@@ -365,6 +384,7 @@ export function WorkspaceShell() {
             <Txt style={{ fontSize: 10, color: colors.muted }}>{time}</Txt>
           </View>
         ))}
+        {!session?.demo && pending === 0 && received === 0 && <EmptyState icon={Bell} title="Tudo em dia" text="Não há novas pendências nos dados carregados. Consulte Projetos e Tarefas para acompanhar sua rotina." />}
         <Button variant="secondary" onPress={() => setRead(true)} disabled={read}>
           {read ? 'Todas as notificações lidas' : 'Marcar todas como lidas'}
         </Button>
@@ -376,12 +396,23 @@ export function WorkspaceShell() {
         eyebrow="SUPORTE"
         title="Central de ajuda"
       >
-        <Badge tone="amber">Demonstração</Badge>
-        <Txt>Aliança Traduções</Txt>
         <Txt style={common.caption}>
-          Manuais de acesso e documentos institucionais ainda não foram disponibilizados neste
-          ambiente.
+          Acesse as principais ações do seu espaço de trabalho.
         </Txt>
+        {[
+          { title: 'Acompanhar projetos', text: 'Veja o andamento, os idiomas e o prazo de cada projeto.', href: '/operacao' },
+          { title: 'Organizar minhas tarefas', text: 'Consulte pendências ou veja as atividades já concluídas.', href: '/tarefas' },
+          ...(role === 'admin' ? [{ title: 'Gerenciar acessos', text: 'Cadastre tradutores e membros da equipe na área de Usuários.', href: '/usuarios' }] : []),
+        ].filter(item => role !== 'hr' || item.href !== '/operacao').map(item => <Pressable
+          key={item.href}
+          accessibilityRole="button"
+          onPress={() => { setHelp(false); router.push(item.href as Href); }}
+          style={({ hovered }) => [styles.helpCard, hovered && { backgroundColor: colors.elevated }]}
+        >
+          <View style={{ flex: 1, gap: 5 }}><Txt style={{ fontWeight: '600', fontSize: 14 }}>{item.title}</Txt><Txt style={common.caption}>{item.text}</Txt></View>
+          <ChevronRight size={18} color={colors.accent} />
+        </Pressable>)}
+        <Txt style={common.caption}>Dica: use Ctrl + K (ou ⌘ + K) para acessar a busca. Use Esc para fechar uma janela.</Txt>
         <Button variant="secondary" onPress={() => setHelp(false)}>
           Voltar ao painel
         </Button>

@@ -22,13 +22,13 @@ export function PageHeading({
         <View style={styles.headingRule} />
         <Txt
           accessibilityRole="header"
-          style={[styles.title, width < 700 && { fontSize: 34, lineHeight: 42 }]}
+          style={[styles.title, width < 700 && { fontSize: 28, lineHeight: 36, letterSpacing: -0.8 }]}
         >
           {title}
         </Txt>
         <Txt style={styles.subtitle}>{subtitle}</Txt>
       </View>
-      {action}
+      {action && <View style={styles.action}>{action}</View>}
     </View>
   );
 }
@@ -37,19 +37,20 @@ const useStyles = createThemedStyles((colors) => ({
   heading: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 24,
+    gap: 18,
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    marginBottom: 34,
+    marginBottom: 28,
   },
-  headingCopy: { flex: 1, minWidth: 180, gap: 7 },
+  headingCopy: { flex: 1, minWidth: 220, gap: 8 },
+  action: { flexShrink: 1 },
   headingRule: {
     width: 34,
     height: 3,
-    marginBottom: 7,
+    marginBottom: 3,
     borderRadius: 2,
     backgroundColor: colors.accent,
   },
-  title: { ...typeScale.title, fontWeight: '700', letterSpacing: -1.7 },
-  subtitle: { fontSize: 15, lineHeight: 22, color: colors.muted },
+  title: { ...typeScale.title, fontSize: 34, lineHeight: 42, fontWeight: '700', letterSpacing: -1.1 },
+  subtitle: { fontSize: 14, lineHeight: 22, color: colors.muted, maxWidth: 640 },
 }));

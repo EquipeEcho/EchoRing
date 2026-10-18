@@ -16,7 +16,7 @@ import { matchesSearch } from '@/features/workspace/utils/search';
 
 export function OperationsScreen() {
   const styles = useStyles();
-  const { projects, search, setNewRequest } = useWorkspace();
+  const { projects, search, setSearch, setNewRequest } = useWorkspace();
   const { session } = useSession();
   const employee = session?.role === 'employee' || session?.role === 'admin';
   const [status, setStatus] = useState('Todos');
@@ -76,6 +76,10 @@ export function OperationsScreen() {
           />
         ))}
       </ScrollView>
+      {(status !== 'Todos' || !!search) && <View style={styles.toolbar}>
+        <Txt style={styles.toolbarLabel}>{filtered.length} resultados{search ? ` para “${search}”` : ''}{status !== 'Todos' ? ` · ${status}` : ''}</Txt>
+        <Button variant="ghost" onPress={() => { setStatus('Todos'); setSearch(''); }}>Limpar filtros</Button>
+      </View>}
       <View style={styles.operationTable}>
         <View style={styles.listCaption}>
           <View>

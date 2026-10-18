@@ -2,7 +2,7 @@ import { font } from '@/theme/tokens';
 import { createThemedStyles } from '@/theme/create-themed-styles';
 
 export const useStyles = createThemedStyles((colors, selectColor) => ({
-  page: { padding: 40, flexGrow: 1 },
+  page: { padding: 32, flexGrow: 1, width: '100%', maxWidth: 1400, alignSelf: 'center' },
   summary: {
     minHeight: 126,
     flexDirection: 'row',
@@ -13,8 +13,8 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
     paddingVertical: 22,
     marginBottom: 24,
     backgroundColor: selectColor('#0D0D0F', colors.surface),
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
+    borderWidth: 1,
+    borderRadius: 16,
     borderColor: colors.line,
   },
   summarySmall: { alignItems: 'flex-start', flexDirection: 'column', gap: 16 },
@@ -61,9 +61,11 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: selectColor('#48484F', colors.controlLine),
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
   },
   searchInput: {
     flex: 1,
@@ -75,14 +77,14 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
     outlineWidth: 0,
   },
   filters: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8 },
-  filter: { minHeight: 38, justifyContent: 'center', borderRadius: 10, paddingHorizontal: 13 },
+  filter: { minHeight: 44, justifyContent: 'center', borderRadius: 10, paddingHorizontal: 13 },
   filterActive: { backgroundColor: colors.accentSoft },
   filterText: { fontSize: 13, color: colors.muted },
   filterTextActive: { color: colors.accent, fontWeight: '600' },
   requestList: {
     backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
+    borderWidth: 1,
+    borderRadius: 16,
     borderColor: colors.line,
   },
   tableHead: {
@@ -131,8 +133,8 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
   },
   requestInfo: { flexDirection: 'row', alignItems: 'center', gap: 18 },
   requestInfoSmall: { justifyContent: 'space-between' },
-  requestTitle: { fontSize: 17, lineHeight: 24, fontWeight: '600' },
-  requestMeta: { fontSize: 12, lineHeight: 18, color: colors.muted },
+  requestTitle: { fontSize: 16, lineHeight: 24, fontWeight: '600' },
+  requestMeta: { fontSize: 13, lineHeight: 20, color: colors.muted },
   requestHero: {
     flexDirection: 'row',
     flexWrap: 'wrap',
