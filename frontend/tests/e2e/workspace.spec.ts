@@ -108,7 +108,7 @@ test('general administrator can create a platform user', async ({ page }) => {
   await page.getByRole('radio', { name: /Recursos Humanos/ }).click();
   await page.getByLabel('Senha inicial', { exact: true }).fill('curta');
   await page.getByRole('button', { name: 'Criar acesso' }).click();
-  await expect(page.getByRole('alert')).toContainText('pelo menos 12 caracteres');
+  await expect(page.getByRole('alert')).toContainText('pelo menos 6 caracteres');
   await page.getByLabel('Senha inicial', { exact: true }).fill('SenhaTemporaria2026!');
   await page.getByRole('button', { name: 'Criar acesso' }).click();
   await expect(page.getByText('Fernanda Lima já pode acessar a plataforma como Recursos Humanos.')).toBeVisible();

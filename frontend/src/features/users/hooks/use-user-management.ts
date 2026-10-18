@@ -73,8 +73,8 @@ export function useUserManagement() {
       setError('Informe um e-mail válido.');
       return;
     }
-    if (data.password.length < 12) {
-      setError('A senha inicial deve ter pelo menos 12 caracteres.');
+    if (data.password.length < 6) {
+      setError('A senha inicial deve ter pelo menos 6 caracteres.');
       return;
     }
     setBusy(true);

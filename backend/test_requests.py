@@ -148,6 +148,7 @@ class RequestsTests(unittest.TestCase):
         hr_headers = {'Authorization': 'Bearer ' + hr_login.json()['token']}
         self.assertEqual(self.client.get('/users', headers=hr_headers).status_code, 403)
         self.assertEqual(self.client.post('/users', headers=admin_headers, json={**new_user, 'email': 'short@example.test', 'password': 'short'}).status_code, 422)
+        self.assertEqual(self.client.post('/users', headers=admin_headers, json={**new_user, 'email': 'six@example.test', 'password': 'senha6'}).status_code, 201)
         self.assertEqual(self.client.post('/users', headers=admin_headers, json={**new_user, 'email': 'other@example.test', 'role': 'admin'}).status_code, 422)
 
     def invited_translator(self, email='invited@example.test'):

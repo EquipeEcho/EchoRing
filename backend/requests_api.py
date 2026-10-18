@@ -218,7 +218,7 @@ def configured_accounts():
     ):
         email = os.getenv(f'{prefix}_EMAIL', '').strip().lower()
         password = os.getenv(f'{prefix}_PASSWORD', '')
-        if email and len(password) >= 12 and email not in configured_emails:
+        if email and len(password) >= 6 and email not in configured_emails:
             configured_emails.add(email)
             accounts.append({
                 'id': hashlib.sha256(f'{role}:{email}'.encode()).hexdigest()[:32],
@@ -351,7 +351,7 @@ class UserCreate(BaseModel):
     """Valida os dados usados pelo administrador para cadastrar uma conta."""
     name: str = Field(min_length=2, max_length=160)
     email: str = Field(min_length=3, max_length=160)
-    password: str = Field(min_length=12, max_length=128)
+    password: str = Field(min_length=6, max_length=128)
     role: Literal['employee', 'translator', 'hr']
 
     @field_validator('name', 'email', mode='before')

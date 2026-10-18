@@ -307,7 +307,7 @@ export function UsersScreen() {
           label="Senha inicial"
           value={data.password}
           onChange={(value) => change('password', value)}
-          placeholder="Mínimo de 12 caracteres"
+          placeholder="Mínimo de 6 caracteres"
           secure
           visible={visible}
           onToggle={() => setVisible((current) => !current)}

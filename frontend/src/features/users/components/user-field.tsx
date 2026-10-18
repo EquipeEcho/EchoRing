@@ -35,7 +35,7 @@ export function UserField({
           onChangeText={onChange}
           placeholder={placeholder}
           placeholderTextColor={colors.muted}
-          autoCapitalize={label === 'E-mail' ? 'none' : 'words'}
+          autoCapitalize={secure || label === 'E-mail' ? 'none' : 'words'}
           autoCorrect={false}
           keyboardType={label === 'E-mail' ? 'email-address' : 'default'}
           secureTextEntry={secure && !visible}
