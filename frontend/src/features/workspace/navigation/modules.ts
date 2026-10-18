@@ -9,6 +9,7 @@ import {
   Settings2,
   UploadCloud,
   UserPlus,
+  UserRound,
   UsersRound,
   Wallet,
 } from 'lucide-react-native';
@@ -85,7 +86,8 @@ export function modulesFor(role: UserRole) {
     return modules.filter((item) => !['/usuarios', '/area/administracao'].includes(item.href));
   if (role === 'hr')
     return modules.filter((item) => ['/dashboard', '/area/cadastros'].includes(item.href));
-  return modules.filter((item) => ['/dashboard', '/operacao', '/entregas'].includes(item.href));
+  return [...modules.filter((item) => ['/dashboard', '/operacao', '/entregas'].includes(item.href)),
+    { title: 'Meu perfil', href: '/perfil', icon: UserRound, description: 'Apresentação, idiomas e trajetória profissional' }];
 }
 
 const tasksModule: WorkspaceModule = {
