@@ -14,6 +14,7 @@ from main import app
 import requests_api
 import mongomock
 from app import mongo
+from app.repositories import translator_profile_store
 from app.services.email import service as email_service
 
 
@@ -201,6 +202,11 @@ class RequestsTests(unittest.TestCase):
         partial = self.client.patch('/translator-profile/me', headers=headers, json={'city': 'São Paulo'})
         self.assertEqual(partial.status_code, 200)
         self.assertEqual(partial.json()['profile']['phone'], '+55 11 99999-0000')
+        profile_in_mongo = translator_profile_store.find_profile(created['id'])
+        self.assertEqual(profile_in_mongo['data']['city'], 'São Paulo')
+        self.assertIsNone(profile_in_mongo.get('completed_at'))
+        with requests_api.database() as connection:
+            self.assertIsNone(connection.execute("SELECT to_regclass('translator_profiles') AS profile_table").fetchone()['profile_table'])
         with TestClient(app) as second_client:
             restored = second_client.get('/translator-profile/me', headers=headers).json()
             self.assertEqual(restored['profile']['city'], 'São Paulo')
@@ -210,6 +216,9 @@ class RequestsTests(unittest.TestCase):
         self.assertFalse(saved.json()['account']['onboardingRequired'])
         self.assertIsNotNone(saved.json()['completedAt'])
         self.assertEqual(saved.json()['profile'], self.complete_profile())
+        profile_in_mongo = translator_profile_store.find_profile(created['id'])
+        self.assertEqual(profile_in_mongo['data'], self.complete_profile())
+        self.assertEqual(profile_in_mongo['completed_at'], saved.json()['completedAt'])
         self.assertFalse(self.client.get('/auth/me', headers=headers).json()['onboardingRequired'])
         self.assertEqual(self.client.get('/tasks', headers=headers).status_code, 200)
         self.assertIn(created['id'], {item['id'] for item in self.client.get('/translators', headers=self.headers).json()})

@@ -75,11 +75,6 @@ def initialize_schema(connection, schema):
         role TEXT NOT NULL, password_hash TEXT NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE
     )''')
     connection.execute('ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_required BOOLEAN NOT NULL DEFAULT FALSE')
-    connection.execute('''CREATE TABLE IF NOT EXISTS translator_profiles (
-        user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-        data JSONB NOT NULL DEFAULT '{}'::jsonb, completed_at TIMESTAMPTZ,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )''')
     connection.execute('''CREATE TABLE IF NOT EXISTS sessions (
         digest TEXT PRIMARY KEY, expires DOUBLE PRECISION NOT NULL, user_id TEXT
     )''')
