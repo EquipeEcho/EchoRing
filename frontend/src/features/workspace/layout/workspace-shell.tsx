@@ -8,6 +8,7 @@ import {
   ListTodo,
   LogOut,
   Search,
+  UserRound,
   X,
 } from 'lucide-react-native';
 import { useRef, useState } from 'react';
@@ -56,7 +57,7 @@ export function WorkspaceShell() {
   const [help, setHelp] = useState(false);
   const searchInput = useRef<TextInput>(null);
   const section =
-    visibleModules.find((item) => pathname === item.href)?.title ??
+    visibleModules.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.title ??
     (pathname === '/tarefas' ? 'Minhas tarefas' : pathname === '/mais' ? 'Mais' : 'Meu espaço');
   const { requests } = useInbox();
   const received = requests.filter((item) => item.status === 'Recebido').length;
@@ -108,7 +109,7 @@ export function WorkspaceShell() {
             >
               {visibleModules
                 .filter((item) =>
-                  ['/dashboard', '/operacao', '/entregas', '/solicitacoes'].includes(item.href),
+                  ['/dashboard', '/operacao', '/entregas', '/solicitacoes', '/perfil'].includes(item.href),
                 )
                 .map((item) => (
                   <NavItem
@@ -326,6 +327,7 @@ export function WorkspaceShell() {
               ? 'Recursos Humanos'
               : 'Gestão da plataforma'}
         </Txt>
+        {session?.role === 'translator' && <Button variant="secondary" icon={UserRound} onPress={() => { setProfile(false); router.push('/perfil'); }}>Ver perfil profissional</Button>}
         <Button variant="secondary" icon={LogOut} onPress={logout}>
           Sair da conta
         </Button>
