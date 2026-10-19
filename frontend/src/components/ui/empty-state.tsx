@@ -26,22 +26,22 @@ export function EmptyState({
       </View>
       <Txt style={styles.emptyTitle}>{title}</Txt>
       <Txt style={styles.emptyText}>{text}</Txt>
-      {action}
+      {action && <View style={{ marginTop: 8 }}>{action}</View>}
     </View>
   );
 }
 
 const useStyles = createThemedStyles((colors) => ({
-  empty: { paddingVertical: 56, paddingHorizontal: 22, alignItems: 'center', gap: 12 },
+  empty: { paddingVertical: 44, paddingHorizontal: 22, alignItems: 'center', gap: 10 },
   emptyIcon: {
-    width: 64,
-    height: 64,
+    width: 56,
+    height: 56,
     backgroundColor: colors.accentSoft,
-    borderRadius: 32,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
   },
   emptyTitle: { fontWeight: '600', fontSize: 17, textAlign: 'center' },
-  emptyText: { textAlign: 'center', color: colors.muted, maxWidth: 380, fontSize: 13 },
+  emptyText: { textAlign: 'center', color: colors.muted, maxWidth: 380, fontSize: 14, lineHeight: 22 },
 }));

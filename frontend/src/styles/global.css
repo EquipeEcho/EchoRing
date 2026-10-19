@@ -5,6 +5,7 @@
   --theme-on-accent: #050506;
   --theme-focus-ring: rgba(255, 55, 95, 0.45);
   --theme-hover-border: #774051;
+  --theme-scrollbar: #48484f;
   background: var(--theme-canvas);
   --font-display: InterRegular, system-ui, sans-serif;
   --font-mono:
@@ -20,6 +21,7 @@
   --theme-on-accent: #fff;
   --theme-focus-ring: rgba(204, 36, 75, 0.5);
   --theme-hover-border: #cc244b;
+  --theme-scrollbar: #b5b5c2;
 }
 
 body,
@@ -27,24 +29,26 @@ body,
   background: var(--theme-canvas);
 }
 
-/* Keep wheel, trackpad, touch and keyboard scrolling without visual rails. */
-html,
-body,
-#root,
+/* Visible, discreet scrollbars make long lists and forms discoverable. */
 * {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-scrollbar) transparent;
 }
 
 *::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--theme-scrollbar);
+  border-radius: 6px;
 }
 
 input:focus-visible,
 textarea:focus-visible {
-  outline: none;
+  outline: 2px solid var(--theme-accent) !important;
+  outline-offset: 2px;
   caret-color: var(--theme-accent);
 }
 
@@ -92,7 +96,28 @@ textarea::selection {
 }
 
 [data-testid='auth-input'] input:focus-visible {
-  outline: none;
+  outline: none !important;
+}
+
+[data-testid='form-field']:focus-within {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 3px var(--theme-focus-ring);
+}
+
+[data-testid='form-field'] input:focus-visible {
+  outline: none !important;
+}
+
+[data-testid='search-field'] input:focus-visible {
+  outline: none !important;
+}
+
+button, a, [role='button'], [role='tab'] {
+  touch-action: manipulation;
+}
+
+input, textarea {
+  scroll-margin-block: 100px;
 }
 
 [data-testid='language-globe'] {
@@ -166,6 +191,13 @@ textarea::selection {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (max-width: 600px) {
+  /* Prevent browser zoom when focusing forms on iOS. */
+  input, textarea {
+    font-size: 16px !important;
   }
 }
 

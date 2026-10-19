@@ -2,13 +2,13 @@ import { font } from '@/theme/tokens';
 import { createThemedStyles } from '@/theme/create-themed-styles';
 
 export const useStyles = createThemedStyles((colors, selectColor) => ({
-  page: { padding: 40, paddingTop: 28, paddingBottom: 48, flexGrow: 1 },
+  page: { padding: 32, paddingTop: 32, paddingBottom: 48, flexGrow: 1 },
   pageSmall: { padding: 20, paddingTop: 26 },
   inner: { width: '100%', maxWidth: 1200, alignSelf: 'center' },
   notice: {
     backgroundColor: colors.greenSoft,
     borderWidth: 1,
-    borderColor: selectColor('#29533F', colors.accent),
+    borderColor: colors.green,
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
@@ -30,8 +30,8 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
     paddingVertical: 24,
     marginBottom: 28,
     backgroundColor: selectColor('#0D0D0F', colors.surface),
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
+    borderWidth: 1,
+    borderRadius: 16,
     borderColor: colors.line,
     overflow: 'hidden',
   },
@@ -68,8 +68,10 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: selectColor('#48484F', colors.controlLine),
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
   },
   searchInput: {
     flex: 1,
@@ -81,14 +83,14 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
     outlineWidth: 0,
   },
   filters: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 7 },
-  filter: { minHeight: 38, justifyContent: 'center', paddingHorizontal: 13, borderRadius: 10 },
+  filter: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 13, borderRadius: 10 },
   filterActive: { backgroundColor: colors.accentSoft },
   filterText: { fontSize: 13, color: colors.muted },
   filterTextActive: { color: colors.accent, fontWeight: '600' },
   directory: {
     backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
+    borderWidth: 1,
+    borderRadius: 16,
     borderColor: colors.line,
   },
   tableHead: {
@@ -164,7 +166,7 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
     backgroundColor: colors.canvas,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 14,
+    borderRadius: 12,
   },
   input: {
     flex: 1,

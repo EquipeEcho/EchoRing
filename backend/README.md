@@ -25,10 +25,10 @@ somente `POSTGRES_HOST` para `db-postgres`; ao executar a API no Windows, use
 
 Adicione as novas variáveis de `.env.example` ao seu `.env` caso ele já exista.
 Configure primeiro `ADMIN_EMAIL`, `ADMIN_PASSWORD` (senha exclusiva de pelo menos
-12 caracteres) e `ADMIN_NAME`. Essa conta recebe o perfil `admin` e pode cadastrar
+6 caracteres) e `ADMIN_NAME`. Essa conta recebe o perfil `admin` e pode cadastrar
 contas de funcionário, tradutor e RH pela área **Usuários**. Configure também
 `TRANSLATOR_EMAIL`, `TRANSLATOR_PASSWORD` (senha exclusiva de pelo menos
-12 caracteres) e `TRANSLATOR_NAME`. Não há conta real com senha padrão. As credenciais
+6 caracteres) e `TRANSLATOR_NAME`. Não há conta real com senha padrão. As credenciais
 são transformadas em hash PBKDF2 no PostgreSQL e a resposta identifica o perfil como
 `translator`. As sessões expiram em oito horas;
 o logout revoga o token. O acesso demonstrativo do frontend não acessa pedidos reais.

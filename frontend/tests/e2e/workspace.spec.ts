@@ -108,7 +108,7 @@ test('general administrator can create a platform user', async ({ page }) => {
   await page.getByRole('radio', { name: /Recursos Humanos/ }).click();
   await page.getByLabel('Senha inicial', { exact: true }).fill('curta');
   await page.getByRole('button', { name: 'Criar acesso' }).click();
-  await expect(page.getByRole('alert')).toContainText('pelo menos 12 caracteres');
+  await expect(page.getByRole('alert')).toContainText('pelo menos 6 caracteres');
   await page.getByLabel('Senha inicial', { exact: true }).fill('SenhaTemporaria2026!');
   await page.getByRole('button', { name: 'Criar acesso' }).click();
   await expect(page.getByText('Fernanda Lima já pode acessar a plataforma como Recursos Humanos.')).toBeVisible();
@@ -143,10 +143,14 @@ test('tasks, search, mobile navigation and notifications are usable', async ({ p
     await expect(page.getByTestId('workspace-bottom-tab')).toHaveCount(4);
     await expect(page.getByTestId('workspace-bottom-nav')).toContainText('InícioOperaçãoTarefasMais');
   }
+  await page.goto('/tarefas');
+  await page.getByRole('tab', { name: 'Concluídas', exact: true }).click();
   await expect(page.getByRole('checkbox', { name: 'Conferir documentos recebidos' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('tab', { name: 'Pendentes', exact: true }).click();
   const task = page.getByRole('checkbox', { name: 'Revisar contrato traduzido' });
   await task.click();
-  await expect(task).toHaveAttribute('aria-checked', 'true');
+  await expect(task).toHaveCount(0);
+  await page.goto('/dashboard');
   if (testInfo.project.name === 'mobile') await page.getByRole('button', { name: 'Buscar projetos', exact: true }).click();
   await page.getByRole('textbox', { name: 'Buscar projetos' }).fill('nada-encontrado');
   await expect(page.getByText('Nenhum projeto encontrado')).toBeVisible();

@@ -6,17 +6,13 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+    env_file:
+      - ./backend/.env
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql://admin:admin@db-postgres:5432/api5_relacional
       - POSTGRES_HOST=db-postgres
       - MONGO_URL=mongodb://db-mongo:27017/mydb
-      - ADMIN_EMAIL=admin@admin.com
-      - ADMIN_PASSWORD=admin@admin.com
-      - TRANSLATOR_EMAIL=translator@translator.com
-      - TRANSLATOR_PASSWORD=translator@translator.com
-      - STAFF_EMAIL=staff@staff.com
-      - STAFF_PASSWORD=staff@staff.com
       - JWT_SECRET=supersecretkey
       - TOKEN_SECRET=supersecrettoken
     depends_on:

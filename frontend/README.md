@@ -80,6 +80,15 @@ no Android e iOS, fica no `expo-secure-store`. O tema nao segue automaticamente 
 Desktop usa menu lateral; abaixo de 1000 px, a navegacao passa para a barra inferior
 flutuante, com abas arredondadas. Login, listas e dialogos compartilham o mesmo tema.
 As listas de projetos passam a apresentar cada registro verticalmente abaixo de 800 px.
+O painel destaca entregas do dia e prioriza tarefas pendentes. As listas mostram
+idiomas e andamento dos projetos; filtros ativos podem ser limpos de uma vez.
+A busca tambem filtra a pagina de tarefas e pode ser acessada com Ctrl+K ou Cmd+K.
+Falhas ao carregar projetos oferecem uma nova tentativa e preservam os dados
+ja carregados. As notificacoes de contas reais usam as pendencias disponiveis;
+os exemplos ficticios aparecem somente na demonstracao.
+Dialogos mantem o foco do teclado dentro da janela, fecham com Esc e devolvem
+o foco ao controle de origem. Campos de texto possuem foco visivel e os campos
+longos do perfil mostram a quantidade de caracteres utilizada.
 O administrador geral possui a aba **Usuarios** para criar contas de funcionario,
 tradutor e RH. Novos tradutores entram em `/completar-cadastro` no primeiro acesso.
 O formulario exige nome, telefone, localizacao, idiomas e pares de traducao,

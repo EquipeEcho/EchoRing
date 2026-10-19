@@ -60,7 +60,7 @@ def configured_accounts():
     ):
         email = os.getenv(f'{prefix}_EMAIL', '').strip().lower()
         password = os.getenv(f'{prefix}_PASSWORD', '')
-        if email and len(password) >= 12 and email not in configured_emails:
+        if email and len(password) >= 6 and email not in configured_emails:
             configured_emails.add(email)
             accounts.append({
                 'id': hashlib.sha256(f'{role}:{email}'.encode()).hexdigest()[:32],

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Check } from 'lucide-react-native';
+import { Check, ChevronRight, FileText } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
@@ -23,11 +23,12 @@ export function TaskRow({ task }: { task: Task }) {
           ? router.push(`/entregas?task=${encodeURIComponent(task.realTaskId)}`)
           : toggleTask(task.id)
       }
-      style={({ hovered }) => [styles.task, hovered && { backgroundColor: colors.surface }]}
+      style={({ hovered }) => [styles.task, hovered && { backgroundColor: colors.elevated }]}
     >
-      <View style={[styles.checkbox, task.done && styles.checked]}>
-        {task.done && <Check size={14} color={colors.white} strokeWidth={3} />}
+      <View style={[styles.checkbox, task.done && styles.checked, !!task.realTaskId && { borderWidth: 0, backgroundColor: colors.accentSoft }]}>
+        {task.realTaskId ? <FileText size={16} color={colors.accent} /> : task.done && <Check size={14} color={colors.onAccent} strokeWidth={3} />}
       </View>
+      {!!task.realTaskId && <ChevronRight size={16} color={colors.muted} />}
       <View style={{ flex: 1, gap: 4 }}>
         <Txt
           style={[

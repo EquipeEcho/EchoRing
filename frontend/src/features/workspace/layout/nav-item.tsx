@@ -42,7 +42,7 @@ export function NavItem({
       <Txt style={[styles.navLabel, active && { color: colors.accent, fontWeight: '600' }]}>
         {title}
       </Txt>
-      {badge !== undefined && (
+      {badge !== undefined && badge > 0 && (
         <View style={styles.count}>
           <Txt style={styles.countText}>{badge}</Txt>
         </View>

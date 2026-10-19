@@ -22,7 +22,7 @@ class Login(BaseModel):
 class UserCreate(BaseModel):
     name: str = Field(min_length=2, max_length=160)
     email: str = Field(min_length=3, max_length=160)
-    password: str = Field(min_length=12, max_length=128)
+    password: str = Field(min_length=6, max_length=128)
     role: Literal['employee', 'translator', 'hr']
 
     @field_validator('name', 'email', mode='before')

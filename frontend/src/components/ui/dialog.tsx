@@ -1,5 +1,5 @@
 import { X } from 'lucide-react-native';
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect, useId, useRef } from 'react';
 import {
   Modal,
   Platform,
@@ -37,11 +37,57 @@ export function Dialog({
   const s = useStyles();
   const { width } = useWindowDimensions();
   const mobile = width < 600;
+  const titleId = useId();
+  const surface = useRef<View>(null);
+  const close = useRef(onClose);
+  useEffect(() => { close.current = onClose; }, [onClose]);
+  useEffect(() => {
+    if (!open || Platform.OS !== 'web') return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const elements = () => {
+      const container = surface.current as unknown as HTMLElement | null;
+      return Array.from(container?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex="0"]',
+      ) ?? []).filter(element => element.getClientRects().length && element.getAttribute('aria-disabled') !== 'true');
+    };
+    const timer = setTimeout(() => elements()[0]?.focus(), 50);
+    const onKey = (event: KeyboardEvent) => {
+      const dialogs = Array.from(document.querySelectorAll('[data-testid="dialog-surface"]')).filter(element => element.getClientRects().length);
+      if (dialogs.at(-1) !== (surface.current as unknown as HTMLElement)) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        close.current();
+      }
+      if (event.key === 'Tab') {
+        const focusable = elements();
+        const first = focusable[0];
+        const last = focusable.at(-1);
+        if (!first) { event.preventDefault(); return; }
+        if (event.shiftKey && (document.activeElement === first || !focusable.includes(document.activeElement as HTMLElement))) {
+          event.preventDefault(); last?.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !focusable.includes(document.activeElement as HTMLElement))) {
+          event.preventDefault(); first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('keydown', onKey, true);
+      if (previous?.isConnected) previous.focus();
+    };
+  }, [open]);
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
       <View style={[s.overlay, mobile && s.overlayMobile]}>
         <Pressable onPress={onClose} style={StyleSheet.absoluteFill} accessibilityRole="none" />
         <View
+          ref={surface}
+          testID="dialog-surface"
+          role="dialog"
+          aria-modal
+          aria-labelledby={titleId}
           style={[
             s.dialog,
             size === 'compact' && s.compact,
@@ -55,7 +101,7 @@ export function Dialog({
           <View style={[s.header, mobile && s.headerMobile]}>
             <View style={s.headerCopy}>
               {eyebrow && <Txt style={s.eyebrow}>{eyebrow}</Txt>}
-              <Txt accessibilityRole="header" style={[s.title, mobile && s.titleMobile]}>
+              <Txt nativeID={titleId} accessibilityRole="header" style={[s.title, mobile && s.titleMobile]}>
                 {title}
               </Txt>
               {description && <Txt style={s.description}>{description}</Txt>}
@@ -78,7 +124,7 @@ export function Dialog({
             contentContainerStyle={[s.content, mobile && s.contentMobile]}
             keyboardShouldPersistTaps="handled"
             nestedScrollEnabled
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator
             showsHorizontalScrollIndicator={false}
           >
             {children}
@@ -98,7 +144,7 @@ const useStyles = createThemedStyles((colors, selectColor) => ({
     padding: 24,
     ...Platform.select({ web: { backdropFilter: 'blur(8px)' } as any, default: {} }),
   },
-  overlayMobile: { padding: 10, justifyContent: 'flex-end' },
+  overlayMobile: { padding: 0, justifyContent: 'flex-end' },
   dialog: {
     width: '100%',
     maxWidth: 600,
@@ -107,7 +153,7 @@ const useStyles = createThemedStyles((colors, selectColor) => ({
     backgroundColor: selectColor('#101012', colors.surface),
     borderWidth: 1,
     borderColor: selectColor('#303034', colors.controlLine),
-    borderRadius: 24,
+    borderRadius: 20,
     overflow: 'hidden',
     boxShadow: selectColor('0 32px 100px rgba(0,0,0,0.72)', '0 32px 100px rgba(25,25,45,0.10)'),
   },
@@ -140,7 +186,7 @@ const useStyles = createThemedStyles((colors, selectColor) => ({
   },
   title: { fontSize: 24, lineHeight: 31, letterSpacing: -0.6, fontWeight: '700' },
   titleMobile: { fontSize: 21, lineHeight: 28 },
-  description: { marginTop: 2, fontSize: 12, lineHeight: 18, color: colors.muted },
+  description: { marginTop: 2, fontSize: 14, lineHeight: 22, color: colors.muted },
   close: {
     width: 44,
     height: 44,

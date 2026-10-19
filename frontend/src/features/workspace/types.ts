@@ -32,6 +32,9 @@ export type Task = {
 };
 
 export type Workspace = {
+  loading: boolean;
+  loadError: string;
+  refresh: () => void;
   projects: Project[];
   tasks: Task[];
   toggleTask: (id: number | string) => void;

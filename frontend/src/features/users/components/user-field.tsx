@@ -28,14 +28,14 @@ export function UserField({
   return (
     <View style={styles.field}>
       <Txt style={styles.label}>{label}</Txt>
-      <View style={styles.inputWrap}>
+      <View testID="form-field" style={styles.inputWrap}>
         <TextInput
           accessibilityLabel={label}
           value={value}
           onChangeText={onChange}
           placeholder={placeholder}
           placeholderTextColor={colors.muted}
-          autoCapitalize={label === 'E-mail' ? 'none' : 'words'}
+          autoCapitalize={secure || label === 'E-mail' ? 'none' : 'words'}
           autoCorrect={false}
           keyboardType={label === 'E-mail' ? 'email-address' : 'default'}
           secureTextEntry={secure && !visible}

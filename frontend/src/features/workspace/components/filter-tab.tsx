@@ -21,7 +21,7 @@ export function FilterTab({
       aria-selected={active}
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      style={[styles.tab, active && styles.tabActive]}
+      style={({ hovered }) => [styles.tab, active && styles.tabActive, hovered && !active && { backgroundColor: colors.surface }]}
     >
       <Txt style={[styles.tabText, active && { color: colors.accent, fontWeight: '600' }]}>
         {label}

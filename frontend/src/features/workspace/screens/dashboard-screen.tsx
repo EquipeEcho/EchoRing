@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeading } from '@/components/ui/page-heading';
 import { Txt } from '@/components/ui/text';
 import { useSession } from '@/features/auth/contexts/session-context';
@@ -30,11 +31,16 @@ export function DashboardScreen() {
   const [tab, setTab] = useState<'active' | 'all'>('active');
   const { requests } = useInbox();
   const received = requests.filter((item) => item.status === 'Recebido').length;
-  const active = projects.filter((p) => !['Concluído', 'Entregue'].includes(p.status));
+  const active = projects.filter((p) => !['Concluído', 'Pronta', 'Entregue'].includes(p.status));
+  const today = new Date();
+  const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const dueToday = active.filter(p => p.deadline === 'Hoje' || p.deadline === todayISO).length;
+  const pendingTasks = tasks.filter(task => !task.done);
   const visible = (tab === 'active' ? active : projects).filter((p) => matchesSearch(p, search));
   const date = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
   return (
     <WorkspacePage>
+      <Txt style={styles.greeting}>Olá, {session?.name.split(' ')[0] || 'bem-vindo'}. Vamos organizar seu dia?</Txt>
       <PageHeading
         title="Visão geral"
         subtitle={`${employee ? 'Projetos da equipe' : 'Meus projetos'} · ${date}`}
@@ -43,7 +49,7 @@ export function DashboardScreen() {
             <Button icon={Plus} onPress={() => setNewRequest(true)}>
               Nova requisição
             </Button>
-          ) : undefined
+          ) : session?.role === 'translator' ? <Button onPress={() => router.push('/entregas')}>Minhas entregas</Button> : undefined
         }
       />
       <View style={[styles.metrics, width < 700 && styles.metricsCompact]}>
@@ -75,7 +81,7 @@ export function DashboardScreen() {
           compact={width < 700}
           icon={CheckCheck}
           title="Entrega hoje"
-          value={active.filter((p) => p.deadline === 'Hoje').length}
+          value={dueToday}
           color={colors.blue}
         />
       </View>
@@ -89,8 +95,8 @@ export function DashboardScreen() {
           <FolderKanban size={24} color={colors.accent} />
         </View>
         <View style={{ flex: 1, gap: 3 }}>
-          <Txt style={styles.activityTitle}>Tudo no seu ritmo.</Txt>
-          <Txt style={common.caption}>{active.length} projetos em aberto para acompanhar.</Txt>
+          <Txt style={styles.activityTitle}>{dueToday > 0 ? `${dueToday} ${dueToday === 1 ? 'entrega para hoje' : 'entregas para hoje'}` : 'Seu próximo passo'}</Txt>
+          <Txt style={common.caption}>{dueToday > 0 ? 'Confira os prazos e avance nos projetos prioritários.' : active.length > 0 ? `${active.length} projetos em aberto para acompanhar.` : 'Acompanhe aqui os projetos que forem atribuídos à sua conta.'}</Txt>
         </View>
         <View style={styles.activityArrow}>
           <ArrowRight size={21} color={colors.ink} />
@@ -151,9 +157,10 @@ export function DashboardScreen() {
             <Txt style={common.caption}>{tasks.filter((t) => !t.done).length} pendentes</Txt>
           </View>
           <View style={{ marginTop: 15 }}>
-            {tasks.slice(0, 4).map((task) => (
+            {pendingTasks.slice(0, 4).map((task) => (
               <TaskRow key={task.id} task={task} />
             ))}
+            {!pendingTasks.length && <EmptyState icon={CheckCheck} title="Tudo em dia" text="Suas tarefas pendentes aparecerão aqui. Você também pode consultar as concluídas." />}
           </View>
           <Pressable
             accessibilityRole="button"
