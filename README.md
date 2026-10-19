@@ -87,11 +87,11 @@ A plataforma também incluirá ferramentas comerciais, permitindo a criação de
 
 **Objetivo:** disponibilizar a base da aplicação, autenticação e o fluxo inicial de solicitação de serviços.
 
-### 📈 Backlog da Sprint 1
+### 📈 Backlog da Sprint 2
 
 | Rank | Prioridade | User Story | Como usuário | Estimativa | Sprint |
 |---|---|---|---|---:|---|
-| 10 | Média | **US10 — Notificações para tradutor** | Como **tradutor**, quero receber notificações por WhatsApp e e-mail sobre novas traduções e atualizações dos meus serviços | 5 | Sprint 2 |
+| 10 | Média | **US10 — Notificações para tradutor** | Como **tradutor**, quero receber notificações por e-mail sobre novas traduções e atualizações dos meus serviços | 5 | Sprint 2 |
 | 11 | Média | **US11 — Área de notificações do tradutor** | Como **tradutor**, quero visualizar minhas notificações dentro da plataforma para acompanhar as atualizações dos meus serviços | 3 | Sprint 2 |
 | 12 | Média | **US12 — Notificações para cliente** | Como **cliente**, quero receber notificações sobre minhas traduções e visualizar essas notificações na plataforma para acompanhar o andamento do serviço | 5 | Sprint 2 |
 | 13 | Média | **US13 — Notificações para funcionário** | Como **funcionário**, quero receber notificações sobre novas requisições, conclusão de traduções e conclusão de etapas para acompanhar os serviços | 5 | Sprint 2 |
