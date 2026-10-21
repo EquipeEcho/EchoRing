@@ -18,6 +18,25 @@ function isClient(value: unknown): value is Client {
   );
 }
 
+function readLocalClients(): Client[] {
+  if (Platform.OS !== 'web') return [];
+  const stored = window.localStorage.getItem(storageKey);
+  if (!stored) return [];
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    if (!Array.isArray(parsed) || !parsed.every(isClient)) throw new Error('Formato inválido.');
+    return parsed;
+  } catch {
+    throw new Error('Não foi possível ler os clientes salvos neste navegador.');
+  }
+}
+
+export function listClients(session: Session): Promise<Client[]> {
+  if (session.demo) return Promise.resolve(readLocalClients());
+  if (!session.token) return Promise.reject(new Error('Sua sessão expirou. Entre novamente no portal.'));
+  return api('/clients', {}, session.token);
+}
+
 function saveLocalClient(data: ClientDraft): Client {
   if (Platform.OS !== 'web') {
     throw new Error('O cadastro local de clientes está disponível apenas no navegador.');

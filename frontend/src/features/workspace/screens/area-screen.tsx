@@ -43,9 +43,14 @@ export function AreaScreen() {
         subtitle={area.description}
         action={
           canRegisterClients ? (
-            <Button icon={UserPlus} onPress={openClientRegistration}>
-              Cadastrar cliente
-            </Button>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              <Button variant="secondary" onPress={() => router.push('/clientes')}>
+                Ver clientes
+              </Button>
+              <Button icon={UserPlus} onPress={openClientRegistration}>
+                Cadastrar cliente
+              </Button>
+            </View>
           ) : (
             <Badge tone="neutral">Em preparação</Badge>
           )
