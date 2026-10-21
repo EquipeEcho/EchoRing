@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+  <h2>Sua tradução está pronta</h2>
+  <p>Olá, {{ nome }}!</p>
+  <p>A tradução de <strong>{{ titulo }}</strong> ({{ origem }} → {{ destino }}) foi concluída e revisada pela nossa equipe.</p>
+  <p>O documento traduzido segue em anexo.</p>
+  <p>Obrigado por escolher a {{ empresa }}.</p>
+{% endblock %}
+{% block rodape %}Protocolo: {{ protocolo }} · {{ empresa }}{% endblock %}
