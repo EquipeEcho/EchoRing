@@ -66,12 +66,12 @@ export function AreaScreen() {
           </Txt>
           <Txt style={styles.areaTitle}>
             {canRegisterClients
-              ? 'Cadastre clientes e registre suas solicitações.'
+              ? 'Cadastre e consulte os clientes da empresa.'
               : `A estrutura de ${area.title.toLocaleLowerCase('pt-BR')} já está mapeada.`}
           </Txt>
           <Txt style={common.caption}>
             {canRegisterClients
-              ? 'O cadastro inclui os dados do cliente e as informações do primeiro projeto.'
+              ? 'Consulte os dados de contato dos clientes cadastrados em um só lugar.'
               : 'As seções abaixo serão ativadas conforme os próximos fluxos da operação forem integrados.'}
           </Txt>
         </View>

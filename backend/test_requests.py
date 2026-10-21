@@ -6,6 +6,7 @@ import os
 import smtplib
 import unittest
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -14,8 +15,68 @@ from main import app
 import requests_api
 import mongomock
 from app import mongo
+from app.repositories import client_store
+from app.core.portal_auth import staff
 from app.repositories import translator_profile_store
 from app.services.email import service as email_service
+
+
+class ClientMongoTests(unittest.TestCase):
+    """Testa persistência de clientes no Mongo sem depender do PostgreSQL."""
+
+    def setUp(self):
+        self.environment = patch.dict(os.environ, {'MONGO_DB': 'test_clients'})
+        self.environment.start()
+        self.mongo = patch.object(mongo, '_client', mongomock.MongoClient())
+        self.mongo.start()
+        app.dependency_overrides[staff] = lambda: {
+            'id': 'employee-test',
+            'name': 'Test Employee',
+            'role': 'employee',
+        }
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        self.client.close()
+        app.dependency_overrides.pop(staff, None)
+        self.mongo.stop()
+        self.environment.stop()
+
+    def test_client_records_are_created_listed_and_unique_in_mongo(self):
+        data = {'name': '  Example Client ', 'email': ' CLIENT@example.test ', 'company': ' Example Co '}
+        created = self.client.post('/clients', json=data)
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.json()['name'], 'Example Client')
+        self.assertEqual(created.json()['email'], 'client@example.test')
+        self.assertEqual(created.json()['company'], 'Example Co')
+        with patch('app.routes.requests_routes.database') as database:
+            database.return_value.__enter__.return_value.execute.return_value.fetchall.return_value = []
+            self.assertEqual(self.client.get('/clients').json(), [created.json()])
+
+        stored = mongo.get_db()['clients'].find_one({'_id': created.json()['id']})
+        self.assertEqual(stored['created_by'], 'employee-test')
+        self.assertEqual(stored['email'], 'client@example.test')
+        self.assertEqual(self.client.post(
+            '/clients',
+            json={'name': 'Duplicate Client', 'email': 'client@example.test'},
+        ).status_code, 409)
+
+    def test_public_quote_upsert_keeps_one_client_per_email(self):
+        from app.models.translation import ClientCreate
+
+        first = client_store.upsert_quote_client(
+            ClientCreate(name='Landing Client', email='LANDING@example.test', company='First Company'),
+            datetime(2026, 10, 21, tzinfo=timezone.utc),
+        )
+        updated = client_store.upsert_quote_client(
+            ClientCreate(name='Landing Client Updated', email='landing@example.test', company='Updated Company'),
+            datetime(2026, 10, 22, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(first['id'], updated['id'])
+        self.assertEqual(updated['name'], 'Landing Client Updated')
+        self.assertEqual(updated['company'], 'Updated Company')
+        self.assertEqual(mongo.get_db()['clients'].count_documents({}), 1)
 
 
 class RequestsTests(unittest.TestCase):
@@ -107,6 +168,10 @@ class RequestsTests(unittest.TestCase):
     def test_public_intake_is_persistent_and_staff_only(self):
         """Garante persistência pública, leitura restrita e conteúdo oculto na listagem."""
         request_id = self.create()
+        stored_client = mongo.get_db()['clients'].find_one({'email': self.intake['email']})
+        self.assertIsNotNone(stored_client)
+        self.assertEqual(stored_client['name'], self.intake['name'])
+        self.assertEqual(stored_client['created_by'], 'landing-page')
         self.assertEqual(self.client.get('/requests').status_code, 401)
         self.assertEqual(self.client.get('/requests/' + request_id).status_code, 401)
         listing = self.client.get('/requests', headers=self.headers).json()
@@ -114,6 +179,18 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(listing[0]['attachments'][0]['content'], '')
         detail = self.client.get('/requests/' + request_id, headers=self.headers).json()
         self.assertEqual(detail['attachments'], self.intake['attachments'])
+        client_listing = self.client.get('/clients', headers=self.headers)
+        self.assertEqual(client_listing.status_code, 200)
+        client = next(item for item in client_listing.json() if item['email'] == self.intake['email'])
+        self.assertEqual(client['projects'][0]['id'], request_id)
+        self.assertEqual(client['projects'][0]['title'], self.intake['title'])
+        self.assertEqual(client['projects'][0]['status'], 'Recebido')
+        self.save_quote(request_id)
+        updated_client = next(
+            item for item in self.client.get('/clients', headers=self.headers).json()
+            if item['email'] == self.intake['email']
+        )
+        self.assertEqual(updated_client['projects'][0]['status'], 'Em análise')
         with TestClient(app) as second_client:
             self.assertEqual(second_client.get('/requests', headers=self.headers).json()[0]['id'], request_id)
 
@@ -171,6 +248,17 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(created.json()['email'], 'client@example.test')
         self.assertEqual(created.json()['company'], 'Example Co')
         self.assertEqual(self.client.get('/clients', headers=self.headers).json(), [created.json()])
+        stored_client = mongo.get_db()['clients'].find_one({'_id': created.json()['id']})
+        self.assertEqual(
+            {key: stored_client[key] for key in ('name', 'email', 'company')},
+            {
+                'name': 'Example Client',
+                'email': 'client@example.test',
+                'company': 'Example Co',
+            },
+        )
+        self.assertTrue(stored_client['created_by'])
+        self.assertIsInstance(stored_client['created_at'], datetime)
         self.assertEqual(self.client.get('/requests', headers=self.headers).json(), [])
 
         duplicate = self.client.post(

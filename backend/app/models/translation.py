@@ -116,6 +116,7 @@ class Intake(BaseModel):
             raise ValueError('Autorize o contato para orçamento.')
         if not re.fullmatch(r'[^\s@\r\n]+@[^\s@\r\n]+\.[^\s@\r\n]+', self.email):
             raise ValueError('E-mail inválido.')
+        self.email = self.email.lower()
         if self.source.casefold() == self.target.casefold():
             raise ValueError('Informe idiomas diferentes.')
         if sum(file.size for file in self.attachments) > 5 * 1024 * 1024:
