@@ -9,8 +9,6 @@ from requests_api import router
 
 load_dotenv()
 
-app.include_router(tarefas.router)
-
 class BodyLimitMiddleware:
     def __init__(self, app):
         self.app = app
@@ -40,6 +38,7 @@ class BodyLimitMiddleware:
         await self.app(scope, buffered_receive, send)
 
 app = FastAPI()
+app.include_router(tarefas.router)
 app.add_middleware(BodyLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
