@@ -117,6 +117,74 @@ class RequestsTests(unittest.TestCase):
         with TestClient(app) as second_client:
             self.assertEqual(second_client.get('/requests', headers=self.headers).json()[0]['id'], request_id)
 
+    def test_manual_client_intake_is_restricted_to_staff_and_persisted_as_request(self):
+        """Garante acesso para funcionários e administradores usando o mesmo contrato Intake."""
+        self.assertEqual(self.client.post('/requests/manual', json=self.intake).status_code, 401)
+        _, translator_headers = self.translator_session()
+        self.assertEqual(
+            self.client.post('/requests/manual', headers=translator_headers, json=self.intake).status_code,
+            403,
+        )
+
+        employee_created = self.client.post('/requests/manual', headers=self.headers, json=self.intake)
+        self.assertEqual(employee_created.status_code, 201)
+        employee_request = employee_created.json()
+        self.assertEqual(employee_request['email'], self.intake['email'])
+        self.assertEqual(employee_request['status'], 'Recebido')
+        self.assertEqual(employee_request['history'][-1]['note'], 'Cadastro manual do cliente.')
+        self.assertTrue(any(
+            item['id'] == employee_request['id']
+            for item in self.client.get('/requests', headers=self.headers).json()
+        ))
+
+        admin_login = self.client.post('/auth/login', json={
+            'email': 'admin@example.test',
+            'password': 'admin-password-long-enough',
+        })
+        admin_headers = {'Authorization': 'Bearer ' + admin_login.json()['token']}
+        admin_created = self.client.post(
+            '/requests/manual',
+            headers=admin_headers,
+            json={**self.intake, 'email': 'another-client@example.test'},
+        )
+        self.assertEqual(admin_created.status_code, 201)
+        self.assertEqual(admin_created.json()['email'], 'another-client@example.test')
+
+        invalid = self.client.post(
+            '/requests/manual',
+            headers=self.headers,
+            json={**self.intake, 'source': self.intake['target']},
+        )
+        self.assertEqual(invalid.status_code, 422)
+
+    def test_client_registration_stores_only_contact_data(self):
+        """Salva os dados do cliente sem criar uma solicitação de tradução."""
+        data = {'name': '  Example Client  ', 'email': '  CLIENT@example.test ', 'company': ' Example Co '}
+        self.assertEqual(self.client.post('/clients', json=data).status_code, 401)
+        _, translator_headers = self.translator_session()
+        self.assertEqual(self.client.post('/clients', headers=translator_headers, json=data).status_code, 403)
+        self.assertEqual(self.client.get('/clients', headers=translator_headers).status_code, 403)
+
+        created = self.client.post('/clients', headers=self.headers, json=data)
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.json()['name'], 'Example Client')
+        self.assertEqual(created.json()['email'], 'client@example.test')
+        self.assertEqual(created.json()['company'], 'Example Co')
+        self.assertEqual(self.client.get('/clients', headers=self.headers).json(), [created.json()])
+        self.assertEqual(self.client.get('/requests', headers=self.headers).json(), [])
+
+        duplicate = self.client.post(
+            '/clients',
+            headers=self.headers,
+            json={'name': 'Duplicate Client', 'email': 'CLIENT@example.test'},
+        )
+        self.assertEqual(duplicate.status_code, 409)
+        for invalid in (
+            {'name': '', 'email': 'client2@example.test'},
+            {'name': 'Client', 'email': 'invalid'},
+        ):
+            self.assertEqual(self.client.post('/clients', headers=self.headers, json=invalid).status_code, 422)
+
     def test_translator_login_returns_role_and_cannot_access_staff_requests(self):
         """Confere a sessão do tradutor e o bloqueio das rotas exclusivas da equipe."""
         response = self.client.post('/auth/login', json={'email': 'TRANSLATOR@example.test', 'password': 'translator-password-long-enough'})

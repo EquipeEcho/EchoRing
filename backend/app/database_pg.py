@@ -70,6 +70,12 @@ def initialize_schema(connection, schema):
         id TEXT PRIMARY KEY, data JSONB NOT NULL, sending BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     )''')
+    connection.execute('''CREATE TABLE IF NOT EXISTS clients (
+        id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL,
+        company TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )''')
+    connection.execute('CREATE UNIQUE INDEX IF NOT EXISTS clients_email ON clients (LOWER(email))')
     connection.execute('''CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
         role TEXT NOT NULL, password_hash TEXT NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE

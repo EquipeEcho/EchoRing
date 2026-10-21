@@ -44,6 +44,7 @@ export function QuoteSection({
   const {
     step,
     setStep,
+    registerInput,
     data,
     setData,
     error,
@@ -67,11 +68,15 @@ export function QuoteSection({
   ) {
     return (
       <QuoteField
-        form={form}
         width={width}
         fieldKey={key}
         label={label}
         placeholder={placeholder}
+        value={data[key]}
+        onChangeText={(value) => change(key, value)}
+        registerInput={registerInput}
+        invalid={invalid.includes(key)}
+        disabled={busy}
         multiline={multiline}
       />
     );

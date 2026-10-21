@@ -39,6 +39,7 @@ from app.core.workflow import (
 )
 from app.database_pg import database, environment_flag, json_data, now
 from app.models.translation import (
+    ClientCreate,
     Intake,
     Login,
     QuoteDecision,
@@ -170,6 +171,43 @@ def complete_translator_profile(data: TranslatorProfileComplete, user: dict = De
     return translator_profile_record({**dict(current), 'name': data.fullName, 'onboarding_required': False})
 
 
+def client_record(client):
+    return {
+        'id': client['id'],
+        'name': client['name'],
+        'email': client['email'],
+        'company': client['company'],
+        'createdAt': client['created_at'].isoformat()
+        if isinstance(client['created_at'], datetime)
+        else client['created_at'],
+    }
+
+
+@router.get('/clients')
+def list_clients(user: dict = Depends(staff)):
+    with database() as connection:
+        clients = connection.execute(
+            'SELECT id, name, email, company, created_at FROM clients ORDER BY created_at DESC, name'
+        ).fetchall()
+    return [client_record(client) for client in clients]
+
+
+@router.post('/clients', status_code=201)
+def create_client(data: ClientCreate, user: dict = Depends(staff)):
+    client_id = 'CLI-' + secrets.token_hex(6).upper()
+    try:
+        with database() as connection:
+            client = connection.execute(
+                '''INSERT INTO clients (id, name, email, company, created_by)
+                   VALUES (?, ?, ?, ?, ?)
+                   RETURNING id, name, email, company, created_at''',
+                (client_id, data.name, data.email, data.company, user['id']),
+            ).fetchone()
+    except psycopg.IntegrityError as error:
+        raise HTTPException(409, 'Já existe um cliente cadastrado com este e-mail.') from error
+    return client_record(client)
+
+
 @router.post('/requests', status_code=201)
 def create_request(data: Intake, request: Request):
     throttle(request, 'intake', 10)
@@ -178,6 +216,29 @@ def create_request(data: Intake, request: Request):
     with database() as connection:
         connection.execute('INSERT INTO requests (id, data) VALUES (?, ?)', (record['id'], Jsonb(record)))
         add_event(connection, 'Recebido', request_id=record['id'], created_at=created_at)
+        return sanitized_request(record, connection)
+
+
+@router.post('/requests/manual', status_code=201)
+def create_manual_request(data: Intake, user: dict = Depends(staff)):
+    created_at = now()
+    record = {
+        **data.model_dump(),
+        'id': 'SOL-' + secrets.token_hex(6).upper(),
+        'createdAt': created_at,
+        'status': 'Recebido',
+        'demo': False,
+    }
+    with database() as connection:
+        connection.execute('INSERT INTO requests (id, data) VALUES (?, ?)', (record['id'], Jsonb(record)))
+        add_event(
+            connection,
+            'Recebido',
+            request_id=record['id'],
+            actor=user,
+            note='Cadastro manual do cliente.',
+            created_at=created_at,
+        )
         return sanitized_request(record, connection)
 
 
