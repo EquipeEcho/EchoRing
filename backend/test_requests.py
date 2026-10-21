@@ -16,6 +16,7 @@ import mongomock
 from app import mongo
 from app.repositories import translator_profile_store
 from app.services.email import service as email_service
+from app.core import email_service as core_email
 
 
 class RequestsTests(unittest.TestCase):
@@ -460,6 +461,7 @@ class RequestsTests(unittest.TestCase):
 
     def test_complete_flow_secures_decision_assignment_revision_and_approval(self):
         """Percorre o fluxo completo e finaliza o serviço diretamente na aprovação."""
+        sent_emails = self.enterContext(patch.object(core_email, 'send_email'))
         translator, translator_headers = self.translator_session()
         with requests_api.database() as connection:
             connection.execute(
@@ -559,6 +561,24 @@ class RequestsTests(unittest.TestCase):
                          'Em andamento', 'Aguardando avaliação', 'Revisão solicitada', 'Entregue'):
             self.assertIn(expected, statuses)
 
+        emails = [call.kwargs for call in sent_emails.call_args_list]
+        self.assertEqual([email['template'] for email in emails], ['aviso', 'entrega'])
+        self.assertEqual(emails[0]['to'], 'translator@example.test')
+        self.assertEqual(emails[1]['to'], 'client@example.test')
+        self.assertEqual(emails[1]['attachments'][0]['name'], 'translated-v2.txt')
+        self.assertEqual(emails[1]['attachments'][0]['content'], b'Second complete version')
+
+    def test_email_attachments_are_added_to_message(self):
+        """Anexa os arquivos ao e-mail mantendo a versão em texto e HTML."""
+        attachment = {'name': 'traducao.txt', 'content': b'Texto traduzido', 'media_type': 'text/plain'}
+        with patch.dict(os.environ, {'SMTP_HOST': 'smtp.example.test', 'SMTP_FROM': 'staff@example.test'}), \
+                patch.object(email_service.smtplib, 'SMTP') as smtp:
+            email_service.send_email('client@example.test', 'Oi', 'aviso', {'titulo': 'T', 'mensagem': 'M'}, attachments=[attachment])
+            message = smtp.return_value.__enter__.return_value.send_message.call_args.args[0]
+        files = list(message.iter_attachments())
+        self.assertEqual(files[0].get_filename(), 'traducao.txt')
+        self.assertEqual(files[0].get_content(), 'Texto traduzido')
+        self.assertIn('M', message.get_body(preferencelist=('plain',)).get_content())
 
     def test_auto_approve_quote_skips_email_for_local_workflow(self):
         """No modo local, aprova a proposta sem chamar o serviço de e-mail."""
