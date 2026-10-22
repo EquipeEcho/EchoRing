@@ -3,12 +3,42 @@
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 import unittest
+from unittest.mock import patch
 
 from app.database_pg import database
 from tests.support.portal_test_case import PortalTestCase
 
 
 class TranslationWorkflowTests(PortalTestCase):
+
+    def test_documentary_email_waits_for_final_approval_and_includes_all_files(self):
+        process = self.prepare('documentary')
+        request_id = self.create()
+        with database() as connection:
+            connection.execute('UPDATE services SET request_id = ? WHERE id = ?', (request_id, self.task))
+        self.change(process['stages'][0]['stageId'], 'complete', 1)
+        with patch('app.services.email.workflow_service.send_email') as send:
+            first = self.client.post(f'/tasks/{self.task}/deliveries', headers=self.translator_headers,
+                files={'file': ('draft.txt', b'Draft translation', 'text/plain')})
+            self.assertEqual(first.status_code, 201, first.text)
+            intermediate = self.client.post(f"/deliveries/{first.json()['id']}/review", headers=self.headers,
+                json={'decision': 'approve'})
+            self.assertEqual(intermediate.status_code, 200, intermediate.text)
+            self.assertEqual(intermediate.json()['status'], 'Pronta')
+            send.assert_not_called()
+            final = self.client.post(f'/tasks/{self.task}/deliveries', headers=self.translator_headers,
+                files=[('files', ('formalized.txt', b'Formalized translation', 'text/plain')),
+                       ('files', ('certificate.txt', b'Translation certificate', 'text/plain'))])
+            self.assertEqual(final.status_code, 201, final.text)
+            approved = self.client.post(f"/deliveries/{final.json()['id']}/review", headers=self.headers,
+                json={'decision': 'approve'})
+            self.assertEqual(approved.status_code, 200, approved.text)
+            self.assertEqual(approved.json()['status'], 'Entregue')
+            send.assert_called_once()
+            message = send.call_args.kwargs
+            self.assertEqual(message['to'], self.intake['email'])
+            self.assertEqual([(file['name'], file['content']) for file in message['attachments']],
+                [('formalized.txt', b'Formalized translation'), ('certificate.txt', b'Translation certificate')])
 
     def prepare(self, template='tep'):
         account, self.translator_headers = self.translator_session()

@@ -3,8 +3,9 @@
 O formulário público envia pedidos para a API; a caixa de entrada privada permite
 analisar documentos, salvar a proposta e enviar o orçamento pelo SMTP da empresa.
 A persistência fica no PostgreSQL (usuários, sessões, solicitações, orçamentos,
-tarefas, documentos, versões e histórico), exceto o perfil do tradutor, que fica
-no MongoDB. Solicitações usam `JSONB` e os arquivos finais usam `BYTEA`; o runtime
+tarefas, documentos, versões e histórico). Clientes e perfis de tradutor ficam no
+MongoDB, respectivamente nas collections `clients` e `translator_profiles`.
+Solicitações usam `JSONB` e os arquivos finais usam `BYTEA`; o runtime
 não depende de SQLite.
 
 ## Rodar no Windows
@@ -19,7 +20,7 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
 Antes da API, configure `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` no
-`.env` e inicie o banco com `docker compose up -d db-postgres`. O Compose troca
+`.env` e inicie os bancos com `docker compose up -d db-postgres db-mongo`. O Compose troca
 somente `POSTGRES_HOST` para `db-postgres`; ao executar a API no Windows, use
 `localhost`. `DATABASE_URL` pode substituir as variáveis separadas quando necessário.
 
@@ -38,7 +39,14 @@ Contas criadas pelo administrador são persistidas no PostgreSQL e já podem usa
 Novos tradutores criados pelo administrador recebem `onboardingRequired: true` e
 concluem seu cadastro antes de acessar projetos e entregas. Contas que já existiam
 e contas iniciais configuradas no ambiente mantêm o acesso anterior.
-Rascunhos e perfis completos ficam no MongoDB, na collection `translator_profiles`,
+Clientes são gravados na collection `clients`, com e-mail normalizado e único.
+O acesso demonstrativo do frontend não persiste clientes; é necessário entrar com
+uma conta real de funcionário ou administrador para salvá-los no MongoDB.
+Quando a landing page está em modo `api`, cada orçamento também cria ou atualiza
+o cliente no MongoDB pelo e-mail. A listagem de clientes associa as solicitações
+do PostgreSQL pelo mesmo e-mail e exibe os projetos com o status atual da tarefa,
+quando houver, ou da solicitação.
+Rascunhos e perfis completos ficam na collection `translator_profiles`,
 com o id do usuário como `_id`. A conclusão salva o perfil no Mongo e só depois
 atualiza o nome e libera o acesso no PostgreSQL; se o Mongo falhar, a conta continua
 pendente e o tradutor pode tentar de novo. O schema do PostgreSQL é atualizado
@@ -79,6 +87,12 @@ resposta ambígua do provedor, confira a caixa de saída antes de tentar novamen
 Se o processo for interrompido durante o envio, confira o provedor antes de
 reconciliar o bloqueio `sending` do pedido no banco.
 
+Além do orçamento, o sistema envia dois avisos automáticos em segundo plano: o
+tradutor recebe um e-mail com link para o portal quando uma tarefa é atribuída a
+ele, e o cliente recebe a tradução em anexo quando a equipe aprova a entrega.
+Falhas nesses envios ficam registradas no log e não bloqueiam a atribuição nem
+a aprovação. Com `EMAIL_DRY_RUN=true`, os e-mails aparecem no log em vez de serem enviados.
+
 ## Endpoints
 
 | Método | Rota | Acesso |
@@ -106,14 +120,13 @@ reconciliar o bloqueio `sending` do pedido no banco.
 | POST | `/tasks/{id}/deliveries` | Somente tradutor atribuído; envia nova versão |
 | GET | `/deliveries` | Funcionário/admin; fila e histórico de versões |
 | POST | `/deliveries/{id}/review` | Funcionário/admin; aprova ou solicita revisão |
-| POST | `/tasks/{id}/send-final` | Funcionário/admin; envia o arquivo aprovado ao cliente |
 
 ## Fluxo operacional
 
 O fluxo persistido é `Recebido → Em análise → Orçamento enviado → Orçamento
 aprovado → Tradutor atribuído → Em andamento → Aguardando avaliação`. A avaliação
-leva a `Revisão solicitada` (permitindo novas versões) ou `Pronta`; o envio SMTP
-do anexo final conclui em `Entregue`. Uma recusa encerra a solicitação em
+leva a `Revisão solicitada` (permitindo novas versões) ou `Entregue`; ao aprovar,
+a tradução é enviada ao cliente por e-mail, com os arquivos em anexo. Uma recusa encerra a solicitação em
 `Orçamento recusado`. As mudanças importantes são registradas em
 `workflow_events`, com data, responsável e observação básica.
 
@@ -127,8 +140,8 @@ no total. A API valida o conteúdo e limita o corpo da requisição a 8 MB.
 O recebimento tem limite de dez pedidos por minuto por IP; o login, cinco
 tentativas. Esses limites são locais ao processo. Na hospedagem, configure HTTPS,
 as origens em `CORS_ORIGINS`, limites também no proxy e backup do volume `pg_data`.
-A validação de formato não substitui antivírus nos documentos. O envio de e-mail
-continua síncrono, sem fila em segundo plano.
+A validação de formato não substitui antivírus nos documentos. O orçamento é
+enviado na hora; os avisos ao tradutor e ao cliente vão em segundo plano.
 
 ## Migrar dados antigos do SQLite
 

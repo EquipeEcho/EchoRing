@@ -12,7 +12,8 @@ services:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql://admin:admin@db-postgres:5432/api5_relacional
       - POSTGRES_HOST=db-postgres
-      - MONGO_URL=mongodb://db-mongo:27017/mydb
+      - MONGO_URL=mongodb://db-mongo:27017
+      - MONGO_DB=EchoRing
       - JWT_SECRET=supersecretkey
       - TOKEN_SECRET=supersecrettoken
     depends_on:
@@ -28,6 +29,8 @@ services:
       - "8081:8081"
     environment:
       - REACT_NATIVE_PACKAGER_HOSTNAME=192.168.1.101
+      - EXPO_PUBLIC_API_URL=http://localhost:8000
+      - EXPO_PUBLIC_REQUESTS_MODE=api
     volumes:
       - ./frontend:/app
       - /app/node_modules

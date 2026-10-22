@@ -2,12 +2,13 @@
 import base64
 import secrets
 from urllib.parse import quote as urlquote
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from app.core.portal_auth import ensure_task_access, staff, translator, workspace_user
 from app.database_pg import MAX_DELIVERY_BYTES, MAX_DELIVERY_FILES, MAX_DELIVERY_TOTAL_BYTES, database, now
+from app.services.email.workflow_service import deliver_translation
 from app.models.translation import DeliveryReview, validate_delivery_document
-from app.repositories.translation_store import add_event, delivery_documents, delivery_record, original_attachment, read_delivery, read_service, task_record, update_request_status
+from app.repositories.translation_store import add_event, delivery_documents, delivery_record, original_attachment, read_delivery, read_request, read_service, task_record, update_request_status
 
 router = APIRouter()
 
@@ -186,8 +187,7 @@ def download_delivery_file(delivery_id: str, file_index: int, user: dict = Depen
 
 
 @router.post('/deliveries/{delivery_id}/review')
-def review_delivery(delivery_id: str, review: DeliveryReview, user: dict = Depends(staff)):
-    """Aprova ou devolve para revisão somente a versão mais recente da tarefa."""
+def review_delivery(delivery_id: str, review: DeliveryReview, background_tasks: BackgroundTasks, user: dict = Depends(staff)):
     with database() as connection:
         delivery = read_delivery(connection, delivery_id)
         service = read_service(connection, delivery['service_id'], for_update=True)
@@ -216,4 +216,12 @@ def review_delivery(delivery_id: str, review: DeliveryReview, user: dict = Depen
                                   'workflowAdvancedAt' if continuing else 'deliveredAt' if status == 'Entregue' else 'revisionRequestedAt')
         else:
             add_event(connection, status, service_id=service['id'], actor=user, note=review.feedback, created_at=reviewed_at)
-        return delivery_record(connection, read_delivery(connection, delivery_id))
+        client_request = None
+        if status == 'Entregue' and service['request_id'] and connection.execute('SELECT 1 FROM requests WHERE id = ?', (service['request_id'],)).fetchone():
+            client_request, _ = read_request(connection, service['request_id'])
+        attachments = [{'name': file['name'], 'content': bytes(file['content']), 'media_type': file['media_type']}
+                       for file in delivery_documents(connection, delivery)] if client_request else []
+        result = delivery_record(connection, read_delivery(connection, delivery_id))
+    if client_request:
+        deliver_translation(client_request, attachments, background_tasks)
+    return result

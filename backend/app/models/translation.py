@@ -73,6 +73,7 @@ class Intake(BaseModel):
             raise ValueError('Autorize o contato para orçamento.')
         if not re.fullmatch(r'[^\s@\r\n]+@[^\s@\r\n]+\.[^\s@\r\n]+', self.email):
             raise ValueError('E-mail inválido.')
+        self.email = self.email.lower()
         if any(language_key(value) not in SUPPORTED_CODES for value in (self.source, self.target)):
             raise ValueError('Selecione apenas idiomas disponíveis na lista.')
         if language_key(self.source) == language_key(self.target):

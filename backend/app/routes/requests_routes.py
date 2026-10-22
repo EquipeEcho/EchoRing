@@ -4,7 +4,7 @@ import hmac
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from psycopg.types.json import Jsonb
 from app.core.portal_auth import staff
 from app.core.security import throttle
@@ -12,6 +12,9 @@ from app.database_pg import database, environment_flag, json_data, now
 from app.models.translation import Intake, QuoteDecision, TranslatorAssignment, Update
 from app.repositories.translation_store import _request_for_quote, add_event, read_request, read_service, sanitized_request, task_record
 from app.services.email.quote_service import deliver_quote
+from app.services.email.workflow_service import notify_translator_assigned
+from pymongo.errors import PyMongoError
+from app.repositories import client_store
 
 router = APIRouter()
 
@@ -25,6 +28,38 @@ def create_request(data: Intake, request: Request):
     with database() as connection:
         connection.execute('INSERT INTO requests (id, data) VALUES (?, ?)', (record['id'], Jsonb(record)))
         add_event(connection, 'Recebido', request_id=record['id'], created_at=created_at)
+        response = sanitized_request(record, connection)
+    try:
+        client_store.upsert_quote_client(data, datetime.fromisoformat(created_at))
+    except PyMongoError as error:
+        raise HTTPException(
+            503,
+            f'A solicitação {record["id"]} foi recebida, mas não foi possível salvar os dados do cliente. '
+            'Entre em contato com a equipe informando este protocolo.',
+        ) from error
+    return response
+
+
+@router.post('/requests/manual', status_code=201)
+def create_manual_request(data: Intake, user: dict = Depends(staff)):
+    created_at = now()
+    record = {
+        **data.model_dump(),
+        'id': 'SOL-' + secrets.token_hex(6).upper(),
+        'createdAt': created_at,
+        'status': 'Recebido',
+        'demo': False,
+    }
+    with database() as connection:
+        connection.execute('INSERT INTO requests (id, data) VALUES (?, ?)', (record['id'], Jsonb(record)))
+        add_event(
+            connection,
+            'Recebido',
+            request_id=record['id'],
+            actor=user,
+            note='Cadastro manual do cliente.',
+            created_at=created_at,
+        )
         return sanitized_request(record, connection)
 
 
@@ -143,8 +178,7 @@ def decide_quote(quote_id: str, decision: QuoteDecision, request: Request):
 
 
 @router.post('/requests/{request_id}/assign', status_code=201)
-def assign_translator(request_id: str, assignment: TranslatorAssignment, user: dict = Depends(staff)):
-    """Cria uma tarefa para uma solicitação aprovada e vincula o tradutor escolhido."""
+def assign_translator(request_id: str, assignment: TranslatorAssignment, background_tasks: BackgroundTasks, user: dict = Depends(staff)):
     with database() as connection:
         data, _ = read_request(connection, request_id, for_update=True)
         if data['status'] != 'Orçamento aprovado':
@@ -172,4 +206,6 @@ def assign_translator(request_id: str, assignment: TranslatorAssignment, user: d
         if assignment.workflowTemplateId:
             from app.services.translation_workflows_service import assign_workflow
             assign_workflow(connection, read_service(connection, task_id), assignment.workflowTemplateId, user)
-        return task_record(connection, read_service(connection, task_id))
+        task = task_record(connection, read_service(connection, task_id))
+    notify_translator_assigned(assigned, data, task_id, assignment.deadline, background_tasks)
+    return task

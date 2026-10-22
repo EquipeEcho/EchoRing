@@ -26,12 +26,16 @@ FAQ e formulario de orcamento com documentos. A navegacao entre secoes respeita 
 preferencia de movimento reduzido na web. O formulario usa tres etapas
 (projeto, documentos e contato), preserva os dados ao voltar e permite inverter idiomas.
 
-Por padrao, `EXPO_PUBLIC_REQUESTS_MODE=demo`: envie dados ficticios pelo site e
-entre no portal para abrir **Solicitacoes** (ou **Pedidos** na barra mobile).
-Pedidos, anexos e rascunhos ficam no `localStorage` deste navegador e sobrevivem
-ao recarregamento. O app atualiza a caixa de entrada ao receber eventos do navegador
-e a cada 30 segundos. O envio de orcamento e explicitamente simulado, sem e-mails.
-Se o armazenamento estiver cheio ou indisponivel, o formulario informa a falha.
+O Compose e o `.env.example` usam `EXPO_PUBLIC_REQUESTS_MODE=api`: os pedidos da
+landing page sao enviados ao backend e aparecem na caixa **Solicitacoes** da equipe.
+Inicie a API e os bancos conforme o guia do backend e reinicie o Expo depois de
+alterar variaveis de ambiente.
+
+Para testar sem backend, defina explicitamente `EXPO_PUBLIC_REQUESTS_MODE=demo`.
+Nesse modo, pedidos, anexos e rascunhos ficam no `localStorage` deste navegador,
+nao sao enviados a empresa e nao criam clientes no MongoDB. A caixa demonstrativa
+atualiza ao receber eventos do navegador e a cada 30 segundos. Se o armazenamento
+estiver cheio ou indisponivel, o formulario informa a falha.
 
 Use **Acessar demonstracao** na tela de login. Para testar os campos de credenciais:
 
@@ -119,9 +123,9 @@ adicional em 320x740. Screenshots e traces ficam em `test-results/`.
 
 Siga o [guia do backend](../backend/README.md) para configurar a conta do tradutor,
 o armazenamento e o provedor SMTP. O login real sempre usa `EXPO_PUBLIC_API_URL`,
-independentemente do modo demonstrativo do formulario. Ative
-`EXPO_PUBLIC_REQUESTS_MODE=api` no `.env` somente quando o formulario publico tambem
-dever enviar dados reais, e reinicie o Expo. A conta entra pelo endpoint `/auth/login`.
+independentemente do modo do formulario. Em modo `api`, a conta entra pelo endpoint
+`/auth/login`; em modo `demo`, o formulario publico fica restrito ao armazenamento
+local do navegador.
 O perfil `translator` ve somente seu espaco de projetos e tarefas; `hr` acessa as
 areas de pessoas; `employee` atua na operacao; e `admin` tambem gerencia usuarios.
 Pedidos do site ficam reservados a funcionarios e administradores. A demonstracao continua

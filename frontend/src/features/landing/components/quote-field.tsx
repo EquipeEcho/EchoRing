@@ -1,28 +1,37 @@
 import { TextInput, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import type { QuoteForm } from '@/features/landing/hooks/use-quote-form';
 import { useStyles } from '@/features/landing/styles/landing.styles';
+import { type IntakeTextField } from '@/features/requests/types';
 import { useTheme } from '@/theme/theme-context';
 
 export function QuoteField({
-  form,
   width,
   fieldKey: key,
   label,
   placeholder,
+  value,
+  onChangeText,
+  invalid,
+  disabled,
+  errorMessage,
+  registerInput,
   multiline = false,
 }: {
-  form: QuoteForm;
   width: number;
-  fieldKey: 'name' | 'email' | 'company' | 'title' | 'message';
+  fieldKey: IntakeTextField;
   label: string;
   placeholder: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  invalid?: boolean;
+  disabled?: boolean;
+  errorMessage?: string;
+  registerInput?: (key: IntakeTextField, input: TextInput | null) => void;
   multiline?: boolean;
 }) {
   const { colors } = useTheme();
   const styles = useStyles();
-  const { registerInput, invalid, busy, data, change } = form;
   return (
     <View
       testID="landing-field"
@@ -30,18 +39,18 @@ export function QuoteField({
     >
       <Txt style={styles.label}>{label}</Txt>
       <TextInput
-        ref={(element) => registerInput(key, element)}
+        ref={(element) => registerInput?.(key, element)}
         accessibilityLabel={label}
-        aria-invalid={invalid.includes(key)}
-        editable={!busy}
-        value={data[key]}
-        onChangeText={(value) => change(key, value)}
+        aria-invalid={invalid}
+        editable={!disabled}
+        value={value}
+        onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={colors.muted}
         style={[
           styles.input,
           multiline && styles.textarea,
-          invalid.includes(key) && { borderColor: colors.red },
+          invalid && { borderColor: colors.red },
         ]}
         multiline={multiline}
         autoCapitalize={key === 'email' ? 'none' : 'sentences'}
@@ -49,6 +58,11 @@ export function QuoteField({
         autoComplete={key === 'email' ? 'email' : key === 'name' ? 'name' : 'off'}
         maxLength={multiline ? 3000 : 160}
       />
+      {errorMessage && (
+        <Txt accessibilityRole="alert" style={{ color: colors.red, fontSize: 12, lineHeight: 17 }}>
+          {errorMessage}
+        </Txt>
+      )}
     </View>
   );
 }

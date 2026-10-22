@@ -1,8 +1,89 @@
 import { test, expect } from '@playwright/test';
 
-test('intake with documents persists, reaches staff inbox and quote simulation is honest', async ({ page }, testInfo) => {
+type Intake = {
+  name: string;
+  email: string;
+  company: string;
+  title: string;
+  service: string;
+  source: string;
+  target: string;
+  deadline: string;
+  message: string;
+  consent: boolean;
+  attachments: { name: string; size: number; content: string }[];
+};
+
+type IntakeRecord = Intake & {
+  id: string;
+  createdAt: string;
+  status: string;
+  demo: boolean;
+};
+
+test('landing intake is saved in its configured mode and reaches the staff inbox', async ({ page }, testInfo) => {
   const requests: string[] = [];
-  page.on('request', request => { if (request.url().includes(':8000/requests')) requests.push(request.url()); });
+  const records: IntakeRecord[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes(':8000/requests')) requests.push(request.url());
+  });
+  await page.addInitScript(() => {
+    window.sessionStorage.setItem(
+      'echoring.auth-session.v2',
+      JSON.stringify({
+        name: 'Funcionário de teste',
+        email: 'employee@example.test',
+        role: 'employee',
+        demo: false,
+        token: 'e2e-session-token',
+        expires: Date.now() / 1000 + 3600,
+      }),
+    );
+  });
+  await page.route('**/requests**', async (route) => {
+    const request = route.request();
+    const method = request.method();
+    const pathname = new URL(request.url()).pathname;
+    if (method === 'POST' && pathname === '/requests') {
+      const intake = request.postDataJSON() as Intake;
+      const record: IntakeRecord = {
+        ...intake,
+        id: 'SOL-E2E-001',
+        createdAt: '2026-10-21T12:00:00Z',
+        status: 'Recebido',
+        demo: false,
+      };
+      records.push(record);
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(record),
+      });
+      return;
+    }
+    if (method === 'GET' && pathname === '/requests') {
+      const record = records.at(-1);
+      const summary = record
+        ? { ...record, attachments: record.attachments.map((file) => ({ ...file, content: '' })) }
+        : null;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(summary ? [summary] : []),
+      });
+      return;
+    }
+    const record = records.at(-1);
+    if (method === 'GET' && record && pathname === `/requests/${record.id}`) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(record),
+      });
+      return;
+    }
+    await route.continue();
+  });
   await page.goto('/');
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Preencha os campos obrigatórios');
@@ -29,12 +110,31 @@ test('intake with documents persists, reaches staff inbox and quote simulation i
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await expect(page.getByText('sample.txt', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
-  await page.getByRole('button', { name: 'Testar solicitação', exact: true }).click();
+  const previewMode = (await page.getByRole('button', { name: 'Testar solicitação', exact: true }).count()) > 0;
+  const submitButton = previewMode ? 'Testar solicitação' : 'Enviar solicitação';
+  await page.getByRole('button', { name: submitButton, exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Preencha os campos obrigatórios');
   await page.getByLabel('Seu nome *', { exact: true }).fill('Cliente de teste');
   await page.getByLabel('E-mail *', { exact: true }).fill('client@example.test');
   await page.getByRole('checkbox', { name: 'Autorizar contato para orçamento' }).click();
-  await page.getByRole('button', { name: 'Testar solicitação', exact: true }).click();
+  await page.getByRole('button', { name: submitButton, exact: true }).click();
+  if (!previewMode) {
+    await expect(page.getByRole('heading', { name: 'Recebido. Agora é com a gente.' })).toBeVisible();
+    const submitted = records.at(-1);
+    expect(submitted?.name).toBe('Cliente de teste');
+    expect(submitted?.email).toBe('client@example.test');
+    expect(submitted?.title).toBe('Manual enviado pelo site');
+    expect(submitted?.attachments[0]?.name).toBe('sample.txt');
+    expect(requests).toContain('http://localhost:8000/requests');
+
+    await page.goto('/solicitacoes');
+    await expect(page.getByRole('button', { name: /Abrir solicitação.*Manual enviado pelo site/ })).toBeVisible();
+    await page.getByRole('button', { name: /Abrir solicitação.*Manual enviado pelo site/ }).click();
+    await expect(page.getByText('client@example.test', { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('requests-inbox.png') });
+    return;
+  }
+
   await expect(page.getByRole('heading', { name: 'Pedido salvo na prévia.' })).toBeVisible();
   expect(requests).toEqual([]);
   await page.goto('/login');

@@ -5,6 +5,7 @@ import base64
 import os
 import smtplib
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import patch
 from psycopg.types.json import Jsonb
 from fastapi.testclient import TestClient
@@ -15,12 +16,22 @@ from app.routes import requests_routes
 from app.services.email import quote_service
 
 from tests.support.portal_test_case import PortalTestCase
+from app import mongo
+from app.repositories import translator_profile_store
+from app.services.email import service as email_service
+from app.services.email import workflow_service as core_email
+
+
 
 
 class RequestsTests(PortalTestCase):
     def test_public_intake_is_persistent_and_staff_only(self):
         """Garante persistência pública, leitura restrita e conteúdo oculto na listagem."""
         request_id = self.create()
+        stored_client = mongo.get_db()['clients'].find_one({'email': self.intake['email']})
+        self.assertIsNotNone(stored_client)
+        self.assertEqual(stored_client['name'], self.intake['name'])
+        self.assertEqual(stored_client['created_by'], 'landing-page')
         self.assertEqual(self.client.get('/requests').status_code, 401)
         self.assertEqual(self.client.get('/requests/' + request_id).status_code, 401)
         listing = self.client.get('/requests', headers=self.headers).json()
@@ -28,6 +39,18 @@ class RequestsTests(PortalTestCase):
         self.assertEqual(listing[0]['attachments'][0]['content'], '')
         detail = self.client.get('/requests/' + request_id, headers=self.headers).json()
         self.assertEqual(detail['attachments'], self.intake['attachments'])
+        client_listing = self.client.get('/clients', headers=self.headers)
+        self.assertEqual(client_listing.status_code, 200)
+        client = next(item for item in client_listing.json() if item['email'] == self.intake['email'])
+        self.assertEqual(client['projects'][0]['id'], request_id)
+        self.assertEqual(client['projects'][0]['title'], self.intake['title'])
+        self.assertEqual(client['projects'][0]['status'], 'Recebido')
+        self.save_quote(request_id)
+        updated_client = next(
+            item for item in self.client.get('/clients', headers=self.headers).json()
+            if item['email'] == self.intake['email']
+        )
+        self.assertEqual(updated_client['projects'][0]['status'], 'Em análise')
         with TestClient(app) as second_client:
             self.assertEqual(second_client.get('/requests', headers=self.headers).json()[0]['id'], request_id)
 
@@ -40,6 +63,8 @@ class RequestsTests(PortalTestCase):
         detail = self.client.get('/requests/' + request_id, headers=self.headers).json()
         self.assertEqual(detail['source'], 'Inglês (Reino Unido)')
         self.assertEqual(detail['target'], 'Português (Portugal)')
+
+
 
     def test_translator_login_returns_role_and_cannot_access_staff_requests(self):
         """Confere a sessão do tradutor e o bloqueio das rotas exclusivas da equipe."""
@@ -241,7 +266,7 @@ class RequestsTests(PortalTestCase):
     def test_smtp_uses_tls_and_sends_to_request_email(self):
         """Confere TLS, destinatário, valor formatado e links no e-mail de orçamento."""
         data = {**self.intake, 'id': 'SOL-TEST', 'quote': self.quote}
-        with patch.dict(os.environ, {'SMTP_HOST': 'smtp.example.test', 'SMTP_FROM': 'staff@example.test', 'SMTP_SECURITY': 'starttls'}), patch.object(quote_service.smtplib, 'SMTP') as smtp:
+        with patch.dict(os.environ, {'SMTP_HOST': 'smtp.example.test', 'SMTP_FROM': 'staff@example.test', 'SMTP_SECURITY': 'starttls'}), patch.object(email_service.smtplib, 'SMTP') as smtp:
             quote_service.deliver_quote(data)
             connection = smtp.return_value.__enter__.return_value
             connection.starttls.assert_called_once()
@@ -434,6 +459,7 @@ class RequestsTests(PortalTestCase):
 
     def test_complete_flow_secures_decision_assignment_revision_and_approval(self):
         """Percorre o fluxo completo e finaliza o serviço diretamente na aprovação."""
+        sent_emails = self.enterContext(patch.object(core_email, 'send_email'))
         translator, translator_headers = self.translator_session()
         with db.database() as connection:
             connection.execute(
@@ -532,6 +558,26 @@ class RequestsTests(PortalTestCase):
         for expected in ('Recebido', 'Em análise', 'Orçamento enviado', 'Orçamento aprovado', 'Tradutor atribuído',
                          'Em andamento', 'Aguardando avaliação', 'Revisão solicitada', 'Entregue'):
             self.assertIn(expected, statuses)
+
+
+        emails = [call.kwargs for call in sent_emails.call_args_list]
+        self.assertEqual([email['template'] for email in emails], ['aviso', 'entrega'])
+        self.assertEqual(emails[0]['to'], 'translator@example.test')
+        self.assertEqual(emails[1]['to'], 'client@example.test')
+        self.assertEqual(emails[1]['attachments'][0]['name'], 'translated-v2.txt')
+        self.assertEqual(emails[1]['attachments'][0]['content'], b'Second complete version')
+
+    def test_email_attachments_are_added_to_message(self):
+        """Anexa os arquivos ao e-mail mantendo a versão em texto e HTML."""
+        attachment = {'name': 'traducao.txt', 'content': b'Texto traduzido', 'media_type': 'text/plain'}
+        with patch.dict(os.environ, {'SMTP_HOST': 'smtp.example.test', 'SMTP_FROM': 'staff@example.test'}), \
+                patch.object(email_service.smtplib, 'SMTP') as smtp:
+            email_service.send_email('client@example.test', 'Oi', 'aviso', {'titulo': 'T', 'mensagem': 'M'}, attachments=[attachment])
+            message = smtp.return_value.__enter__.return_value.send_message.call_args.args[0]
+        files = list(message.iter_attachments())
+        self.assertEqual(files[0].get_filename(), 'traducao.txt')
+        self.assertEqual(files[0].get_content(), 'Texto traduzido')
+        self.assertIn('M', message.get_body(preferencelist=('plain',)).get_content())
 
     def test_auto_approve_quote_skips_email_for_local_workflow(self):
         """No modo local, aprova a proposta sem chamar o serviço de e-mail."""

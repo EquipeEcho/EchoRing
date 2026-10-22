@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 from main import app
 from app import database_pg as db
 from app.core import security
+from app import mongo
+import mongomock
 
 
 class PortalTestCase(unittest.TestCase):
@@ -26,6 +28,7 @@ class PortalTestCase(unittest.TestCase):
             'AUTO_APPROVE_QUOTES': 'false',
         })
         self.environment.start()
+        self.enterContext(patch.object(mongo, '_client', mongomock.MongoClient()))
         security._attempts.clear()
         self.client = TestClient(app)
         response = self.client.post('/staff/login', json={'email': 'staff@example.test', 'password': 'test-password-long-enough'})
