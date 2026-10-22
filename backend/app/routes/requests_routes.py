@@ -9,12 +9,12 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import psycopg
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from psycopg.types.json import Jsonb
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
-from app.core.email_service import deliver_quote
+from app.core.email_service import deliver_quote, notify_translator_assigned
 from app.core.portal_auth import (
     SESSION_SECONDS,
     administrator,
@@ -366,7 +366,7 @@ def decide_quote(quote_id: str, decision: QuoteDecision, request: Request):
 
 
 @router.post('/requests/{request_id}/assign', status_code=201)
-def assign_translator(request_id: str, assignment: TranslatorAssignment, user: dict = Depends(staff)):
+def assign_translator(request_id: str, assignment: TranslatorAssignment, background_tasks: BackgroundTasks, user: dict = Depends(staff)):
     with database() as connection:
         data, _ = read_request(connection, request_id, for_update=True)
         if data['status'] != 'Orçamento aprovado':
@@ -392,4 +392,6 @@ def assign_translator(request_id: str, assignment: TranslatorAssignment, user: d
                     translator={'id': assigned['id'], 'name': assigned['name'], 'email': assigned['email']})
         connection.execute('UPDATE requests SET data = ? WHERE id = ?', (Jsonb(data), request_id))
         add_event(connection, 'Tradutor atribuído', request_id, task_id, user, assignment.observations, created_at)
-        return task_record(connection, read_service(connection, task_id))
+        task = task_record(connection, read_service(connection, task_id))
+    notify_translator_assigned(assigned, data, task_id, assignment.deadline, background_tasks)
+    return task

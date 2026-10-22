@@ -4,10 +4,11 @@ import base64
 import secrets
 from urllib.parse import quote as urlquote
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from psycopg.types.json import Jsonb
 
+from app.core.email_service import delivery_attachments, deliver_translation
 from app.core.portal_auth import staff, translator, workspace_user
 from app.core.workflow import (
     add_event,
@@ -15,6 +16,7 @@ from app.core.workflow import (
     ensure_task_access,
     original_attachment,
     read_delivery,
+    read_request,
     read_service,
     task_record,
     update_request_status,
@@ -215,7 +217,7 @@ def download_delivery_file(delivery_id: str, file_index: int, user: dict = Depen
 
 
 @router.post('/deliveries/{delivery_id}/review')
-def review_delivery(delivery_id: str, review: DeliveryReview, user: dict = Depends(staff)):
+def review_delivery(delivery_id: str, review: DeliveryReview, background_tasks: BackgroundTasks, user: dict = Depends(staff)):
     with database() as connection:
         delivery = read_delivery(connection, delivery_id, for_update=True)
         if delivery['status'] != 'Aguardando avaliação':
@@ -243,4 +245,10 @@ def review_delivery(delivery_id: str, review: DeliveryReview, user: dict = Depen
             )
         else:
             add_event(connection, status, service_id=service['id'], actor=user, note=review.feedback, created_at=reviewed_at)
-        return delivery_record(read_delivery(connection, delivery_id))
+        client_request = None
+        if status == 'Entregue' and service['request_id'] and connection.execute('SELECT 1 FROM requests WHERE id = ?', (service['request_id'],)).fetchone():
+            client_request, _ = read_request(connection, service['request_id'])
+        result = delivery_record(read_delivery(connection, delivery_id))
+    if client_request:
+        deliver_translation(client_request, delivery_attachments(delivery), background_tasks)
+    return result

@@ -87,6 +87,12 @@ resposta ambígua do provedor, confira a caixa de saída antes de tentar novamen
 Se o processo for interrompido durante o envio, confira o provedor antes de
 reconciliar o bloqueio `sending` do pedido no banco.
 
+Além do orçamento, o sistema envia dois avisos automáticos em segundo plano: o
+tradutor recebe um e-mail com link para o portal quando uma tarefa é atribuída a
+ele, e o cliente recebe a tradução em anexo quando a equipe aprova a entrega.
+Falhas nesses envios ficam registradas no log e não bloqueiam a atribuição nem
+a aprovação. Com `EMAIL_DRY_RUN=true`, os e-mails aparecem no log em vez de serem enviados.
+
 ## Endpoints
 
 | Método | Rota | Acesso |
@@ -114,14 +120,13 @@ reconciliar o bloqueio `sending` do pedido no banco.
 | POST | `/tasks/{id}/deliveries` | Somente tradutor atribuído; envia nova versão |
 | GET | `/deliveries` | Funcionário/admin; fila e histórico de versões |
 | POST | `/deliveries/{id}/review` | Funcionário/admin; aprova ou solicita revisão |
-| POST | `/tasks/{id}/send-final` | Funcionário/admin; envia o arquivo aprovado ao cliente |
 
 ## Fluxo operacional
 
 O fluxo persistido é `Recebido → Em análise → Orçamento enviado → Orçamento
 aprovado → Tradutor atribuído → Em andamento → Aguardando avaliação`. A avaliação
-leva a `Revisão solicitada` (permitindo novas versões) ou `Pronta`; o envio SMTP
-do anexo final conclui em `Entregue`. Uma recusa encerra a solicitação em
+leva a `Revisão solicitada` (permitindo novas versões) ou `Entregue`; ao aprovar,
+a tradução é enviada ao cliente por e-mail, com os arquivos em anexo. Uma recusa encerra a solicitação em
 `Orçamento recusado`. As mudanças importantes são registradas em
 `workflow_events`, com data, responsável e observação básica.
 
@@ -135,8 +140,8 @@ no total. A API valida o conteúdo e limita o corpo da requisição a 8 MB.
 O recebimento tem limite de dez pedidos por minuto por IP; o login, cinco
 tentativas. Esses limites são locais ao processo. Na hospedagem, configure HTTPS,
 as origens em `CORS_ORIGINS`, limites também no proxy e backup do volume `pg_data`.
-A validação de formato não substitui antivírus nos documentos. O envio de e-mail
-continua síncrono, sem fila em segundo plano.
+A validação de formato não substitui antivírus nos documentos. O orçamento é
+enviado na hora; os avisos ao tradutor e ao cliente vão em segundo plano.
 
 ## Migrar dados antigos do SQLite
 
