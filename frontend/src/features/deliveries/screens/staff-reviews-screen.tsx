@@ -1,7 +1,8 @@
 import { CheckCircle2, Download, FileCheck2, RefreshCw, RotateCcw } from 'lucide-react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
+import { ScrollView, useWindowDimensions, View } from 'react-native';
+import { TextInput } from '@/components/ui/text-input';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,8 @@ import { type TranslationService } from '@/features/deliveries/types';
 import { useCommonStyles } from '@/theme/common.styles';
 import { formatBytes } from '@/utils/formatters';
 import { useTheme } from '@/theme/theme-context';
+import { WorkflowMap } from '@/features/workflows/components/workflow-map';
+import { deliveryWorkflowStages } from '@/features/workflows/utils/delivery-workflow';
 
 export function StaffReviewsScreen() {
   const { colors } = useTheme();
@@ -63,6 +66,7 @@ export function StaffReviewsScreen() {
     setBusy(task.id);
     setError('');
     setNotice('');
+    let continuing = false;
     try {
       if (demo) {
         const status = decision === 'approve' ? 'Entregue' : 'Revisão solicitada';
@@ -90,17 +94,18 @@ export function StaffReviewsScreen() {
             : 'Simulação: revisão solicitada ao tradutor.',
         );
       } else {
-        await reviewDelivery(delivery.id, decision, note, token!);
+        const result = await reviewDelivery(delivery.id, decision, note, token!);
+        continuing = result.status === 'Pronta';
         setNotice(
           decision === 'approve'
-            ? 'Tradução aprovada e serviço finalizado.'
+            ? continuing ? 'Conferência aprovada. O trabalho voltou ao tradutor para a próxima etapa do workflow.' : 'Tradução aprovada e serviço finalizado.'
             : 'Revisão solicitada ao tradutor.',
         );
         await refresh();
       }
       setFeedback((current) => ({ ...current, [task.id]: '' }));
       if (decision === 'approve') {
-        setView('approved');
+        setView(continuing ? 'active' : 'approved');
         setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: true }), 0);
       }
     } catch (failure) {
@@ -175,6 +180,7 @@ export function StaffReviewsScreen() {
                         : 'Tradução em andamento. As versões enviadas aparecerão na aba Para avaliar.'}
                     </Txt>
                   </>}
+                  {task.workflow && !['Tradutor atribuído', 'Em andamento'].includes(task.status) && <WorkflowMap template={task.workflow.definition} records={task.workflow.stages} />}
                   {task.lastDelivery && (
                     <View style={styles.deliveryFiles}>
                       {(task.lastDelivery.files?.length
@@ -219,6 +225,7 @@ export function StaffReviewsScreen() {
                   )}
                   {task.status === 'Aguardando avaliação' && (
                     <>
+                      {!!deliveryWorkflowStages(task, 'team').length && <Txt style={common.caption}>Ao aprovar esta versão, você confirma: {deliveryWorkflowStages(task, 'team').map(stage => stage.title).join(', ')}. O processo avança até a próxima etapa do tradutor ou até a conclusão.</Txt>}
                       <View style={styles.field}>
                         <Txt style={styles.label}>Observação para revisão</Txt>
                         <TextInput

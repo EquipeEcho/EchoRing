@@ -1,4 +1,5 @@
 import { type Attachment, type WorkflowEvent } from '@/types/translation';
+import { type ServiceWorkflow } from '@/features/workflows/types';
 
 export type ServiceStatus =
   | 'Tradutor atribuído'
@@ -9,6 +10,8 @@ export type ServiceStatus =
   | 'Entregue';
 
 export type TranslationService = {
+  workflow?: ServiceWorkflow | null;
+  compensation?: string | null;
   id: string;
   requestId?: string;
   title: string;

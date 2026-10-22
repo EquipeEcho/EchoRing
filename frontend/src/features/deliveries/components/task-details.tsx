@@ -1,5 +1,7 @@
 import { Clock3, Download, FileText } from 'lucide-react-native';
 import { View } from 'react-native';
+import { router } from 'expo-router';
+import { WorkflowMap } from '@/features/workflows/components/workflow-map';
 
 import { Button } from '@/components/ui/button';
 import { Txt } from '@/components/ui/text';
@@ -8,7 +10,7 @@ import { downloadOriginal } from '@/features/deliveries/services/delivery-servic
 import { useStyles } from '@/features/deliveries/styles/deliveries.styles';
 import { type TranslationService } from '@/features/deliveries/types';
 import { useCommonStyles } from '@/theme/common.styles';
-import { formatBytes } from '@/utils/formatters';
+import { formatBytes, money } from '@/utils/formatters';
 import { useTheme } from '@/theme/theme-context';
 
 export function TaskDetails({ task, token }: { task: TranslationService; token: string }) {
@@ -18,6 +20,7 @@ export function TaskDetails({ task, token }: { task: TranslationService; token: 
   return (
     <>
       <View style={styles.metadata}>
+        {task.compensation != null && <Txt style={{ color: colors.green, fontWeight: '600' }}>Remuneração: {money(task.compensation)}</Txt>}
         <View style={common.row}>
           <Clock3 size={15} color={colors.muted} />
           <Txt style={common.caption}>Prazo: {task.deadline || 'Não informado'}</Txt>
@@ -57,6 +60,8 @@ export function TaskDetails({ task, token }: { task: TranslationService; token: 
         </View>
       )}
       <TaskFeedback task={task} />
+      {task.workflow && <WorkflowMap template={task.workflow.definition} records={task.workflow.stages} />}
+      <Button variant="secondary" onPress={() => router.push({ pathname: '/workflows', params: { task: task.id } })}>Acompanhar workflow</Button>
     </>
   );
 }

@@ -19,6 +19,7 @@ import { useStyles } from '@/features/deliveries/styles/deliveries.styles';
 import { useCommonStyles } from '@/theme/common.styles';
 import { formatBytes } from '@/utils/formatters';
 import { useTheme } from '@/theme/theme-context';
+import { canSubmitWorkflow, deliveryWorkflowStages } from '@/features/workflows/utils/delivery-workflow';
 
 export function TranslatorTasksScreen() {
   const { colors } = useTheme();
@@ -125,8 +126,8 @@ export function TranslatorTasksScreen() {
         {!!ordered.length && (
           <View style={styles.queue}>
             {ordered.map((task, index) => {
-              const available =
-                task.status === 'Em andamento' || task.status === 'Revisão solicitada';
+              const available = canSubmitWorkflow(task);
+              const submissionStages = deliveryWorkflowStages(task, 'translator');
               const files = selected?.taskId === task.id ? selected.assets : [];
               return (
                 <View
@@ -188,6 +189,7 @@ export function TranslatorTasksScreen() {
                     )}
                     {available && (
                       <>
+                        {!!submissionStages.length && <Txt style={common.caption}>Ao enviar os arquivos para avaliação, você confirma a conclusão de: {submissionStages.map(stage => stage.title).join(' e ')}. O workflow avançará para a equipe responsável.</Txt>}
                         <View style={styles.actions}>
                           <Button
                             variant="secondary"
@@ -213,6 +215,7 @@ export function TranslatorTasksScreen() {
                         </Txt>
                       </>
                     )}
+                    {task.workflow && !available && task.status !== 'Entregue' && task.workflow.progress < 100 && <Txt style={common.caption}>{task.workflow.blocker ? 'O trabalho está bloqueado. Resolva a pendência e retome a etapa em Workflows.' : 'Aguarde a etapa da equipe. O andamento aparece no fluxo acima.'}</Txt>}
                     {task.status === 'Aguardando avaliação' && (
                       <Txt style={common.caption}>
                         A equipe está avaliando a versão mais recente.
