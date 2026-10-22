@@ -179,7 +179,7 @@ export function WorkspaceShell() {
                 <Txt numberOfLines={1} style={[styles.breadcrumb, { color: colors.ink, flexShrink: 1, fontWeight: '600' }]}>{section}</Txt>
               </View>
             ) : (
-              <Brand wordmarkOnly />
+              <Brand wordmarkOnly compact={width < 380} />
             )}
             <View style={[styles.headerActions, !desktop && { gap: 8 }]}>
               {desktop && (
@@ -278,7 +278,7 @@ export function WorkspaceShell() {
                 },
               ].map((item) => {
                 const active =
-                  pathname === item.href ||
+                  pathname === item.href || pathname.startsWith(`${item.href}/`) ||
                   (item.href === '/mais' &&
                     mobileMoreModules.some((module) => module.href === pathname || pathname.startsWith(`${module.href}/`)));
                 const Icon = item.icon;

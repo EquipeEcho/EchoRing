@@ -66,8 +66,10 @@ export function Button({
 const useStyles = createThemedStyles((colors) => ({
   button: {
     minHeight: 48,
+    maxWidth: '100%',
     borderRadius: 12,
     paddingHorizontal: 20,
+    paddingVertical: 11,
     flexDirection: 'row',
     gap: 9,
     justifyContent: 'center',

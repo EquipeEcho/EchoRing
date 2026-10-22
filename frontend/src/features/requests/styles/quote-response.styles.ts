@@ -8,6 +8,7 @@ export const useStyles = createThemedStyles((colors) => ({
     padding: 22,
     backgroundColor: colors.canvas,
   },
+  pageMobile: { padding: 16 },
   card: {
     width: '100%',
     maxWidth: 680,
@@ -18,8 +19,12 @@ export const useStyles = createThemedStyles((colors) => ({
     borderColor: colors.line,
     borderRadius: 24,
   },
+  cardMobile: { padding: 20, gap: 24, borderRadius: 20 },
   center: { alignItems: 'center', gap: 18, paddingVertical: 20 },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  headingMobile: { flexDirection: 'column' },
+  headingCopy: { flex: 1, minWidth: 0, gap: 5 },
+  headingCopyMobile: { flex: 0, width: '100%', alignItems: 'center', gap: 10 },
   icon: {
     width: 54,
     height: 54,
@@ -39,5 +44,6 @@ export const useStyles = createThemedStyles((colors) => ({
   },
   choices: { gap: 10 },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 10 },
+  actionsMobile: { flexDirection: 'column-reverse', flexWrap: 'nowrap', alignItems: 'stretch' },
   error: { color: colors.red, fontSize: 14, lineHeight: 21 },
 }));

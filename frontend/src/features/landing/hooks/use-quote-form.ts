@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { TextInput } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Keyboard, TextInput } from 'react-native';
 
 import { initialIntake } from '@/features/landing/constants';
 import { selectDocuments } from '@/features/requests/services/document-picker';
@@ -17,6 +17,16 @@ export function useQuoteForm(onScrollToQuote: () => void) {
   const [uploading, setUploading] = useState(false);
   const [receipt, setReceipt] = useState<TranslationRequest | null>(null);
   const [privacy, setPrivacy] = useState(false);
+  const navigate = useRef(onScrollToQuote);
+  const previousStage = useRef({ step, receipt });
+  useEffect(() => { navigate.current = onScrollToQuote; }, [onScrollToQuote]);
+  useEffect(() => {
+    if (previousStage.current.step === step && previousStage.current.receipt === receipt) return;
+    previousStage.current = { step, receipt };
+    Keyboard.dismiss();
+    const frame = requestAnimationFrame(() => navigate.current());
+    return () => cancelAnimationFrame(frame);
+  }, [step, receipt]);
   function change(key: keyof Intake, value: string | boolean) {
     setData((current) => ({ ...current, [key]: value }));
     setInvalid((current) => current.filter((item) => item !== key));
@@ -47,7 +57,6 @@ export function useQuoteForm(onScrollToQuote: () => void) {
     setInvalid([]);
     setError('');
     setStep((current) => Math.min(current + 1, 2));
-    onScrollToQuote();
   }
   async function submit() {
     if (busy) return;
@@ -63,7 +72,6 @@ export function useQuoteForm(onScrollToQuote: () => void) {
     try {
       const result = await submitIntake(normalizeIntake(data));
       setReceipt(result);
-      onScrollToQuote();
     } catch (failure) {
       setError((failure as Error).message);
     } finally {

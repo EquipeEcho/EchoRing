@@ -16,7 +16,7 @@ import {
   X,
   Zap,
 } from 'lucide-react-native';
-import { Pressable, View } from 'react-native';
+import { type LayoutChangeEvent, Pressable, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { languageMatches, languageOptions } from '@/components/ui/fields/constants';
@@ -35,8 +35,9 @@ import { useTheme } from '@/theme/theme-context';
 export function QuoteSection({
   layout,
   onLayout,
+  onFormLayout,
   form,
-}: LandingSectionProps & { form: QuoteForm }) {
+}: LandingSectionProps & { form: QuoteForm; onFormLayout: (event: LayoutChangeEvent) => void }) {
   const { colors } = useTheme();
   const styles = useStyles();
   const common = useCommonStyles();
@@ -142,6 +143,7 @@ export function QuoteSection({
       </View>
       <View
         testID="landing-quote-form"
+        onLayout={onFormLayout}
         style={[
           styles.form,
           !wide && { width: '100%', maxWidth: 680 },
@@ -401,7 +403,7 @@ export function QuoteSection({
                             attachments: current.attachments.filter((item) => item !== file),
                           }))
                         }
-                        style={{ padding: 12 }}
+                      style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
                       >
                         <X size={16} color={colors.muted} />
                       </Pressable>
@@ -435,7 +437,7 @@ export function QuoteSection({
                       accessibilityRole="button"
                       accessibilityLabel="Editar projeto"
                       onPress={() => setStep(0)}
-                      style={{ padding: 8 }}
+                      style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
                     >
                       <Txt style={{ fontSize: 13, color: colors.accent }}>Editar</Txt>
                     </Pressable>
@@ -453,15 +455,11 @@ export function QuoteSection({
                       aria-checked={data.consent}
                       accessibilityState={{ checked: data.consent }}
                       onPress={() => change('consent', !data.consent)}
-                      style={[
-                        styles.consentCheck,
-                        data.consent && {
-                          backgroundColor: colors.accent,
-                          borderColor: colors.accent,
-                        },
-                      ]}
+                      style={styles.consentTarget}
                     >
-                      {data.consent && <Check size={15} color={colors.onAccent} strokeWidth={3} />}
+                      <View style={[styles.consentCheck, data.consent && { backgroundColor: colors.accent, borderColor: colors.accent }]}>
+                        {data.consent && <Check size={15} color={colors.onAccent} strokeWidth={3} />}
+                      </View>
                     </Pressable>
                     <View style={{ flex: 1 }}>
                       <Txt style={common.caption}>

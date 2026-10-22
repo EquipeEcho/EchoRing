@@ -1,6 +1,7 @@
 import { X } from 'lucide-react-native';
-import { type ReactNode, useEffect, useId, useRef } from 'react';
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -9,6 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Txt } from '@/components/ui/text';
 import { createThemedStyles } from '@/theme/create-themed-styles';
@@ -39,10 +41,24 @@ export function Dialog({
   const s = useStyles();
   const { width } = useWindowDimensions();
   const mobile = width < 600;
+  const insets = useSafeAreaInsets();
+  const [viewport, setViewport] = useState<{ height: number; top: number } | null>(null);
   const titleId = useId();
   const surface = useRef<View>(null);
   const close = useRef(onClose);
   useEffect(() => { close.current = onClose; }, [onClose]);
+  useEffect(() => {
+    if (!open || Platform.OS !== 'web' || !window.visualViewport) return;
+    const visible = window.visualViewport;
+    const update = () => setViewport(visible.scale === 1 ? { height: visible.height, top: visible.offsetTop } : null);
+    update();
+    visible.addEventListener('resize', update);
+    visible.addEventListener('scroll', update);
+    return () => {
+      visible.removeEventListener('resize', update);
+      visible.removeEventListener('scroll', update);
+    };
+  }, [open]);
   useEffect(() => {
     if (!open || Platform.OS !== 'web') return;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -82,7 +98,11 @@ export function Dialog({
   }, [open]);
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[s.overlay, mobile && s.overlayMobile]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={[s.overlay, mobile && s.overlayMobile,
+          viewport && { position: 'absolute', left: 0, right: 0, top: viewport.top, height: viewport.height }]}
+      >
         <Pressable onPress={onClose} style={StyleSheet.absoluteFill} accessibilityRole="none" />
         <View
           ref={surface}
@@ -125,7 +145,8 @@ export function Dialog({
           </View>
           <ScrollView
             style={s.scroll}
-            contentContainerStyle={[s.content, mobile && s.contentMobile, density === 'compact' && s.denseContent]}
+            contentContainerStyle={[s.content, mobile && s.contentMobile, density === 'compact' && s.denseContent,
+              mobile && { paddingBottom: Math.max(density === 'compact' ? 18 : 22, insets.bottom + 12) }]}
             keyboardShouldPersistTaps="handled"
             nestedScrollEnabled
             showsVerticalScrollIndicator
@@ -134,7 +155,7 @@ export function Dialog({
             {children}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -164,7 +185,7 @@ const useStyles = createThemedStyles((colors, selectColor) => ({
   compact: { maxWidth: 460 },
   wide: { maxWidth: 880 },
   dialogMobile: { maxHeight: '94%', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
-  dialogCompactMobile: { minHeight: 300 },
+  dialogCompactMobile: { minHeight: 0 },
   dialogWideMobile: { height: '94%' },
   dialogSelectionMobile: { height: '76%' },
   header: {

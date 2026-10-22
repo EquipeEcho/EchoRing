@@ -21,7 +21,7 @@ export function LandingScreen() {
   const styles = useStyles();
   const layout = useLandingLayout();
   const { scroll, go, registerSection } = useSectionNavigation();
-  const form = useQuoteForm(() => go('quote'));
+  const form = useQuoteForm(() => go('quote-form'));
   function selectService(service: string) {
     form.change('service', service);
     form.setStep(0);
@@ -46,7 +46,7 @@ export function LandingScreen() {
           />
           <LanguagesSection layout={layout} onLayout={registerSection('languages')} />
           <ProcessSection layout={layout} onLayout={registerSection('process')} />
-          <QuoteSection layout={layout} onLayout={registerSection('quote')} form={form} />
+          <QuoteSection layout={layout} onLayout={registerSection('quote')} onFormLayout={registerSection('quote-form')} form={form} />
           <FaqSection layout={layout} />
           <LandingFooter layout={layout} onNavigate={go} />
         </View>

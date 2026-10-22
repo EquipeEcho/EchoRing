@@ -63,6 +63,9 @@ export function DateSelectField({
           accessibilityRole="button"
           accessibilityLabel={label}
           accessibilityValue={{ text: value || 'Nenhuma data selecionada' }}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          accessibilityState={{ disabled: !!disabled, expanded: open }}
           aria-invalid={invalid}
           disabled={disabled}
           onPress={showCalendar}
