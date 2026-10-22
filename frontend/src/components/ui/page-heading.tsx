@@ -9,17 +9,18 @@ export function PageHeading({
   title,
   subtitle,
   action,
+  spacing = 'default',
 }: {
   title: string;
   subtitle: string;
   action?: ReactNode;
+  spacing?: 'default' | 'flush';
 }) {
   const styles = useStyles();
   const { width } = useWindowDimensions();
   return (
-    <View style={styles.heading}>
+    <View style={[styles.heading, spacing === 'flush' && { marginBottom: 0 }]}>
       <View style={styles.headingCopy}>
-        <View style={styles.headingRule} />
         <Txt
           accessibilityRole="header"
           style={[styles.title, width < 700 && { fontSize: 28, lineHeight: 36, letterSpacing: -0.8 }]}
@@ -42,15 +43,8 @@ const useStyles = createThemedStyles((colors) => ({
     justifyContent: 'space-between',
     marginBottom: 28,
   },
-  headingCopy: { flex: 1, minWidth: 220, gap: 8 },
-  action: { flexShrink: 1 },
-  headingRule: {
-    width: 34,
-    height: 3,
-    marginBottom: 3,
-    borderRadius: 2,
-    backgroundColor: colors.accent,
-  },
-  title: { ...typeScale.title, fontSize: 34, lineHeight: 42, fontWeight: '700', letterSpacing: -1.1 },
-  subtitle: { fontSize: 14, lineHeight: 22, color: colors.muted, maxWidth: 640 },
+  headingCopy: { flex: 1, minWidth: 200, gap: 8 },
+  action: { flexShrink: 1, maxWidth: '100%' },
+  title: { ...typeScale.title, fontSize: 32, lineHeight: 40, fontWeight: '700', letterSpacing: -1.1 },
+  subtitle: { fontSize: 15, lineHeight: 24, color: colors.muted, maxWidth: 640 },
 }));

@@ -163,7 +163,7 @@ export function RequestsScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={file.name}
                   onPress={() => downloadDocument(file)}
-                  style={styles.documentRow}
+                  style={({ hovered, pressed }) => [styles.documentRow, (hovered || pressed) && { backgroundColor: colors.elevated }]}
                 >
                   <View style={styles.documentIcon}>
                     <Download size={17} color={colors.accent} />
@@ -415,7 +415,7 @@ export function RequestsScreen() {
           <Txt style={styles.summaryNumber}>
             {requests.filter((item) => item.status === 'Recebido').length}
           </Txt>
-          <View>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Txt style={styles.summaryLabel}>AGUARDANDO ANÁLISE</Txt>
             <Txt style={styles.summaryTitle}>Novos pedidos do site</Txt>
           </View>
@@ -429,7 +429,7 @@ export function RequestsScreen() {
           </Txt>
         </View>
       </View>
-      <View style={styles.flowTabs}>
+      <View style={styles.flowTabs} role="tablist" accessibilityLabel="Andamento das solicitações">
         <Pressable
           accessibilityRole="tab"
           aria-selected={view === 'active'}
@@ -438,7 +438,7 @@ export function RequestsScreen() {
             setView('active');
             setFilter('Todos');
           }}
-          style={[styles.flowTab, view === 'active' && styles.flowTabActive]}
+          style={({ hovered, pressed }) => [styles.flowTab, (hovered || pressed) && { backgroundColor: colors.surface }, view === 'active' && styles.flowTabActive]}
         >
           <Txt style={[styles.flowTabText, view === 'active' && styles.flowTabTextActive]}>
             Em andamento ({activeRequests.length})
@@ -452,7 +452,7 @@ export function RequestsScreen() {
             setView('completed');
             setFilter('Todos');
           }}
-          style={[styles.flowTab, view === 'completed' && styles.flowTabActive]}
+          style={({ hovered, pressed }) => [styles.flowTab, (hovered || pressed) && { backgroundColor: colors.surface }, view === 'completed' && styles.flowTabActive]}
         >
           <Txt style={[styles.flowTabText, view === 'completed' && styles.flowTabTextActive]}>
             Concluídas ({completedRequests.length})
@@ -484,7 +484,7 @@ export function RequestsScreen() {
               aria-selected={filter === value}
               accessibilityState={{ selected: filter === value }}
               onPress={() => setFilter(value)}
-              style={[styles.filter, filter === value && styles.filterActive]}
+              style={({ hovered, pressed }) => [styles.filter, (hovered || pressed) && { backgroundColor: colors.elevated }, filter === value && styles.filterActive]}
             >
               <Txt style={[styles.filterText, filter === value && styles.filterTextActive]}>
                 {value}
@@ -526,9 +526,9 @@ export function RequestsScreen() {
               accessibilityLabel={`Abrir solicitação ${request.id}: ${request.title}`}
               disabled={busy}
               onPress={() => void open(request)}
-              style={({ hovered }) => [
+              style={({ hovered, pressed }) => [
                 styles.requestRow,
-                hovered && { backgroundColor: colors.elevated },
+                (hovered || pressed) && { backgroundColor: colors.elevated },
                 width < 700 && styles.requestRowSmall,
               ]}
             >

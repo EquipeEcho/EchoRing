@@ -1,5 +1,5 @@
 import { Clock3, Download, FileText } from 'lucide-react-native';
-import { View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 import { router } from 'expo-router';
 import { WorkflowMap } from '@/features/workflows/components/workflow-map';
 
@@ -17,6 +17,7 @@ export function TaskDetails({ task, token }: { task: TranslationService; token: 
   const { colors } = useTheme();
   const styles = useStyles();
   const common = useCommonStyles();
+  const { width } = useWindowDimensions();
   return (
     <>
       <View style={styles.metadata}>
@@ -42,13 +43,14 @@ export function TaskDetails({ task, token }: { task: TranslationService; token: 
         <View style={styles.documents}>
           <Txt style={styles.eyebrow}>DOCUMENTOS ORIGINAIS</Txt>
           {task.attachments.map((file, index) => (
-            <View key={`${file.name}-${index}`} style={styles.document}>
+            <View key={`${file.name}-${index}`} style={[styles.document, width < 600 && styles.documentSmall]}>
               <FileText size={18} color={colors.accent} />
-              <View style={{ flex: 1 }}>
+              <View style={[styles.documentCopy, width < 600 && styles.documentCopySmall]}>
                 <Txt numberOfLines={1}>{file.name}</Txt>
                 <Txt style={common.caption}>{formatBytes(file.size)}</Txt>
               </View>
               <Button
+                style={width < 600 && styles.documentActionSmall}
                 variant="ghost"
                 icon={Download}
                 onPress={() => void downloadOriginal(task.id, index, file.name, token)}

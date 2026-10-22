@@ -7,7 +7,7 @@ async function expectTheme(page: Page, theme: 'light' | 'dark') {
   await expect(page.locator('html')).toHaveCSS('color-scheme', theme);
   await expect(page.locator('body')).toHaveCSS(
     'background-color',
-    theme === 'light' ? 'rgb(247, 247, 250)' : 'rgb(5, 5, 6)',
+    theme === 'light' ? 'rgb(244, 246, 248)' : 'rgb(16, 19, 24)',
   );
   await expect(page.getByRole('button', {
     name: theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro', exact: true,
@@ -168,7 +168,7 @@ test('tabs synchronize theme while an open form keeps its values and modal updat
   await otherTab.getByRole('button', { name: 'Ativar modo claro', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await expect(title).toHaveValue('Contrato preservado');
-  await expect(title).toHaveCSS('color', 'rgb(32, 32, 39)');
+  await expect(title).toHaveCSS('color', 'rgb(32, 41, 54)');
   await expectReadable(title);
   await otherTab.getByRole('button', { name: 'Ativar modo escuro', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');

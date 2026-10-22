@@ -133,13 +133,13 @@ export function TranslatorTasksScreen() {
                 <View
                   key={task.id}
                   testID={`task-${task.id}`}
-                  style={[styles.card, task.id === params.task && styles.highlight]}
+                  style={[styles.card, width < 700 && styles.cardSmall, task.id === params.task && styles.highlight]}
                 >
-                  <View style={styles.sequence}>
+                  <View style={[styles.sequence, width < 700 && styles.sequenceSmall]}>
                     <Txt style={styles.sequenceText}>{String(index + 1).padStart(2, '0')}</Txt>
-                    <View style={styles.sequenceLine} />
+                    <View style={[styles.sequenceLine, width < 700 && styles.sequenceLineSmall]} />
                   </View>
-                  <View style={styles.cardBody}>
+                  <View style={[styles.cardBody, width < 700 && styles.cardBodySmall]}>
                     <TaskHeader task={task} />
                     <TaskDetails task={task} token={token!} />
                     {!!files.length && (
@@ -151,15 +151,16 @@ export function TranslatorTasksScreen() {
                           </Txt>
                         </View>
                         {files.map((file, fileIndex) => (
-                          <View key={`${file.name}-${fileIndex}`} style={styles.selectedFile}>
+                          <View key={`${file.name}-${fileIndex}`} style={[styles.selectedFile, width < 600 && styles.documentSmall]}>
                             <FileText size={20} color={colors.accent} />
-                            <View style={{ flex: 1 }}>
+                            <View style={[styles.documentCopy, width < 600 && styles.documentCopySmall]}>
                               <Txt numberOfLines={1} style={{ fontWeight: '600' }}>
                                 {file.name}
                               </Txt>
                               <Txt style={common.caption}>{formatBytes(file.size)}</Txt>
                             </View>
                             <Button
+                              style={width < 600 && styles.documentActionSmall}
                               variant="ghost"
                               disabled={!!busy}
                               onPress={() =>

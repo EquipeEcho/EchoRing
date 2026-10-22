@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { CheckCircle2, CircleX, ShieldCheck } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ScrollView, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Brand } from '@/components/ui/brand';
@@ -53,7 +53,7 @@ export function QuoteResponseScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top', 'bottom']}>
     <ScrollView contentContainerStyle={[styles.page, mobile && styles.pageMobile]} keyboardShouldPersistTaps="handled">
       <View style={[styles.card, mobile && styles.cardMobile]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={styles.brandRow}>
           <Brand compact={width < 600} />
           <ThemeToggle />
         </View>
@@ -64,10 +64,10 @@ export function QuoteResponseScreen() {
             ) : (
               <CircleX size={54} color={colors.amber} />
             )}
-            <Txt accessibilityRole="header" style={styles.title}>
+            <Txt accessibilityRole="header" style={[styles.title, styles.resultTitle]}>
               {result}
             </Txt>
-            <Txt style={styles.description}>
+            <Txt style={[styles.description, { textAlign: 'center' }]}>
               {result === 'Orçamento aprovado'
                 ? 'Obrigado. Nossa equipe já pode preparar a tarefa e indicar o tradutor responsável.'
                 : 'Sua resposta foi registrada. A equipe poderá entrar em contato caso seja necessário.'}
@@ -93,27 +93,42 @@ export function QuoteResponseScreen() {
               </View>
             </View>
             <View style={styles.choices}>
-              <Button
-                variant={choice === 'approve' ? 'primary' : 'secondary'}
-                icon={CheckCircle2}
-                disabled={busy}
-                onPress={() => setChoice('approve')}
-              >
-                Aprovar orçamento
-              </Button>
-              <Button
-                variant={choice === 'decline' ? 'primary' : 'secondary'}
-                icon={CircleX}
-                disabled={busy}
-                onPress={() => setChoice('decline')}
-              >
-                Recusar orçamento
-              </Button>
+              {([
+                { value: 'approve', title: 'Aprovar orçamento', description: 'Autorizar a continuidade desta proposta.', icon: CheckCircle2 },
+                { value: 'decline', title: 'Recusar orçamento', description: 'Informar que não deseja seguir com a proposta.', icon: CircleX },
+              ] as const).map((option) => (
+                <Pressable
+                  key={option.value}
+                  accessibilityRole="radio"
+                  accessibilityLabel={option.title}
+                  accessibilityState={{ checked: choice === option.value, disabled: busy }}
+                  aria-checked={choice === option.value}
+                  disabled={busy}
+                  onPress={() => setChoice(option.value)}
+                  style={({ hovered, pressed }) => [
+                    styles.choice,
+                    choice === option.value && styles.choiceSelected,
+                    hovered && { borderColor: colors.accent },
+                    (pressed || busy) && { opacity: 0.7 },
+                  ]}
+                >
+                  <option.icon size={22} color={choice === option.value ? colors.accent : colors.muted} />
+                  <View style={styles.choiceCopy}>
+                    <Txt style={styles.choiceTitle}>{option.title}</Txt>
+                    <Txt style={styles.choiceDescription}>{option.description}</Txt>
+                  </View>
+                  <View style={[styles.choiceIndicator, choice === option.value && styles.choiceIndicatorSelected]}>
+                    {choice === option.value && <View style={styles.choiceDot} />}
+                  </View>
+                </Pressable>
+              ))}
             </View>
-            <Txt style={common.caption}>
-              Ao confirmar, a equipe receberá sua decisão vinculada a esta proposta. O link é
-              pessoal; não o compartilhe.
-            </Txt>
+            <View style={styles.note}>
+              <Txt style={common.caption}>
+                Ao confirmar, a equipe receberá sua decisão vinculada a esta proposta. O link é
+                pessoal; não o compartilhe.
+              </Txt>
+            </View>
             {!!error && (
               <Txt accessibilityRole="alert" style={styles.error}>
                 {error}

@@ -17,16 +17,16 @@ export function LandingFooter({
     <View style={[styles.footer, mobile && styles.footerMobile]}>
       <Brand />
       <View style={styles.footerLinks}>
-        <Pressable onPress={() => go('services')}>
+        <Pressable accessibilityRole="button" onPress={() => go('services')} style={styles.navTarget}>
           <Txt style={styles.footerLink}>Serviços</Txt>
         </Pressable>
-        <Pressable onPress={() => go('languages')}>
+        <Pressable accessibilityRole="button" onPress={() => go('languages')} style={styles.navTarget}>
           <Txt style={styles.footerLink}>Idiomas</Txt>
         </Pressable>
-        <Pressable onPress={() => go('process')}>
+        <Pressable accessibilityRole="button" onPress={() => go('process')} style={styles.navTarget}>
           <Txt style={styles.footerLink}>Sobre</Txt>
         </Pressable>
-        <Pressable onPress={() => go('quote')}>
+        <Pressable accessibilityRole="button" onPress={() => go('quote')} style={styles.navTarget}>
           <Txt style={styles.footerLink}>Contato</Txt>
         </Pressable>
       </View>

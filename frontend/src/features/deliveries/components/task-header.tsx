@@ -1,6 +1,6 @@
 import { FileCheck2 } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Pressable, useWindowDimensions, View } from 'react-native';
 
 import { Badge } from '@/components/ui/badge';
 import { Txt } from '@/components/ui/text';
@@ -16,12 +16,13 @@ export function TaskHeader({ task }: { task: TranslationService }) {
   const { colors } = useTheme();
   const styles = useStyles();
   const common = useCommonStyles();
+  const { width } = useWindowDimensions();
   return (
     <View style={styles.cardHeader}>
       <View style={styles.fileIcon}>
         <FileCheck2 size={24} color={colors.accent} />
       </View>
-      <View style={{ flex: 1, minWidth: 0, gap: 5 }}>
+      <View style={[{ flex: 1, minWidth: 0, gap: 5 }, width < 600 && styles.headerCopySmall]}>
         <Txt style={styles.title}>{task.title}</Txt>
         <Txt style={common.caption}>
           {task.id}

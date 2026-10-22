@@ -33,8 +33,10 @@ export function ProfileFormSection({ data, email, step, disabled = false, errors
                     <View style={[styles.checkbox, data.whatsapp && styles.checked]}>{data.whatsapp && <Check size={15} color={colors.onAccent} strokeWidth={3} />}</View>
                     <Txt style={{ fontSize: 13, flex: 1 }}>Este telefone também tem WhatsApp</Txt>
                   </Pressable>
-                  {textField('country', 'País *', 'País onde você mora')}
-                  {textField('city', 'Cidade *', 'Sua cidade')}
+                  <View style={styles.fieldGrid}>
+                    <View style={styles.fieldColumn}>{textField('country', 'País *', 'País onde você mora')}</View>
+                    <View style={styles.fieldColumn}>{textField('city', 'Cidade *', 'Sua cidade')}</View>
+                  </View>
                   {textField('timezone', 'Fuso horário (opcional)', 'Seu fuso ou horário local')}
                 </View>}
                 {step === 1 && <ProfileLanguages data={data} change={change} disabled={busy} errors={errors} />}

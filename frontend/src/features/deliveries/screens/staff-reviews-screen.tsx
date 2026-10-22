@@ -156,12 +156,12 @@ export function StaffReviewsScreen() {
         {!!ordered.length && (
           <View style={styles.queue}>
             {ordered.map((task, index) => (
-              <View key={task.id} testID={`task-${task.id}`} style={[styles.card, task.id === params.task && styles.highlight]}>
-                <View style={styles.sequence}>
+              <View key={task.id} testID={`task-${task.id}`} style={[styles.card, width < 700 && styles.cardSmall, task.id === params.task && styles.highlight]}>
+                <View style={[styles.sequence, width < 700 && styles.sequenceSmall]}>
                   <Txt style={styles.sequenceText}>{String(index + 1).padStart(2, '0')}</Txt>
-                  <View style={styles.sequenceLine} />
+                  <View style={[styles.sequenceLine, width < 700 && styles.sequenceLineSmall]} />
                 </View>
-                <View style={styles.cardBody}>
+                <View style={[styles.cardBody, width < 700 && styles.cardBodySmall]}>
                   <TaskHeader task={task} />
                   <View style={styles.metadata}>
                     <Txt style={common.caption}>
@@ -196,14 +196,15 @@ export function StaffReviewsScreen() {
                       ).map((file) => (
                         <View
                           key={`${task.lastDelivery!.id}-${file.index}`}
-                          style={styles.document}
+                          style={[styles.document, width < 600 && styles.documentSmall]}
                         >
                           <FileCheck2 size={20} color={colors.accent} />
-                          <View style={{ flex: 1 }}>
+                          <View style={[styles.documentCopy, width < 600 && styles.documentCopySmall]}>
                             <Txt>{file.name}</Txt>
                             <Txt style={common.caption}>{formatBytes(file.size)}</Txt>
                           </View>
                           <Button
+                            style={width < 600 && styles.documentActionSmall}
                             variant="secondary"
                             icon={Download}
                             onPress={() =>

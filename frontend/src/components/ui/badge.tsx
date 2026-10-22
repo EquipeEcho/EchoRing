@@ -24,7 +24,7 @@ export function Badge({
   };
   return (
     <View style={[styles.badge, { backgroundColor: tones[tone][1] }]}>
-      <Txt style={{ ...typeScale.caption, fontWeight: '600', color: tones[tone][0] }}>
+      <Txt style={{ ...typeScale.caption, fontSize: 12, lineHeight: 18, flexShrink: 1, fontWeight: '600', color: tones[tone][0] }}>
         {children}
       </Txt>
     </View>
@@ -33,12 +33,13 @@ export function Badge({
 
 const useStyles = createThemedStyles(() => ({
   badge: {
-    paddingHorizontal: 11,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    borderRadius: 20,
+    borderRadius: 6,
+    maxWidth: '100%',
     alignSelf: 'flex-start',
   },
 }));

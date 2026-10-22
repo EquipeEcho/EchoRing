@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { BriefcaseBusiness, Download, RefreshCw } from 'lucide-react-native';
+import { BriefcaseBusiness, Download, RefreshCw, Search } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { TextInput } from '@/components/ui/text-input';
@@ -98,16 +98,16 @@ export function OpportunitiesScreen() {
       {selected && <>
         <OfferSummary offer={selected} />
         <Txt style={s.caption}>{selected.id}</Txt>
-        <View style={s.stack}><Txt style={s.label}>Descrição</Txt><Txt>{selected.description}</Txt></View>
-        <View style={s.stack}><Txt style={s.label}>Requisitos</Txt><Txt>{selected.requirements || 'Nenhum requisito adicional.'}</Txt></View>
-        {selected.attachments.map((file, index) => <View key={`${file.name}-${index}`} style={s.row}>
+        <View style={s.section}><Txt style={s.label}>Descrição</Txt><Txt>{selected.description}</Txt></View>
+        <View style={s.section}><Txt style={s.label}>Requisitos</Txt><Txt>{selected.requirements || 'Nenhum requisito adicional.'}</Txt></View>
+        {selected.attachments.map((file, index) => <View key={`${file.name}-${index}`} style={s.attachment}>
           <Txt style={[s.caption, { flex: 1 }]}>{file.name} · {formatBytes(file.size)}</Txt>
           {['pending', 'accepted'].includes(selected.status) && token && <Button variant="ghost" icon={Download}
             onPress={() => void downloadProtectedDocument(`/opportunities/${selected.id}/attachments/${index}`, file.name, token)}>Baixar</Button>}
         </View>)}
         {!!error && <Txt accessibilityRole="alert" style={s.error}>{error}</Txt>}
         {!!notice && <Txt accessibilityLiveRegion="polite" style={s.notice}>{notice}</Txt>}
-        {selected.status === 'pending' && (confirm ? <View style={s.stack}>
+        {selected.status === 'pending' && (confirm ? <View style={s.confirmation}>
           <Txt>{confirm === 'accept' ? 'Ao confirmar, você assume este trabalho nas condições e na remuneração acima. O primeiro aceite válido garante a atribuição.' : 'Deseja recusar este convite? A equipe será informada.'}</Txt>
           <Button loading={busy} onPress={() => void decide()}>{confirm === 'accept' ? 'Confirmar aceite' : 'Confirmar recusa'}</Button>
           <Button variant="ghost" disabled={busy} onPress={() => setConfirm(null)}>Voltar</Button>
@@ -128,14 +128,19 @@ export function OpportunitiesScreen() {
   return <ScrollView contentContainerStyle={[s.page, width < 700 && { padding: 20 }]} keyboardShouldPersistTaps="handled">
     <PageHeading title="Oportunidades" subtitle="Convites de tradução, remuneração e histórico das suas decisões."
       action={<Button variant="secondary" icon={RefreshCw} loading={loading} onPress={() => void refresh()}>Atualizar</Button>} />
-    <TextInput accessibilityLabel="Buscar oportunidades" placeholder="Busque por projeto, idioma ou tipo de tradução"
-      placeholderTextColor={colors.muted} value={search} onChangeText={setSearch} style={s.input} />
-    <View style={s.row}>
+    <View style={s.toolbar}>
+    <View style={s.search}>
+      <Search size={18} color={colors.muted} />
+      <TextInput accessibilityLabel="Buscar oportunidades" placeholder="Busque por projeto, idioma ou tipo de tradução"
+        placeholderTextColor={colors.muted} value={search} onChangeText={setSearch} style={s.searchInput} />
+    </View>
+    <View style={s.filters} role="tablist" accessibilityLabel="Status das oportunidades">
       {(['pending', 'all', 'accepted', 'declined', 'expired', 'cancelled'] as const).map(value =>
         <Pressable key={value} accessibilityRole="tab" aria-selected={filter === value} accessibilityState={{ selected: filter === value }}
-          onPress={() => setFilter(value)} style={[s.filter, filter === value && s.active]}>
-          <Txt>{value === 'all' ? 'Histórico completo' : offerLabels[value]}</Txt>
+          onPress={() => setFilter(value)} style={({ hovered, pressed }) => [s.filter, (hovered || pressed) && { backgroundColor: colors.surface }, filter === value && s.filterSelected]}>
+          <Txt style={[s.filterText, filter === value && s.filterTextSelected]}>{value === 'all' ? 'Histórico completo' : offerLabels[value]}</Txt>
         </Pressable>)}
+    </View>
     </View>
     {!!error && !selected && <Txt accessibilityRole="alert" style={s.error}>{error}</Txt>}
     {!!notice && !selected && <Txt accessibilityLiveRegion="polite" style={s.notice}>{notice}</Txt>}
@@ -144,7 +149,7 @@ export function OpportunitiesScreen() {
     {!loading && !error && !visible.length && <EmptyState icon={BriefcaseBusiness} title="Nenhuma oportunidade por aqui"
       text={search || filter !== 'pending' ? 'Ajuste a busca ou os filtros para consultar seu histórico.' : 'Novos convites aparecerão aqui. A lista é atualizada automaticamente.'} />}
     <View style={s.grid}>
-      {visible.map(offer => <View key={offer.id} style={[s.card, { width: width >= 1200 ? '48%' : '100%' }]}>
+      {visible.map(offer => <View key={offer.id} style={[s.card, width < 700 && s.cardSmall, { width: width >= 1200 ? '48%' : '100%' }]}>
         <OfferSummary offer={offer} />
         <Button variant="secondary" disabled={busy} onPress={() => void open(offer)}>Ver oportunidade</Button>
       </View>)}

@@ -135,8 +135,10 @@ export function QuoteSection({
               <View style={styles.benefitIcon}>
                 <item.icon size={25} color={colors.accent} />
               </View>
-              <Txt style={styles.benefitTitle}>{item.title}</Txt>
-              <Txt style={styles.benefitText}>{item.text}</Txt>
+              <View style={styles.benefitCopy}>
+                <Txt style={styles.benefitTitle}>{item.title}</Txt>
+                <Txt style={styles.benefitText}>{item.text}</Txt>
+              </View>
             </View>
           ))}
         </View>
@@ -147,7 +149,7 @@ export function QuoteSection({
         style={[
           styles.form,
           !wide && { width: '100%', maxWidth: 680 },
-          mobile && { padding: 22, borderRadius: 18 },
+          mobile && { padding: 20 },
         ]}
       >
         {receipt ? (

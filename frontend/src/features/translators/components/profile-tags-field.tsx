@@ -65,7 +65,7 @@ export function ProfileTagsField({ label, values, onChange, options = [], placeh
         <ProfileField label={links ? 'Link do portfólio' : `Adicionar em ${label.replace(' *', '').toLocaleLowerCase()}`}
           value={input} onChange={value => { setInput(value); setInputError(''); }} placeholder={placeholder}
           disabled={disabled || values.length >= limit} onSubmit={add} maxLength={links ? 500 : 80} keyboardType={links ? 'url' : 'default'} />
-        <IconButton icon={Plus} label={`Adicionar em ${label.replace(' *', '').toLocaleLowerCase()}`} disabled={disabled || values.length >= limit} onPress={add} />
+        <View style={styles.tagAction}><IconButton icon={Plus} label={`Adicionar em ${label.replace(' *', '').toLocaleLowerCase()}`} disabled={disabled || values.length >= limit} onPress={add} /></View>
       </View>
       <Txt style={styles.note}>{values.length} de {limit} itens. {links ? 'Links públicos dos seus trabalhos ou perfil profissional.' : 'Você também pode adicionar outros itens.'}</Txt>
       {!!(error || inputError) && <Txt accessibilityRole="alert" style={styles.error}>{inputError || error}</Txt>}

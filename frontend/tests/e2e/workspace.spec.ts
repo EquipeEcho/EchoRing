@@ -18,7 +18,7 @@ test('bundled font weights render consistently and fields show keyboard focus', 
   const email = page.getByRole('textbox', { name: 'E-mail', exact: true });
   expect(await email.evaluate(element => getComputedStyle(element).fontFamily)).toContain('InterRegular');
   await email.focus();
-  await expect(page.getByTestId('auth-input').first()).toHaveCSS('border-color', 'rgb(255, 55, 95)');
+  await expect(page.getByTestId('auth-input').first()).toHaveCSS('border-color', 'rgb(255, 113, 133)');
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Esqueci minha senha' })).toBeFocused();
 });

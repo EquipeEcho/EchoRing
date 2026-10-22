@@ -95,7 +95,7 @@ export function WorkspaceShell() {
       style={styles.profileButton}
     >
       <View style={[styles.avatar, !desktop && styles.mobileAvatar]}>
-        <Txt style={{ fontSize: 14, color: colors.white, fontWeight: '700' }}>{initials}</Txt>
+        <Txt style={{ fontSize: 14, color: colors.ink, fontWeight: '700' }}>{initials}</Txt>
       </View>
       {desktop && (
         <>
@@ -358,7 +358,7 @@ export function WorkspaceShell() {
           >
             <Txt style={{ fontWeight: '600', fontSize: 13 }}>{title}</Txt>
             <Txt style={common.caption}>{text}</Txt>
-            <Txt style={{ fontSize: 10, color: colors.muted }}>{time}</Txt>
+            <Txt style={{ fontSize: 12, color: colors.muted }}>{time}</Txt>
           </View>
         ))}
         {!session?.demo && pending === 0 && received === 0 && offerNotifications.items.length === 0 && !offerNotifications.error && <EmptyState icon={Bell} title="Tudo em dia" text="Não há novas pendências nos dados carregados. Consulte Projetos e Tarefas para acompanhar sua rotina." />}

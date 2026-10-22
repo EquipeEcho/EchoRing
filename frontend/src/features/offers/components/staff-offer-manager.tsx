@@ -125,7 +125,7 @@ export function StaffOfferManager({ request, token, onChanged }: {
       {translators.map(translator => <Pressable key={translator.id} accessibilityRole="checkbox" aria-checked={recipients.includes(translator.id)}
         accessibilityLabel={`Oferecer para ${translator.name}`} accessibilityState={{ checked: recipients.includes(translator.id), disabled: busy || review || pendingIds.has(translator.id) }}
         disabled={busy || review || pendingIds.has(translator.id)} onPress={() => setRecipients(current => current.includes(translator.id) ? current.filter(id => id !== translator.id) : [...current, translator.id])}
-        style={[s.recipient, recipients.includes(translator.id) && s.active]}>
+        style={({ hovered, pressed }) => [s.recipient, (hovered || pressed) && !busy && !review && !pendingIds.has(translator.id) && { borderColor: colors.accent }, recipients.includes(translator.id) && s.active]}>
         <Txt>{recipients.includes(translator.id) ? '✓ ' : ''}{translator.name}</Txt><Txt style={s.caption}>{translator.email}{pendingIds.has(translator.id) ? ' · Oferta pendente' : ''}</Txt>
         {!!translator.languages?.length && <Txt style={s.caption}>Idiomas: {translator.languages.map(language => `${language.name} (${language.level})`).join(' · ')}</Txt>}
       </Pressable>)}

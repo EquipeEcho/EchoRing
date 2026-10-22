@@ -49,15 +49,15 @@ function OnboardingForm() {
           <View style={[styles.layout, small && styles.layoutSmall]}>
             <View style={[styles.intro, small && styles.introSmall]}>
               <Txt style={styles.eyebrow}>BEM-VINDO AO ECHO RING</Txt>
-              <Txt accessibilityRole="header" style={styles.title}>Seu talento.{`\n`}Seu próximo passo.</Txt>
+              <Txt accessibilityRole="header" style={[styles.title, small && styles.titleSmall]}>Seu talento.{small ? ' ' : `\n`}Seu próximo passo.</Txt>
               <Txt style={styles.description}>Complete seu cadastro para a equipe conhecer seu trabalho e você começar a usar o portal.</Txt>
               {small ? <>
                 <Txt accessibilityLiveRegion="polite" style={styles.label}>Etapa {step + 1} de 4 · {profileSteps[step]}</Txt>
-                <View style={styles.track}><View style={[styles.progress, { width: `${(step + 1) * 25}%` }]} /></View>
+                <View accessibilityRole="progressbar" accessibilityLabel="Progresso do cadastro" accessibilityValue={{ min: 0, max: 4, now: step + 1 }} style={styles.track}><View style={[styles.progress, { width: `${(step + 1) * 25}%` }]} /></View>
               </> : <View style={styles.stepList}>
-                {profileSteps.map((title, index) => <View key={title} style={styles.stepRow}>
+                {profileSteps.map((title, index) => <View key={title} style={[styles.stepRow, index === step && styles.stepRowCurrent]}>
                   <View style={[styles.stepNumber, index === step && styles.stepCurrent, index < step && styles.stepDone]}>
-                    {index < step ? <Check size={16} color={colors.accent} /> : <Txt style={{ fontSize: 13, fontWeight: '600', color: index === step ? colors.onAccent : colors.muted }}>{index + 1}</Txt>}
+                    {index < step ? <Check size={16} color={colors.green} /> : <Txt style={{ fontSize: 13, fontWeight: '600', color: index === step ? colors.onAccent : colors.muted }}>{index + 1}</Txt>}
                   </View>
                   <Txt style={[styles.stepLabel, index === step && { color: colors.ink, fontWeight: '600' }]}>{title}</Txt>
                 </View>)}
@@ -74,7 +74,7 @@ function OnboardingForm() {
                   <Txt accessibilityRole="header" style={styles.sectionTitle}>{['Contato e localização', 'Idiomas', 'Formação e experiência', 'Seu perfil profissional'][step]}</Txt>
                   <Txt style={styles.sectionDescription}>{[
                     'Confirme suas informações de contato. Campos com * são obrigatórios.',
-                    'Conte quais idiomas domina e em quais direções você traduz.',
+                    'Selecione os idiomas que domina e indique seu nível em cada um.',
                     'Apresente sua formação, sua trajetória e suas áreas de atuação.',
                     'Enriqueça seu perfil com informações opcionais e confira o cadastro antes de concluir.',
                   ][step]}</Txt>

@@ -10,6 +10,7 @@ import {
 import { Txt } from '@/components/ui/text';
 import { createThemedStyles } from '@/theme/create-themed-styles';
 import { useTheme } from '@/theme/theme-context';
+import { radius } from '@/theme/tokens';
 
 export function Button({
   children,
@@ -33,6 +34,7 @@ export function Button({
   const { colors } = useTheme();
   const styles = useStyles();
   const primary = variant === 'primary';
+  const foreground = primary ? colors.onAccent : variant === 'secondary' ? colors.ink : colors.accent;
   return (
     <Pressable
       testID={testID}
@@ -45,18 +47,18 @@ export function Button({
       style={({ pressed, hovered }) => [
         styles.button,
         primary ? styles.primary : variant === 'secondary' ? styles.secondary : styles.ghost,
-        hovered && { backgroundColor: primary ? colors.accentStrong : colors.accentSoft },
+        hovered && !disabled && !loading && { backgroundColor: primary ? colors.accentStrong : colors.elevated, borderColor: primary ? colors.accentStrong : variant === 'secondary' ? colors.controlLine : 'transparent' },
         pressed && { opacity: 0.8 },
         (disabled || loading) && { opacity: 0.65 },
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={primary ? colors.onAccent : colors.accent} />
+        <ActivityIndicator size="small" color={foreground} />
       ) : (
-        Icon && <Icon size={17} color={primary ? colors.onAccent : colors.accent} />
+        Icon && <Icon size={17} color={foreground} />
       )}
-      <Txt style={[styles.buttonText, { color: primary ? colors.onAccent : colors.accent }]}>
+      <Txt style={[styles.buttonText, { color: foreground }]}>
         {children}
       </Txt>
     </Pressable>
@@ -67,7 +69,7 @@ const useStyles = createThemedStyles((colors) => ({
   button: {
     minHeight: 48,
     maxWidth: '100%',
-    borderRadius: 12,
+    borderRadius: radius.control,
     paddingHorizontal: 20,
     paddingVertical: 11,
     flexDirection: 'row',
@@ -80,7 +82,7 @@ const useStyles = createThemedStyles((colors) => ({
   secondary: { backgroundColor: colors.surface, borderColor: colors.line },
   ghost: { borderColor: 'transparent', backgroundColor: 'transparent' },
   buttonText: {
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
     fontWeight: '600',
     flexShrink: 1,

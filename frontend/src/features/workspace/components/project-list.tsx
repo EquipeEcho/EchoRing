@@ -1,6 +1,7 @@
 import { router, usePathname } from 'expo-router';
 import { ChevronRight, Clock3, FileText, SearchX } from 'lucide-react-native';
-import { Pressable, useWindowDimensions, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, View } from 'react-native';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,10 +18,10 @@ export function ProjectList({ projects }: { projects: Project[] }) {
   const { colors } = useTheme();
   const styles = useStyles();
   const common = useCommonStyles();
-  const { width } = useWindowDimensions();
+  const [listWidth, setListWidth] = useState(0);
   const pathname = usePathname();
   const { setSearch, search } = useWorkspace();
-  const wide = width >= 800;
+  const wide = listWidth >= 620;
   if (!projects.length)
     return (
       <EmptyState
@@ -41,7 +42,7 @@ export function ProjectList({ projects }: { projects: Project[] }) {
       />
     );
   return (
-    <View>
+    <View onLayout={event => setListWidth(event.nativeEvent.layout.width)}>
       {wide && (
         <View style={styles.tableHead}>
           <Txt style={[styles.columnLabel, { flex: 1 }]}>Projeto / Cliente</Txt>
@@ -68,7 +69,7 @@ export function ProjectList({ projects }: { projects: Project[] }) {
         >
           <View style={styles.projectMain}>
             <View style={styles.projectIcon}>
-              <FileText size={24} color={colors.accent} strokeWidth={1.6} />
+              <FileText size={22} color={colors.muted} strokeWidth={1.6} />
             </View>
             <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
               <Txt numberOfLines={wide ? 1 : undefined} style={styles.projectTitle}>

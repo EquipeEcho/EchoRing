@@ -12,7 +12,7 @@ export function ServicesSection({
   onLayout,
   onSelectService,
 }: LandingSectionProps & { onSelectService: (service: string) => void }) {
-  const { colors, theme } = useTheme();
+  const { colors } = useTheme();
   const styles = useStyles();
   const { mobile, narrow, wide } = layout;
   return (
@@ -74,11 +74,9 @@ export function ServicesSection({
               mobile && { padding: 24, flex: 0, flexShrink: 0, flexBasis: 'auto' },
             ]}
           >
-            <View pointerEvents="none" style={styles.serviceGlow} />
-            <View pointerEvents="none" style={styles.serviceAccent} />
             <View style={styles.serviceTop}>
               <View style={styles.serviceIcon}>
-                <service.icon size={29} color={colors.accent} strokeWidth={1.55} />
+                <service.icon size={24} color={colors.accent} strokeWidth={1.7} />
               </View>
               <Txt style={styles.serviceNumber}>{String(index + 1).padStart(2, '0')}</Txt>
             </View>
@@ -87,7 +85,7 @@ export function ServicesSection({
             <View style={styles.serviceBottom}>
               <Txt style={styles.serviceCta}>SOLICITAR ORÇAMENTO</Txt>
               <View style={styles.serviceArrow}>
-                <ArrowRight size={18} color={theme === 'dark' ? colors.ink : colors.onAccent} />
+                <ArrowRight size={18} color={colors.accent} />
               </View>
             </View>
           </Pressable>
