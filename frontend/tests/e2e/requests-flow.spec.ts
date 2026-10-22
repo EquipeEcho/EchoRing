@@ -11,9 +11,10 @@ test('intake with documents persists, reaches staff inbox and quote simulation i
   await page.getByRole('button', { name: 'Prazo desejado', exact: true }).click();
   await page.getByRole('button', { name: 'Selecionar hoje', exact: true }).click();
   await page.getByRole('button', { name: 'Idioma de origem *', exact: true }).click();
-  await page.getByRole('radio', { name: 'Idioma de origem: Espanhol', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Buscar em Idioma de origem', exact: true }).fill('es-MX');
+  await page.getByRole('radio', { name: 'Idioma de origem: Espanhol (México)', exact: true }).click();
   await page.getByRole('button', { name: 'Idioma de destino *', exact: true }).click();
-  await page.getByRole('radio', { name: 'Idioma de destino: Francês', exact: true }).click();
+  await page.getByRole('radio', { name: 'Idioma de destino: Francês (França)', exact: true }).click();
   await page.getByRole('button', { name: 'Inverter idiomas', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Idioma de origem *', exact: true })).toContainText('Francês');
   await expect(page.getByRole('button', { name: 'Idioma de destino *', exact: true })).toContainText('Espanhol');
@@ -52,7 +53,11 @@ test('intake with documents persists, reaches staff inbox and quote simulation i
   await page.getByRole('button', { name: 'Selecionar hoje', exact: true }).click();
   await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
   await expect(page.getByTestId('quote-notice')).toContainText('Rascunho salvo');
-  await page.getByRole('button', { name: 'Fechar solicitação', exact: true }).click();
+  await expect(page).toHaveURL(/\/solicitacoes\/SOL-/);
+  await expect(page.getByTestId('dialog-surface')).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByLabel('Valor do orçamento (R$)', { exact: true })).toHaveValue('350,50');
+  await page.getByRole('button', { name: 'Voltar às solicitações', exact: true }).click();
   await page.reload();
   await page.getByRole('button', { name: /Abrir solicitação.*Manual enviado pelo site/ }).click();
   await expect(page.getByLabel('Valor do orçamento (R$)', { exact: true })).toHaveValue('350,50');
@@ -60,7 +65,7 @@ test('intake with documents persists, reaches staff inbox and quote simulation i
   await expect(page.getByText('Prévia local · nenhum e-mail será enviado')).toBeVisible();
   await page.getByRole('button', { name: 'Confirmar simulação', exact: true }).click();
   await expect(page.getByTestId('quote-notice')).toContainText('Nenhum e-mail foi enviado');
-  await page.getByRole('button', { name: 'Fechar solicitação', exact: true }).click();
+  await page.getByRole('button', { name: 'Voltar às solicitações', exact: true }).click();
   await expect(page.getByText('Orçamento simulado', { exact: true }).last()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Solicita\u00e7\u00e3o', exact: true })).toBeHidden();
   await page.screenshot({ path: testInfo.outputPath('requests-inbox.png') });
@@ -126,6 +131,10 @@ test('authenticated employee analyzes a request and sends its quote through the 
   await page.getByLabel('Mensagem ao cliente', { exact: true }).fill('Tradução e revisão incluídas na proposta.');
   await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
   await expect(page.getByTestId('quote-notice')).toContainText('Rascunho salvo');
+  await expect(page).toHaveURL(/\/solicitacoes\/SOL-/);
+  await expect(page.getByTestId('dialog-surface')).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByLabel('Valor do orçamento (R$)', { exact: true })).toHaveValue('480,00');
   await page.getByRole('button', { name: 'Revisar e enviar por e-mail', exact: true }).click();
   await expect(page.getByText('Confira antes de enviar')).toBeVisible();
   await expect(page.getByText('R$ 480,00')).toBeVisible();
@@ -138,7 +147,7 @@ test('authenticated employee analyzes a request and sends its quote through the 
   expect(calls.some(call => call.method === 'POST' && call.path.endsWith('/send-quote'))).toBe(true);
 });
 
-test('automatic quote approval loads translators without reloading the page', async ({ page }) => {
+test('automatic quote approval opens compatible offers without reloading the page', async ({ page }) => {
   type QuotePayload = { amount: string; delivery: string; message: string };
   let translatorRequests = 0;
   let record = {
@@ -151,15 +160,20 @@ test('automatic quote approval loads translators without reloading the page', as
     autoApproved: false,
   };
 
-  await page.route('**/translators', async route => {
-    translatorRequests += 1;
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
-      { id: 'USR-TR-001', name: 'Marina Costa', email: 'marina@example.test', role: 'translator', active: true },
-    ]) });
-  });
   await page.route('**/requests**', async route => {
     const request = route.request();
     const url = new URL(request.url());
+    if (request.method() === 'GET' && url.pathname === `/requests/${record.id}/compatible-translators`) {
+      translatorRequests += 1;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+        { id: 'USR-TR-001', name: 'Marina Costa', email: 'marina@example.test' },
+      ]) });
+      return;
+    }
+    if (request.method() === 'GET' && url.pathname === `/requests/${record.id}/offers`) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+      return;
+    }
     if (request.method() === 'GET' && url.pathname === '/requests') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([record]) });
       return;
@@ -194,8 +208,8 @@ test('automatic quote approval loads translators without reloading the page', as
   await page.getByRole('button', { name: 'Confirmar envio', exact: true }).click();
 
   await expect(page.getByTestId('quote-notice')).toContainText('aprovado automaticamente');
-  await expect(page.getByText('Escolha o tradutor', { exact: true })).toBeVisible();
-  await expect(page.getByRole('radio', { name: 'Tradutor: Marina Costa', exact: true })).toBeVisible();
+  await expect(page.getByText('Ofertas de trabalho', { exact: true })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: 'Oferecer para Marina Costa', exact: true })).toBeVisible();
   expect(translatorRequests).toBe(1);
 });
 

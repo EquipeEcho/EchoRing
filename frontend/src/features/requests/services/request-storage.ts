@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
 import { type TranslationRequest } from '@/features/requests/types';
+import { normalizeRequests } from './normalize-request';
 
 const storageKey = 'echoring.translation-requests.v1';
 
@@ -10,7 +11,7 @@ export function localRequests(): TranslationRequest[] {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? normalizeRequests(parsed) : [];
   } catch {
     return [];
   }

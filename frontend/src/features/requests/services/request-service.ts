@@ -7,9 +7,10 @@ import {
   type TranslatorOption,
 } from '@/features/requests/types';
 import { api } from '@/lib/api/client';
+import { normalizeRequest, normalizeRequests } from './normalize-request';
 
 export async function submitIntake(data: Intake): Promise<TranslationRequest> {
-  if (apiMode) return api('/requests', { method: 'POST', body: JSON.stringify(data) });
+  if (apiMode) return normalizeRequest(await api('/requests', { method: 'POST', body: JSON.stringify(data) }));
   const request: TranslationRequest = {
     ...data,
     id:
@@ -26,11 +27,11 @@ export async function submitIntake(data: Intake): Promise<TranslationRequest> {
 }
 
 export async function getRequests(token?: string): Promise<TranslationRequest[]> {
-  return token ? api('/requests', {}, token) : localRequests();
+  return token ? normalizeRequests(await api('/requests', {}, token)) : localRequests();
 }
 
 export async function getRequest(id: string, token?: string): Promise<TranslationRequest> {
-  if (token) return api('/requests/' + encodeURIComponent(id), {}, token);
+  if (token) return normalizeRequest(await api('/requests/' + encodeURIComponent(id), {}, token));
   const request = localRequests().find((item) => item.id === id);
   if (!request) throw new Error('Solicitação não encontrada.');
   return request;
@@ -42,11 +43,11 @@ export async function updateRequest(
   token?: string,
 ): Promise<TranslationRequest> {
   if (token)
-    return api(
+    return normalizeRequest(await api<TranslationRequest>(
       '/requests/' + encodeURIComponent(id),
       { method: 'PATCH', body: JSON.stringify(changes) },
       token,
-    );
+    ));
   const requests = localRequests();
   const request = requests.find((item) => item.id === id);
   if (!request) throw new Error('Solicitação não encontrada.');
@@ -57,7 +58,7 @@ export async function updateRequest(
 }
 
 export async function sendQuote(id: string, token: string): Promise<TranslationRequest> {
-  return api('/requests/' + encodeURIComponent(id) + '/send-quote', { method: 'POST' }, token);
+  return normalizeRequest(await api('/requests/' + encodeURIComponent(id) + '/send-quote', { method: 'POST' }, token));
 }
 
 export function getTranslators(token: string) {
