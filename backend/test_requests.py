@@ -6,6 +6,7 @@ import os
 import smtplib
 import unittest
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -14,8 +15,69 @@ from main import app
 import requests_api
 import mongomock
 from app import mongo
+from app.repositories import client_store
+from app.core.portal_auth import staff
 from app.repositories import translator_profile_store
 from app.services.email import service as email_service
+from app.core import email_service as core_email
+
+
+class ClientMongoTests(unittest.TestCase):
+    """Testa persistência de clientes no Mongo sem depender do PostgreSQL."""
+
+    def setUp(self):
+        self.environment = patch.dict(os.environ, {'MONGO_DB': 'test_clients'})
+        self.environment.start()
+        self.mongo = patch.object(mongo, '_client', mongomock.MongoClient())
+        self.mongo.start()
+        app.dependency_overrides[staff] = lambda: {
+            'id': 'employee-test',
+            'name': 'Test Employee',
+            'role': 'employee',
+        }
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        self.client.close()
+        app.dependency_overrides.pop(staff, None)
+        self.mongo.stop()
+        self.environment.stop()
+
+    def test_client_records_are_created_listed_and_unique_in_mongo(self):
+        data = {'name': '  Example Client ', 'email': ' CLIENT@example.test ', 'company': ' Example Co '}
+        created = self.client.post('/clients', json=data)
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.json()['name'], 'Example Client')
+        self.assertEqual(created.json()['email'], 'client@example.test')
+        self.assertEqual(created.json()['company'], 'Example Co')
+        with patch('app.routes.requests_routes.database') as database:
+            database.return_value.__enter__.return_value.execute.return_value.fetchall.return_value = []
+            self.assertEqual(self.client.get('/clients').json(), [created.json()])
+
+        stored = mongo.get_db()['clients'].find_one({'_id': created.json()['id']})
+        self.assertEqual(stored['created_by'], 'employee-test')
+        self.assertEqual(stored['email'], 'client@example.test')
+        self.assertEqual(self.client.post(
+            '/clients',
+            json={'name': 'Duplicate Client', 'email': 'client@example.test'},
+        ).status_code, 409)
+
+    def test_public_quote_upsert_keeps_one_client_per_email(self):
+        from app.models.translation import ClientCreate
+
+        first = client_store.upsert_quote_client(
+            ClientCreate(name='Landing Client', email='LANDING@example.test', company='First Company'),
+            datetime(2026, 10, 21, tzinfo=timezone.utc),
+        )
+        updated = client_store.upsert_quote_client(
+            ClientCreate(name='Landing Client Updated', email='landing@example.test', company='Updated Company'),
+            datetime(2026, 10, 22, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(first['id'], updated['id'])
+        self.assertEqual(updated['name'], 'Landing Client Updated')
+        self.assertEqual(updated['company'], 'Updated Company')
+        self.assertEqual(mongo.get_db()['clients'].count_documents({}), 1)
 
 
 class RequestsTests(unittest.TestCase):
@@ -107,6 +169,10 @@ class RequestsTests(unittest.TestCase):
     def test_public_intake_is_persistent_and_staff_only(self):
         """Garante persistência pública, leitura restrita e conteúdo oculto na listagem."""
         request_id = self.create()
+        stored_client = mongo.get_db()['clients'].find_one({'email': self.intake['email']})
+        self.assertIsNotNone(stored_client)
+        self.assertEqual(stored_client['name'], self.intake['name'])
+        self.assertEqual(stored_client['created_by'], 'landing-page')
         self.assertEqual(self.client.get('/requests').status_code, 401)
         self.assertEqual(self.client.get('/requests/' + request_id).status_code, 401)
         listing = self.client.get('/requests', headers=self.headers).json()
@@ -114,8 +180,99 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(listing[0]['attachments'][0]['content'], '')
         detail = self.client.get('/requests/' + request_id, headers=self.headers).json()
         self.assertEqual(detail['attachments'], self.intake['attachments'])
+        client_listing = self.client.get('/clients', headers=self.headers)
+        self.assertEqual(client_listing.status_code, 200)
+        client = next(item for item in client_listing.json() if item['email'] == self.intake['email'])
+        self.assertEqual(client['projects'][0]['id'], request_id)
+        self.assertEqual(client['projects'][0]['title'], self.intake['title'])
+        self.assertEqual(client['projects'][0]['status'], 'Recebido')
+        self.save_quote(request_id)
+        updated_client = next(
+            item for item in self.client.get('/clients', headers=self.headers).json()
+            if item['email'] == self.intake['email']
+        )
+        self.assertEqual(updated_client['projects'][0]['status'], 'Em análise')
         with TestClient(app) as second_client:
             self.assertEqual(second_client.get('/requests', headers=self.headers).json()[0]['id'], request_id)
+
+    def test_manual_client_intake_is_restricted_to_staff_and_persisted_as_request(self):
+        """Garante acesso para funcionários e administradores usando o mesmo contrato Intake."""
+        self.assertEqual(self.client.post('/requests/manual', json=self.intake).status_code, 401)
+        _, translator_headers = self.translator_session()
+        self.assertEqual(
+            self.client.post('/requests/manual', headers=translator_headers, json=self.intake).status_code,
+            403,
+        )
+
+        employee_created = self.client.post('/requests/manual', headers=self.headers, json=self.intake)
+        self.assertEqual(employee_created.status_code, 201)
+        employee_request = employee_created.json()
+        self.assertEqual(employee_request['email'], self.intake['email'])
+        self.assertEqual(employee_request['status'], 'Recebido')
+        self.assertEqual(employee_request['history'][-1]['note'], 'Cadastro manual do cliente.')
+        self.assertTrue(any(
+            item['id'] == employee_request['id']
+            for item in self.client.get('/requests', headers=self.headers).json()
+        ))
+
+        admin_login = self.client.post('/auth/login', json={
+            'email': 'admin@example.test',
+            'password': 'admin-password-long-enough',
+        })
+        admin_headers = {'Authorization': 'Bearer ' + admin_login.json()['token']}
+        admin_created = self.client.post(
+            '/requests/manual',
+            headers=admin_headers,
+            json={**self.intake, 'email': 'another-client@example.test'},
+        )
+        self.assertEqual(admin_created.status_code, 201)
+        self.assertEqual(admin_created.json()['email'], 'another-client@example.test')
+
+        invalid = self.client.post(
+            '/requests/manual',
+            headers=self.headers,
+            json={**self.intake, 'source': self.intake['target']},
+        )
+        self.assertEqual(invalid.status_code, 422)
+
+    def test_client_registration_stores_only_contact_data(self):
+        """Salva os dados do cliente sem criar uma solicitação de tradução."""
+        data = {'name': '  Example Client  ', 'email': '  CLIENT@example.test ', 'company': ' Example Co '}
+        self.assertEqual(self.client.post('/clients', json=data).status_code, 401)
+        _, translator_headers = self.translator_session()
+        self.assertEqual(self.client.post('/clients', headers=translator_headers, json=data).status_code, 403)
+        self.assertEqual(self.client.get('/clients', headers=translator_headers).status_code, 403)
+
+        created = self.client.post('/clients', headers=self.headers, json=data)
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.json()['name'], 'Example Client')
+        self.assertEqual(created.json()['email'], 'client@example.test')
+        self.assertEqual(created.json()['company'], 'Example Co')
+        self.assertEqual(self.client.get('/clients', headers=self.headers).json(), [created.json()])
+        stored_client = mongo.get_db()['clients'].find_one({'_id': created.json()['id']})
+        self.assertEqual(
+            {key: stored_client[key] for key in ('name', 'email', 'company')},
+            {
+                'name': 'Example Client',
+                'email': 'client@example.test',
+                'company': 'Example Co',
+            },
+        )
+        self.assertTrue(stored_client['created_by'])
+        self.assertIsInstance(stored_client['created_at'], datetime)
+        self.assertEqual(self.client.get('/requests', headers=self.headers).json(), [])
+
+        duplicate = self.client.post(
+            '/clients',
+            headers=self.headers,
+            json={'name': 'Duplicate Client', 'email': 'CLIENT@example.test'},
+        )
+        self.assertEqual(duplicate.status_code, 409)
+        for invalid in (
+            {'name': '', 'email': 'client2@example.test'},
+            {'name': 'Client', 'email': 'invalid'},
+        ):
+            self.assertEqual(self.client.post('/clients', headers=self.headers, json=invalid).status_code, 422)
 
     def test_translator_login_returns_role_and_cannot_access_staff_requests(self):
         """Confere a sessão do tradutor e o bloqueio das rotas exclusivas da equipe."""
@@ -460,6 +617,7 @@ class RequestsTests(unittest.TestCase):
 
     def test_complete_flow_secures_decision_assignment_revision_and_approval(self):
         """Percorre o fluxo completo e finaliza o serviço diretamente na aprovação."""
+        sent_emails = self.enterContext(patch.object(core_email, 'send_email'))
         translator, translator_headers = self.translator_session()
         with requests_api.database() as connection:
             connection.execute(
@@ -559,6 +717,24 @@ class RequestsTests(unittest.TestCase):
                          'Em andamento', 'Aguardando avaliação', 'Revisão solicitada', 'Entregue'):
             self.assertIn(expected, statuses)
 
+        emails = [call.kwargs for call in sent_emails.call_args_list]
+        self.assertEqual([email['template'] for email in emails], ['aviso', 'entrega'])
+        self.assertEqual(emails[0]['to'], 'translator@example.test')
+        self.assertEqual(emails[1]['to'], 'client@example.test')
+        self.assertEqual(emails[1]['attachments'][0]['name'], 'translated-v2.txt')
+        self.assertEqual(emails[1]['attachments'][0]['content'], b'Second complete version')
+
+    def test_email_attachments_are_added_to_message(self):
+        """Anexa os arquivos ao e-mail mantendo a versão em texto e HTML."""
+        attachment = {'name': 'traducao.txt', 'content': b'Texto traduzido', 'media_type': 'text/plain'}
+        with patch.dict(os.environ, {'SMTP_HOST': 'smtp.example.test', 'SMTP_FROM': 'staff@example.test'}), \
+                patch.object(email_service.smtplib, 'SMTP') as smtp:
+            email_service.send_email('client@example.test', 'Oi', 'aviso', {'titulo': 'T', 'mensagem': 'M'}, attachments=[attachment])
+            message = smtp.return_value.__enter__.return_value.send_message.call_args.args[0]
+        files = list(message.iter_attachments())
+        self.assertEqual(files[0].get_filename(), 'traducao.txt')
+        self.assertEqual(files[0].get_content(), 'Texto traduzido')
+        self.assertIn('M', message.get_body(preferencelist=('plain',)).get_content())
 
     def test_auto_approve_quote_skips_email_for_local_workflow(self):
         """No modo local, aprova a proposta sem chamar o serviço de e-mail."""

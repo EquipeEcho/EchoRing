@@ -1,4 +1,5 @@
 import { currencyInputFromDecimal, formatCurrencyInput } from '@/utils/input-formatters';
+import { router } from 'expo-router';
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -13,6 +14,7 @@ import {
   Search,
   Send,
   UserCheck,
+  UserPlus,
 } from 'lucide-react-native';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { TextInput } from '@/components/ui/text-input';
@@ -390,14 +392,22 @@ export function RequestsScreen() {
         title="Solicitações"
         subtitle="Da primeira mensagem ao orçamento. Tudo começa aqui."
         action={
-          <Button
-            variant="secondary"
-            icon={RefreshCw}
-            loading={loading}
-            onPress={() => void refresh()}
-          >
-            Atualizar
-          </Button>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            <Button
+              icon={UserPlus}
+              onPress={() => router.push('/clientes/cadastrar')}
+            >
+              Cadastrar cliente
+            </Button>
+            <Button
+              variant="secondary"
+              icon={RefreshCw}
+              loading={loading}
+              onPress={() => void refresh()}
+            >
+              Atualizar
+            </Button>
+          </View>
         }
       />
       <View style={[styles.summary, width < 700 && styles.summarySmall]}>

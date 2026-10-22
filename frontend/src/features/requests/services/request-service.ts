@@ -26,6 +26,14 @@ export async function submitIntake(data: Intake): Promise<TranslationRequest> {
   return request;
 }
 
+export async function submitManualIntake(
+  data: Intake,
+  token?: string,
+): Promise<TranslationRequest> {
+  if (!token) return submitIntake(data);
+  return api('/requests/manual', { method: 'POST', body: JSON.stringify(data) }, token);
+}
+
 export async function getRequests(token?: string): Promise<TranslationRequest[]> {
   return token ? normalizeRequests(await api('/requests', {}, token)) : localRequests();
 }

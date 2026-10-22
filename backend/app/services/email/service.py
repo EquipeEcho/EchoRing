@@ -74,7 +74,7 @@ def _enviar_sem_quebrar(message):
         logger.exception('Falha ao enviar e-mail para %s', message['To'])
 
 
-def send_email(to, subject, template, context=None, background_tasks=None):
+def send_email(to, subject, template, context=None, background_tasks=None, attachments=None):
     """Função que o resto do sistema chama para mandar e-mail.
 
     to: e-mail de quem recebe
@@ -83,6 +83,8 @@ def send_email(to, subject, template, context=None, background_tasks=None):
     context: dados usados no template
     background_tasks: BackgroundTasks da rota (opcional). Com ele, a resposta
         volta na hora e o e-mail sai depois; falhas só aparecem no log.
+    attachments: lista de arquivos (opcional), cada um como
+        {'name': 'arquivo.pdf', 'content': bytes, 'media_type': 'application/pdf'}
     """
     html_body = render_email(template, context)
     message = EmailMessage()
@@ -91,6 +93,14 @@ def send_email(to, subject, template, context=None, background_tasks=None):
     message['Subject'] = subject
     message.set_content(_html_to_text(html_body))
     message.add_alternative(html_body, subtype='html')
+    for attachment in attachments or []:
+        maintype, _, subtype = attachment['media_type'].partition('/')
+        message.add_attachment(
+            attachment['content'],
+            maintype=maintype or 'application',
+            subtype=subtype or 'octet-stream',
+            filename=attachment['name'],
+        )
 
     if background_tasks is not None:
         background_tasks.add_task(_enviar_sem_quebrar, message)
