@@ -1,5 +1,4 @@
-"""Pydantic schemas and document validation for translation workflows."""
-
+"""Translation intake, quotes, assignments, reviews and document validation."""
 import base64
 import io
 import re
@@ -7,46 +6,21 @@ import zipfile
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal
-
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, field_validator, model_validator
-
+from app.core.languages import SUPPORTED_CODES, language as language_key
 from app.database_pg import MAX_DELIVERY_BYTES
-
-
-class Login(BaseModel):
-    email: str = Field(max_length=160)
-    password: str = Field(max_length=1024)
-
-
-class UserCreate(BaseModel):
-    name: str = Field(min_length=2, max_length=160)
-    email: str = Field(min_length=3, max_length=160)
-    password: str = Field(min_length=6, max_length=128)
-    role: Literal['employee', 'translator', 'hr']
-
-    @field_validator('name', 'email', mode='before')
-    @classmethod
-    def trim_user(cls, value):
-        return value.strip() if isinstance(value, str) else value
-
-    @model_validator(mode='after')
-    def validate_user(self):
-        self.email = self.email.lower()
-        if not re.fullmatch(r'[^\s@\r\n]+@[^\s@\r\n]+\.[^\s@\r\n]+', self.email):
-            raise ValueError('E-mail inválido.')
-        if not self.name:
-            raise ValueError('Informe o nome do usuário.')
-        return self
-
+from app.models.translation_workflow import WorkflowType
 
 class Attachment(BaseModel):
+    """Representa um anexo e valida seu conteúdo real, não apenas a extensão."""
     name: str = Field(min_length=1, max_length=160)
     size: int = Field(gt=0, le=2 * 1024 * 1024)
     content: str = Field(max_length=2_800_000)
 
     @model_validator(mode='after')
     def validate_document(self):
+        """Confere nome, tamanho e assinatura do arquivo informado pelo cliente."""
         if any(char in self.name for char in ('/', '\\', '\r', '\n', '\x00')):
             raise ValueError('Nome de documento inválido.')
         extension = Path(self.name).suffix.lower()
@@ -73,6 +47,7 @@ class Attachment(BaseModel):
 
 
 class Intake(BaseModel):
+    """Valida os dados enviados pelo cliente ao pedir uma tradução."""
     name: str = Field(min_length=1, max_length=160)
     email: str = Field(min_length=3, max_length=160)
     company: str = Field(default='', max_length=160)
@@ -88,15 +63,19 @@ class Intake(BaseModel):
     @field_validator('name', 'email', 'company', 'title', 'service', 'source', 'target', 'deadline', 'message', mode='before')
     @classmethod
     def trim(cls, value):
+        """Remove espaços extras dos campos textuais da solicitação."""
         return value.strip() if isinstance(value, str) else value
 
     @model_validator(mode='after')
     def validate_intake(self):
+        """Aplica as regras que envolvem consentimento, idiomas e total dos anexos."""
         if not self.consent:
             raise ValueError('Autorize o contato para orçamento.')
         if not re.fullmatch(r'[^\s@\r\n]+@[^\s@\r\n]+\.[^\s@\r\n]+', self.email):
             raise ValueError('E-mail inválido.')
-        if self.source.casefold() == self.target.casefold():
+        if any(language_key(value) not in SUPPORTED_CODES for value in (self.source, self.target)):
+            raise ValueError('Selecione apenas idiomas disponíveis na lista.')
+        if language_key(self.source) == language_key(self.target):
             raise ValueError('Informe idiomas diferentes.')
         if sum(file.size for file in self.attachments) > 5 * 1024 * 1024:
             raise ValueError('Limite total de documentos: 5 MB.')
@@ -104,12 +83,14 @@ class Intake(BaseModel):
 
 
 class Quote(BaseModel):
+    """Valida valor, prazo e mensagem usados na proposta comercial."""
     amount: str = Field(min_length=1, max_length=12)
     delivery: str = Field(min_length=1, max_length=160)
     message: str = Field(default='', max_length=3000)
 
     @model_validator(mode='after')
     def validate_quote(self):
+        """Normaliza a proposta e garante que valor e prazo sejam válidos."""
         self.amount = self.amount.strip()
         self.delivery = self.delivery.strip()
         self.message = self.message.strip()
@@ -119,16 +100,20 @@ class Quote(BaseModel):
 
 
 class Update(BaseModel):
+    """Campos que a equipe pode alterar enquanto prepara o orçamento."""
     status: str | None = None
     quote: Quote | None = None
 
 
 class QuoteDecision(BaseModel):
+    """Resposta do cliente acompanhada pelo token recebido no e-mail."""
     token: str = Field(min_length=32, max_length=256)
     decision: Literal['approve', 'decline']
 
 
 class TranslatorAssignment(BaseModel):
+    workflowTemplateId: WorkflowType | None = None
+    """Dados necessários para transformar uma solicitação em tarefa."""
     translatorId: str = Field(min_length=1, max_length=160)
     deadline: str = Field(min_length=1, max_length=160)
     observations: str = Field(default='', max_length=3000)
@@ -136,15 +121,18 @@ class TranslatorAssignment(BaseModel):
     @field_validator('translatorId', 'deadline', 'observations', mode='before')
     @classmethod
     def trim_assignment(cls, value):
+        """Remove espaços dos dados usados na atribuição da tarefa."""
         return value.strip() if isinstance(value, str) else value
 
 
 class DeliveryReview(BaseModel):
+    """Decisão da equipe sobre uma versão enviada pelo tradutor."""
     decision: Literal['approve', 'request_revision']
     feedback: str = Field(default='', max_length=3000)
 
     @model_validator(mode='after')
     def validate_review(self):
+        """Exige uma orientação sempre que o documento voltar para revisão."""
         self.feedback = self.feedback.strip()
         if self.decision == 'request_revision' and not self.feedback:
             raise ValueError('Explique ao tradutor a revisão necessária.')
@@ -152,6 +140,7 @@ class DeliveryReview(BaseModel):
 
 
 def validate_delivery_document(name, content):
+    """Valida o arquivo traduzido pelo nome, tamanho e estrutura esperada do formato."""
     if not name or len(name) > 160 or any(char in name for char in ('/', '\\', '\r', '\n', '\x00')):
         raise HTTPException(422, 'Nome de documento inválido.')
     if not content or len(content) > MAX_DELIVERY_BYTES:

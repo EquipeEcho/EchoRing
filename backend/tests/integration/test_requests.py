@@ -1,109 +1,23 @@
-"""Testes de integração do fluxo completo de uma solicitação de tradução."""
+"""HTTP integration coverage for intake, profiles, quotes and deliveries."""
 
-import base64
 import hashlib
+import base64
 import os
 import smtplib
-import unittest
 import uuid
 from unittest.mock import patch
-
+from psycopg.types.json import Jsonb
 from fastapi.testclient import TestClient
-
 from main import app
-import requests_api
-import mongomock
-from app import mongo
-from app.repositories import translator_profile_store
-from app.services.email import service as email_service
+from app import database_pg as db
+from app.core import security
+from app.routes import requests_routes
+from app.services.email import quote_service
+
+from tests.support.portal_test_case import PortalTestCase
 
 
-class RequestsTests(unittest.TestCase):
-    """Cobre o fluxo de solicitações em um schema isolado para cada teste."""
-
-    def setUp(self):
-        """Prepara contas, cliente HTTP e dados básicos usados em cada cenário."""
-        self.schema = 'test_' + uuid.uuid4().hex
-        self.environment = patch.dict(os.environ, {
-            'POSTGRES_SCHEMA': self.schema,
-            'ADMIN_EMAIL': 'admin@example.test', 'ADMIN_PASSWORD': 'admin-password-long-enough',
-            'ADMIN_NAME': 'General Admin',
-            'STAFF_EMAIL': 'staff@example.test', 'STAFF_PASSWORD': 'test-password-long-enough',
-            'TRANSLATOR_EMAIL': 'translator@example.test', 'TRANSLATOR_PASSWORD': 'translator-password-long-enough',
-            'TRANSLATOR_NAME': 'Test Translator',
-            'SMTP_HOST': '', 'SMTP_FROM': '',
-            'EMAIL_DRY_RUN': 'false',
-            'AUTO_APPROVE_QUOTES': 'false',
-        })
-        self.environment.start()
-        self.mongo = patch.object(mongo, '_client', mongomock.MongoClient())
-        self.mongo.start()
-        requests_api._attempts.clear()
-        self.client = TestClient(app)
-        response = self.client.post('/staff/login', json={'email': 'staff@example.test', 'password': 'test-password-long-enough'})
-        self.staff_user = response.json()
-        self.token = self.staff_user['token']
-        self.headers = {'Authorization': 'Bearer ' + self.token}
-        raw = b'Test translation document'
-        self.intake = {
-            'name': 'Test Client', 'email': 'client@example.test', 'company': 'Test Company',
-            'title': 'Test manual', 'service': 'Technical translation', 'source': 'English', 'target': 'Portuguese',
-            'deadline': '', 'message': 'Please translate this document.', 'consent': True,
-            'attachments': [{'name': 'sample.txt', 'size': len(raw), 'content': base64.b64encode(raw).decode()}],
-        }
-        self.quote = {'amount': '350,50', 'delivery': '5 business days', 'message': 'Translation and revision included.'}
-
-    def tearDown(self):
-        """Fecha o cliente e remove do PostgreSQL tudo que o teste criou."""
-        self.client.close()
-        self.drop_schema(self.schema)
-        self.mongo.stop()
-        self.environment.stop()
-
-    def drop_schema(self, schema):
-        """Remove apenas schemas identificados como teste para proteger os demais dados."""
-        if not schema.startswith('test_'):
-            raise RuntimeError('Recusa ao remover schema que não pertence aos testes.')
-        connection = requests_api.postgres_connection()
-        try:
-            connection.execute(requests_api.sql.SQL('DROP SCHEMA IF EXISTS {} CASCADE').format(requests_api.sql.Identifier(schema)))
-            connection.commit()
-        finally:
-            connection.close()
-
-    def create(self):
-        """Cria uma solicitação válida e devolve seu identificador."""
-        result = self.client.post('/requests', json=self.intake)
-        self.assertEqual(result.status_code, 201)
-        return result.json()['id']
-
-    def save_quote(self, request_id):
-        """Salva a proposta padrão e confirma a entrada da solicitação em análise."""
-        result = self.client.patch('/requests/' + request_id, headers=self.headers, json={'quote': self.quote})
-        self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.json()['status'], 'Em análise')
-
-    def translator_session(self):
-        """Abre uma sessão de tradutor e devolve a conta junto com seu cabeçalho."""
-        response = self.client.post('/auth/login', json={
-            'email': 'translator@example.test', 'password': 'translator-password-long-enough',
-        })
-        self.assertEqual(response.status_code, 200)
-        session = response.json()
-        with requests_api.database() as connection:
-            translator = connection.execute('SELECT id FROM users WHERE email = ?', (session['email'],)).fetchone()
-        return {**session, 'id': translator['id']}, {'Authorization': 'Bearer ' + session['token']}
-
-    def create_service(self, translator_id, service_id='OS-TEST-001', status='Em andamento'):
-        """Insere uma tarefa diretamente para os testes focados em entrega e revisão."""
-        with requests_api.database() as connection:
-            connection.execute(
-                '''INSERT INTO services (id, request_id, title, translator_id, status, deadline, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                (service_id, 'SOL-' + service_id, 'Test manual', translator_id, status, '2026-10-01', requests_api.now()),
-            )
-        return service_id
-
+class RequestsTests(PortalTestCase):
     def test_public_intake_is_persistent_and_staff_only(self):
         """Garante persistência pública, leitura restrita e conteúdo oculto na listagem."""
         request_id = self.create()
@@ -116,6 +30,16 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(detail['attachments'], self.intake['attachments'])
         with TestClient(app) as second_client:
             self.assertEqual(second_client.get('/requests', headers=self.headers).json()[0]['id'], request_id)
+
+    def test_intake_accepts_document_variants_and_rejects_languages_outside_the_list(self):
+        for field in ('source', 'target'):
+            response = self.client.post('/requests', json={**self.intake, field: 'Bielorrusso'})
+            self.assertEqual(response.status_code, 422, response.text)
+        self.intake = {**self.intake, 'source': 'Inglês (Reino Unido)', 'target': 'Português (Portugal)'}
+        request_id = self.create()
+        detail = self.client.get('/requests/' + request_id, headers=self.headers).json()
+        self.assertEqual(detail['source'], 'Inglês (Reino Unido)')
+        self.assertEqual(detail['target'], 'Português (Portugal)')
 
     def test_translator_login_returns_role_and_cannot_access_staff_requests(self):
         """Confere a sessão do tradutor e o bloqueio das rotas exclusivas da equipe."""
@@ -146,7 +70,7 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(created.json()['role'], 'hr')
         self.assertNotIn('password', created.json())
         self.assertEqual(self.client.post('/users', headers=admin_headers, json=new_user).status_code, 409)
-        with requests_api.database() as connection:
+        with db.database() as connection:
             stored = connection.execute('SELECT password_hash FROM users WHERE email = ?', ('hr@example.test',)).fetchone()
             self.assertTrue(stored['password_hash'].startswith('pbkdf2_sha256$'))
             self.assertNotEqual(stored['password_hash'], new_user['password'])
@@ -158,32 +82,6 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(self.client.post('/users', headers=admin_headers, json={**new_user, 'email': 'short@example.test', 'password': 'short'}).status_code, 422)
         self.assertEqual(self.client.post('/users', headers=admin_headers, json={**new_user, 'email': 'six@example.test', 'password': 'senha6'}).status_code, 201)
         self.assertEqual(self.client.post('/users', headers=admin_headers, json={**new_user, 'email': 'other@example.test', 'role': 'admin'}).status_code, 422)
-
-    def invited_translator(self, email='invited@example.test'):
-        admin = self.client.post('/auth/login', json={'email': 'admin@example.test', 'password': 'admin-password-long-enough'}).json()
-        admin_headers = {'Authorization': 'Bearer ' + admin['token']}
-        created = self.client.post('/users', headers=admin_headers, json={
-            'name': 'Invited Translator', 'email': email, 'password': 'invited-translator-password', 'role': 'translator',
-        })
-        self.assertEqual(created.status_code, 201)
-        login = self.client.post('/auth/login', json={'email': email, 'password': 'invited-translator-password'})
-        self.assertEqual(login.status_code, 200)
-        return created.json(), login.json(), {'Authorization': 'Bearer ' + login.json()['token']}
-
-    def complete_profile(self):
-        return {
-            'fullName': 'Marina Costa', 'phone': '+55 (11) 99999-0000', 'whatsapp': True,
-            'country': 'Brasil', 'city': 'São Paulo', 'timezone': 'UTC-3',
-            'professionalTitle': 'Tradutora técnica', 'bio': 'Traduções com foco em comunicação clara.',
-            'languages': [{'name': 'Português', 'level': 'Nativo'}, {'name': 'Inglês', 'level': 'Fluente'}],
-            'translationPairs': [{'source': 'Inglês', 'target': 'Português'}],
-            'education': 'Graduação em Letras e formação complementar em tradução.',
-            'experienceYears': 0, 'experienceSummary': 'Projetos acadêmicos de tradução e revisão de textos técnicos.',
-            'specializations': ['Técnica', 'Tecnologia'], 'services': ['Tradução', 'Revisão'],
-            'tools': ['Editor de textos'], 'certifications': 'Curso de revisão, concluído em 2025.',
-            'portfolioLinks': ['https://example.test/portfolio'], 'availabilityHours': 20,
-            'availabilityNotes': 'Disponível em dias úteis.', 'otherInformation': 'Experiência com glossários.',
-        }
 
     def test_new_translator_must_complete_registration_and_profile_is_persistent(self):
         created, session, headers = self.invited_translator()
@@ -203,11 +101,6 @@ class RequestsTests(unittest.TestCase):
         partial = self.client.patch('/translator-profile/me', headers=headers, json={'city': 'São Paulo'})
         self.assertEqual(partial.status_code, 200)
         self.assertEqual(partial.json()['profile']['phone'], '+55 11 99999-0000')
-        profile_in_mongo = translator_profile_store.find_profile(created['id'])
-        self.assertEqual(profile_in_mongo['data']['city'], 'São Paulo')
-        self.assertIsNone(profile_in_mongo.get('completed_at'))
-        with requests_api.database() as connection:
-            self.assertIsNone(connection.execute("SELECT to_regclass('translator_profiles') AS profile_table").fetchone()['profile_table'])
         with TestClient(app) as second_client:
             restored = second_client.get('/translator-profile/me', headers=headers).json()
             self.assertEqual(restored['profile']['city'], 'São Paulo')
@@ -217,9 +110,6 @@ class RequestsTests(unittest.TestCase):
         self.assertFalse(saved.json()['account']['onboardingRequired'])
         self.assertIsNotNone(saved.json()['completedAt'])
         self.assertEqual(saved.json()['profile'], self.complete_profile())
-        profile_in_mongo = translator_profile_store.find_profile(created['id'])
-        self.assertEqual(profile_in_mongo['data'], self.complete_profile())
-        self.assertEqual(profile_in_mongo['completed_at'], saved.json()['completedAt'])
         self.assertFalse(self.client.get('/auth/me', headers=headers).json()['onboardingRequired'])
         self.assertEqual(self.client.get('/tasks', headers=headers).status_code, 200)
         self.assertIn(created['id'], {item['id'] for item in self.client.get('/translators', headers=self.headers).json()})
@@ -227,15 +117,38 @@ class RequestsTests(unittest.TestCase):
         self.assertFalse(login.json()['onboardingRequired'])
         self.assertEqual(login.json()['name'], 'Marina Costa')
 
+    def test_legacy_pairs_do_not_block_profile_reads_or_saves(self):
+        created, _, headers = self.invited_translator()
+        profile = self.complete_profile()
+        legacy = {**profile, 'translationPairs': [{'source': 'Inglês', 'target': 'Português'}]}
+        draft = self.client.patch('/translator-profile/me', headers=headers, json=legacy)
+        self.assertEqual(draft.status_code, 200, draft.text)
+        self.assertEqual(draft.json()['profile'], profile)
+        self.assertTrue(draft.json()['account']['onboardingRequired'])
+        completed = self.client.put('/translator-profile/me', headers=headers, json=profile)
+        self.assertEqual(completed.status_code, 200, completed.text)
+        with db.database() as connection:
+            connection.execute('UPDATE translator_profiles SET data = ? WHERE user_id = ?', (Jsonb(legacy), created['id']))
+        for path, auth in [('/translator-profile/me', headers),
+                           ('/translator-profile/' + created['id'], self.headers)]:
+            restored = self.client.get(path, headers=auth)
+            self.assertEqual(restored.status_code, 200, restored.text)
+            self.assertEqual(restored.json()['profile'], profile)
+            self.assertEqual(restored.json()['completedAt'], completed.json()['completedAt'])
+        saved = self.client.put('/translator-profile/me', headers=headers, json=legacy)
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertEqual(saved.json()['profile'], profile)
+        with db.database() as connection:
+            stored = connection.execute('SELECT data FROM translator_profiles WHERE user_id = ?', (created['id'],)).fetchone()
+            self.assertEqual(db.json_data(stored['data']), profile)
+
     def test_translator_profile_rejects_incomplete_invalid_and_forged_data(self):
         _, _, headers = self.invited_translator()
         for changes in [
             {'fullName': ''}, {'phone': 'invalid'}, {'city': ''}, {'country': ''},
             {'languages': [{'name': 'Inglês', 'level': 'Fluente'}]},
+            {'languages': [{'name': 'Português (Brasil)', 'level': 'Nativo'}, {'name': 'Klingon', 'level': 'Fluente'}]},
             {'languages': [{'name': 'English', 'level': 'Fluente'}, {'name': 'ENGLISH', 'level': 'Nativo'}]},
-            {'translationPairs': []}, {'translationPairs': [{'source': 'Inglês', 'target': 'Inglês'}]},
-            {'translationPairs': [{'source': 'Inglês', 'target': 'Latim'}]},
-            {'translationPairs': [{'source': 'Inglês', 'target': 'Português'}] * 2},
             {'education': ''}, {'experienceYears': None}, {'experienceYears': -1},
             {'experienceYears': True}, {'experienceSummary': ''}, {'specializations': []},
             {'portfolioLinks': ['javascript:alert(1)']}, {'portfolioLinks': ['https://user:password@example.test']},
@@ -263,6 +176,35 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(self.client.get('/tasks', headers=legacy_headers).status_code, 200)
         self.assertEqual(self.client.get('/translator-profile/me', headers=legacy_headers).json()['profile']['bio'], '')
 
+    def test_team_reads_translator_profile_and_activity_without_editing_or_cross_account_access(self):
+        admin = self.client.post('/auth/login', json={'email': 'admin@example.test', 'password': 'admin-password-long-enough'}).json()
+        admin_headers = {'Authorization': 'Bearer ' + admin['token']}
+        created, _, headers = self.invited_translator(admin_headers=admin_headers)
+        self.assertEqual(self.client.put('/translator-profile/me', headers=headers, json=self.complete_profile()).status_code, 200)
+        other, _, other_headers = self.invited_translator('other-profile@example.test', admin_headers=admin_headers)
+        with db.database() as connection:
+            for index, status in enumerate(['Tradutor atribuído', 'Em andamento', 'Revisão solicitada', 'Aguardando avaliação', 'Pronta', 'Entregue']):
+                connection.execute('INSERT INTO services (id, title, translator_id, status, created_at) VALUES (?, ?, ?, ?, ?)',
+                                   ('PROFILE-TASK-' + str(index), 'Profile project', created['id'], status, db.now()))
+            connection.execute('INSERT INTO services (id, title, translator_id, status, created_at) VALUES (?, ?, ?, ?, ?)',
+                               ('OTHER-PROFILE-TASK', 'Other project', other['id'], 'Entregue', db.now()))
+        route = '/translator-profile/' + created['id']
+        own = self.client.get('/translator-profile/me', headers=headers).json()
+        self.assertEqual(own['activity'], {'totalProjects': 6, 'activeProjects': 3, 'awaitingReview': 1, 'completedProjects': 2})
+        self.assertEqual(self.client.get(route).status_code, 401)
+        self.assertEqual(self.client.get(route, headers=other_headers).status_code, 403)
+        self.assertEqual(self.client.get('/translator-profile/' + other['id'], headers=headers).status_code, 403)
+        team = self.client.get(route, headers=self.headers)
+        self.assertEqual(team.status_code, 200)
+        self.assertEqual(team.json(), own)
+        self.assertEqual(self.client.put('/translator-profile/me', headers=self.headers, json=self.complete_profile()).status_code, 403)
+        self.assertEqual(self.client.get('/translator-profile/unknown', headers=self.headers).status_code, 404)
+        self.assertEqual(self.client.get('/translator-profile/' + other['id'], headers=self.headers).json()['activity']['totalProjects'], 1)
+        self.assertEqual(self.client.get(route, headers=admin_headers).status_code, 200)
+        self.client.post('/users', headers=admin_headers, json={'name': 'Profile HR', 'email': 'profile-hr@example.test', 'password': 'profile-hr-password', 'role': 'hr'})
+        hr = self.client.post('/auth/login', json={'email': 'profile-hr@example.test', 'password': 'profile-hr-password'}).json()
+        self.assertEqual(self.client.get(route, headers={'Authorization': 'Bearer ' + hr['token']}).status_code, 200)
+
     def test_rejects_invalid_consent_email_languages_and_documents(self):
         """Rejeita solicitações com campos inseguros, arquivos falsos ou corpo grande demais."""
         for changes in [{'consent': False}, {'email': 'bad\r\nBcc: example@test.local'}, {'target': 'English'}, {'name': '   '}, {'attachments': [{'name': 'fake.pdf', 'size': 3, 'content': 'YWJj'}]}, {'attachments': [{'name': '../sample.txt', 'size': 3, 'content': 'YWJj'}]}]:
@@ -274,9 +216,9 @@ class RequestsTests(unittest.TestCase):
         """Mantém o orçamento salvo quando o SMTP está ausente ou falha no envio."""
         request_id = self.create()
         self.save_quote(request_id)
-        with patch.object(requests_api, 'deliver_quote', wraps=requests_api.deliver_quote):
+        with patch.object(requests_routes, 'deliver_quote', wraps=quote_service.deliver_quote):
             self.assertEqual(self.client.post('/requests/' + request_id + '/send-quote', headers=self.headers).status_code, 503)
-        with patch.object(requests_api, 'deliver_quote', side_effect=smtplib.SMTPException('provider unavailable')):
+        with patch.object(requests_routes, 'deliver_quote', side_effect=smtplib.SMTPException('provider unavailable')):
             self.assertEqual(self.client.post('/requests/' + request_id + '/send-quote', headers=self.headers).status_code, 502)
         detail = self.client.get('/requests/' + request_id, headers=self.headers).json()
         self.assertEqual({key: detail['quote'][key] for key in self.quote}, self.quote)
@@ -287,7 +229,7 @@ class RequestsTests(unittest.TestCase):
         """Após o envio, bloqueia uma segunda mensagem e novas mudanças na proposta."""
         request_id = self.create()
         self.save_quote(request_id)
-        with patch.object(requests_api, 'deliver_quote') as delivery:
+        with patch.object(requests_routes, 'deliver_quote') as delivery:
             result = self.client.post('/requests/' + request_id + '/send-quote', headers=self.headers)
             self.assertEqual(result.status_code, 200)
             self.assertEqual(result.json()['status'], 'Orçamento enviado')
@@ -299,8 +241,8 @@ class RequestsTests(unittest.TestCase):
     def test_smtp_uses_tls_and_sends_to_request_email(self):
         """Confere TLS, destinatário, valor formatado e links no e-mail de orçamento."""
         data = {**self.intake, 'id': 'SOL-TEST', 'quote': self.quote}
-        with patch.dict(os.environ, {'SMTP_HOST': 'smtp.example.test', 'SMTP_FROM': 'staff@example.test', 'SMTP_SECURITY': 'starttls'}), patch.object(email_service.smtplib, 'SMTP') as smtp:
-            requests_api.deliver_quote(data)
+        with patch.dict(os.environ, {'SMTP_HOST': 'smtp.example.test', 'SMTP_FROM': 'staff@example.test', 'SMTP_SECURITY': 'starttls'}), patch.object(quote_service.smtplib, 'SMTP') as smtp:
+            quote_service.deliver_quote(data)
             connection = smtp.return_value.__enter__.return_value
             connection.starttls.assert_called_once()
             message = connection.send_message.call_args.args[0]
@@ -313,13 +255,13 @@ class RequestsTests(unittest.TestCase):
         """Cobre encerramento, expiração, limite de tentativas e conta inexistente."""
         self.assertEqual(self.client.post('/staff/logout', headers=self.headers).status_code, 200)
         self.assertEqual(self.client.get('/requests', headers=self.headers).status_code, 401)
-        with requests_api.database() as connection:
+        with db.database() as connection:
             connection.execute('INSERT INTO sessions (digest, expires) VALUES (?, ?)', (hashlib.sha256(b'expired').hexdigest(), 0))
         self.assertEqual(self.client.get('/requests', headers={'Authorization': 'Bearer expired'}).status_code, 401)
         for _ in range(4):
             self.assertEqual(self.client.post('/staff/login', json={'email': 'wrong', 'password': 'wrong'}).status_code, 401)
         self.assertEqual(self.client.post('/staff/login', json={'email': 'wrong', 'password': 'wrong'}).status_code, 429)
-        requests_api._attempts.clear()
+        security._attempts.clear()
         empty_schema = 'test_' + uuid.uuid4().hex
         with patch.dict(os.environ, {
             'POSTGRES_SCHEMA': empty_schema,
@@ -353,7 +295,7 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(delivery['translatorName'], 'Test Translator')
         self.assertNotIn('content', delivery)
 
-        with requests_api.database() as connection:
+        with db.database() as connection:
             stored = connection.execute('SELECT content FROM deliveries WHERE id = ?', (delivery['id'],)).fetchone()
             service = connection.execute('SELECT status FROM services WHERE id = ?', (service_id,)).fetchone()
         self.assertEqual(bytes(stored['content']), b'Translated document')
@@ -365,6 +307,38 @@ class RequestsTests(unittest.TestCase):
 
         other_service = self.create_service('another-translator', service_id='OS-TEST-002')
         self.assertEqual(self.client.post(f'/services/{other_service}/deliveries', headers=translator_headers, files=document).status_code, 403)
+
+    def test_delivery_accepts_multiple_documents_above_the_intake_body_limit(self):
+        translator, headers = self.translator_session()
+        service_id = self.create_service(translator['id'])
+        content = b'x' * (5 * 1024 * 1024)
+        response = self.client.post(f'/tasks/{service_id}/deliveries', headers=headers, files=[
+            ('files', ('part-one.txt', content, 'text/plain')),
+            ('files', ('part-two.txt', content, 'text/plain')),
+        ])
+        self.assertEqual(response.status_code, 201, response.text)
+        self.assertEqual([file['size'] for file in response.json()['files']], [len(content), len(content)])
+
+    def test_legacy_multi_document_deliveries_keep_all_files_available(self):
+        translator, headers = self.translator_session()
+        service_id = self.create_service(translator['id'])
+        response = self.client.post(f'/tasks/{service_id}/deliveries', headers=headers,
+            files={'file': ('first.txt', b'First document', 'text/plain')})
+        self.assertEqual(response.status_code, 201)
+        delivery_id = response.json()['id']
+        legacy = [{'name': name, 'media_type': 'text/plain', 'size': len(content),
+                   'content': base64.b64encode(content).decode('ascii')}
+                  for name, content in [('first.txt', b'First document'), ('second.txt', b'Second document')]]
+        with db.database() as connection:
+            connection.execute('DELETE FROM delivery_files WHERE delivery_id = ?', (delivery_id,))
+            connection.execute('UPDATE deliveries SET files = ? WHERE id = ?', (Jsonb(legacy), delivery_id))
+        detail = self.client.get(f'/deliveries/{delivery_id}', headers=self.headers)
+        self.assertEqual([file['name'] for file in detail.json()['files']], ['first.txt', 'second.txt'])
+        download = self.client.get(f'/deliveries/{delivery_id}/files/1', headers=self.headers)
+        self.assertEqual(download.status_code, 200)
+        self.assertEqual(download.content, b'Second document')
+        task = self.client.get(f'/tasks/{service_id}', headers=headers)
+        self.assertEqual(len(task.json()['lastDelivery']['files']), 2)
 
     def test_delivery_upload_rejects_unsafe_or_invalid_documents(self):
         """Bloqueia nomes perigosos, formatos falsos, extensões proibidas e arquivos vazios."""
@@ -461,11 +435,11 @@ class RequestsTests(unittest.TestCase):
     def test_complete_flow_secures_decision_assignment_revision_and_approval(self):
         """Percorre o fluxo completo e finaliza o serviço diretamente na aprovação."""
         translator, translator_headers = self.translator_session()
-        with requests_api.database() as connection:
+        with db.database() as connection:
             connection.execute(
                 '''INSERT INTO users (id, email, name, role, password_hash, active)
                    VALUES (?, ?, ?, 'translator', ?, TRUE)''',
-                ('other-translator', 'other@example.test', 'Other Translator', requests_api.hash_password('other-password-long-enough')),
+                ('other-translator', 'other@example.test', 'Other Translator', security.hash_password('other-password-long-enough')),
             )
         other_login = self.client.post('/auth/login', json={
             'email': 'other@example.test', 'password': 'other-password-long-enough',
@@ -480,7 +454,7 @@ class RequestsTests(unittest.TestCase):
             """Guarda o token que seria enviado por e-mail para simular a resposta do cliente."""
             sent_token['value'] = token
 
-        with patch.object(requests_api, 'deliver_quote', side_effect=capture_quote):
+        with patch.object(requests_routes, 'deliver_quote', side_effect=capture_quote):
             sent = self.client.post(f'/requests/{request_id}/send-quote', headers=self.headers)
         self.assertEqual(sent.status_code, 200)
         quote_id = sent.json()['quote']['id']
@@ -559,14 +533,13 @@ class RequestsTests(unittest.TestCase):
                          'Em andamento', 'Aguardando avaliação', 'Revisão solicitada', 'Entregue'):
             self.assertIn(expected, statuses)
 
-
     def test_auto_approve_quote_skips_email_for_local_workflow(self):
         """No modo local, aprova a proposta sem chamar o serviço de e-mail."""
         request_id = self.create()
         self.save_quote(request_id)
 
         with patch.dict(os.environ, {'AUTO_APPROVE_QUOTES': 'true'}), \
-             patch.object(requests_api, 'deliver_quote') as delivery:
+             patch.object(requests_routes, 'deliver_quote') as delivery:
             response = self.client.post(f'/requests/{request_id}/send-quote', headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
@@ -577,7 +550,3 @@ class RequestsTests(unittest.TestCase):
         delivery.assert_not_called()
         self.assertEqual(response.json()['history'][-1]['status'], 'Orçamento aprovado')
         self.assertIn('automática', response.json()['history'][-1]['note'])
-
-
-if __name__ == '__main__':
-    unittest.main()
