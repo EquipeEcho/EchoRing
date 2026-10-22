@@ -1,0 +1,170 @@
+import { router } from 'expo-router';
+import { UserPlus, Users } from 'lucide-react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeading } from '@/components/ui/page-heading';
+import { Txt } from '@/components/ui/text';
+import { useSession } from '@/features/auth/contexts/session-context';
+import { listClients } from '@/features/clients/services/client-service';
+import { type Client } from '@/features/clients/types';
+import { useCommonStyles } from '@/theme/common.styles';
+import { createThemedStyles } from '@/theme/create-themed-styles';
+import { useTheme } from '@/theme/theme-context';
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('pt-BR');
+}
+
+function statusTone(status: string): 'green' | 'amber' | 'red' | 'blue' | 'neutral' {
+  if (['Entregue', 'Pronta', 'Orçamento aprovado'].includes(status)) return 'green';
+  if (['Orçamento recusado', 'Revisão solicitada'].includes(status)) return 'red';
+  if (['Recebido', 'Em análise', 'Aguardando avaliação'].includes(status)) return 'amber';
+  if (['Tradutor atribuído', 'Em andamento', 'Orçamento enviado'].includes(status)) return 'blue';
+  return 'neutral';
+}
+
+export function ClientsListScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const common = useCommonStyles();
+  const { session } = useSession();
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    if (!session) return;
+    setLoading(true);
+    setError('');
+    try {
+      setClients(await listClients(session));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Não foi possível carregar os clientes.');
+    } finally {
+      setLoading(false);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const registerButton = (
+    <Button icon={UserPlus} onPress={() => router.push('/clientes/cadastrar')}>
+      Cadastrar cliente
+    </Button>
+  );
+
+  return (
+    <View style={styles.page}>
+      <PageHeading
+        title="Clientes"
+        subtitle="Clientes cadastrados na plataforma."
+        action={registerButton}
+      />
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.accent} />
+        </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <Txt accessibilityRole="alert" style={styles.error}>
+            {error}
+          </Txt>
+          <Button variant="secondary" onPress={() => void load()}>
+            Tentar novamente
+          </Button>
+        </View>
+      ) : clients.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="Nenhum cliente cadastrado"
+          text="Cadastre o primeiro cliente para vê-lo aqui."
+          action={registerButton}
+        />
+      ) : (
+        <View style={styles.list}>
+          <Txt style={common.caption}>
+            {clients.length} {clients.length === 1 ? 'cliente' : 'clientes'}
+          </Txt>
+          {clients.map((client) => (
+            <View key={client.id} style={styles.row}>
+              <View style={styles.clientCard}>
+                <View style={styles.clientHeader}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Txt style={styles.name}>{client.name}</Txt>
+                    <Txt style={common.caption}>{client.email}</Txt>
+                    {client.company ? <Txt style={common.caption}>{client.company}</Txt> : null}
+                  </View>
+                  <Txt style={common.caption}>{formatDate(client.createdAt)}</Txt>
+                </View>
+                <View style={styles.projects}>
+                  <Txt style={styles.projectsTitle}>Projetos ({client.projects.length})</Txt>
+                  {client.projects.length ? (
+                    client.projects.map((project) => (
+                      <View key={project.id} style={styles.project}>
+                        <View style={styles.projectCopy}>
+                          <Txt style={styles.projectName}>{project.title}</Txt>
+                          <Txt style={common.caption}>
+                            {project.service} · {formatDate(project.createdAt)}
+                          </Txt>
+                        </View>
+                        <Badge tone={statusTone(project.status)}>{project.status}</Badge>
+                      </View>
+                    ))
+                  ) : (
+                    <Txt style={common.caption}>Nenhum projeto cadastrado.</Txt>
+                  )}
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+const useStyles = createThemedStyles((colors) => ({
+  page: { width: '100%', maxWidth: 1200, alignSelf: 'center' },
+  center: { alignItems: 'center', gap: 14, paddingVertical: 44 },
+  list: { gap: 10 },
+  row: {
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    backgroundColor: colors.surface,
+  },
+  clientCard: { gap: 16 },
+  clientHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  projects: { gap: 10, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.line },
+  projectsTitle: { fontSize: 13, fontWeight: '600' },
+  project: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: colors.elevated,
+  },
+  projectCopy: { flex: 1, minWidth: 160, gap: 3 },
+  projectName: { fontSize: 14, lineHeight: 20, fontWeight: '500' },
+  name: { fontSize: 16, fontWeight: '600' },
+  error: {
+    color: colors.red,
+    fontSize: 13,
+    lineHeight: 20,
+    padding: 12,
+    backgroundColor: colors.redSoft,
+    borderRadius: 10,
+  },
+}));

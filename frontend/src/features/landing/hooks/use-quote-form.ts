@@ -5,6 +5,7 @@ import { initialIntake } from '@/features/landing/constants';
 import { selectDocuments } from '@/features/requests/services/document-picker';
 import { submitIntake } from '@/features/requests/services/request-service';
 import { type Intake, type TranslationRequest } from '@/features/requests/types';
+import { normalizeIntake, validateIntake } from '@/features/requests/utils/intake-validation';
 
 export function useQuoteForm(onScrollToQuote: () => void) {
   const [step, setStep] = useState(0);
@@ -35,19 +36,11 @@ export function useQuoteForm(onScrollToQuote: () => void) {
   }
   function advance() {
     if (step === 0) {
-      const missing = (['title', 'source', 'target', 'message'] as const).filter(
-        (key) => !data[key].trim(),
-      );
-      if (missing.length) {
-        setInvalid([...missing]);
-        setError('Preencha os campos obrigatórios para continuar.');
-        inputs.current[missing[0]]?.focus();
-        return;
-      }
-      if (data.source.trim().toLowerCase() === data.target.trim().toLowerCase()) {
-        setInvalid(['target']);
-        setError('Escolha um idioma de destino diferente do idioma de origem.');
-        inputs.current.target?.focus();
+      const validation = validateIntake(data, 'project');
+      if (validation.error) {
+        setInvalid(validation.invalid);
+        setError(validation.error);
+        inputs.current[validation.invalid[0]]?.focus();
         return;
       }
     }
@@ -58,37 +51,17 @@ export function useQuoteForm(onScrollToQuote: () => void) {
   }
   async function submit() {
     if (busy) return;
-    const missing = (['name', 'email', 'title', 'source', 'target', 'message'] as const).filter(
-      (key) => !data[key].trim(),
-    );
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim()) && !missing.includes('email'))
-      missing.push('email');
-    if (missing.length || !data.consent) {
-      setInvalid(missing);
-      setError(
-        'Preencha os campos obrigatórios, confira seu e-mail e autorize o contato para receber o orçamento.',
-      );
-      inputs.current[missing[0]]?.focus();
-      return;
-    }
-    if (data.source.trim().toLowerCase() === data.target.trim().toLowerCase()) {
-      setInvalid(['target']);
-      setError('Escolha um idioma de destino diferente do idioma de origem.');
-      inputs.current.target?.focus();
+    const validation = validateIntake(data);
+    if (validation.error) {
+      setInvalid(validation.invalid);
+      setError(validation.error);
+      inputs.current[validation.invalid[0]]?.focus();
       return;
     }
     setBusy(true);
     setError('');
     try {
-      const result = await submitIntake({
-        ...data,
-        name: data.name.trim(),
-        email: data.email.trim(),
-        title: data.title.trim(),
-        source: data.source.trim(),
-        target: data.target.trim(),
-        message: data.message.trim(),
-      });
+      const result = await submitIntake(normalizeIntake(data));
       setReceipt(result);
       onScrollToQuote();
     } catch (failure) {

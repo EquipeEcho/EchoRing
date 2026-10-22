@@ -12,6 +12,7 @@ import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from psycopg.types.json import Jsonb
+from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.core.email_service import deliver_quote
 from app.core.portal_auth import (
@@ -39,6 +40,7 @@ from app.core.workflow import (
 )
 from app.database_pg import database, environment_flag, json_data, now
 from app.models.translation import (
+    ClientCreate,
     Intake,
     Login,
     QuoteDecision,
@@ -47,6 +49,7 @@ from app.models.translation import (
     UserCreate,
 )
 from app.repositories import translator_profile_store as profile_store
+from app.repositories import client_store
 from translator_profiles import TranslatorProfileComplete, TranslatorProfileDraft
 
 router = APIRouter()
@@ -170,6 +173,46 @@ def complete_translator_profile(data: TranslatorProfileComplete, user: dict = De
     return translator_profile_record({**dict(current), 'name': data.fullName, 'onboarding_required': False})
 
 
+@router.get('/clients')
+def list_clients(user: dict = Depends(staff)):
+    clients = client_store.list_clients()
+    with database() as connection:
+        rows = connection.execute(
+            '''SELECT requests.data, services.id AS service_id, services.status AS service_status
+               FROM requests
+               LEFT JOIN services ON services.request_id = requests.id
+               ORDER BY requests.created_at DESC'''
+        ).fetchall()
+
+    projects_by_email = {}
+    for row in rows:
+        project = json_data(row['data'])
+        email = project.get('email', '').strip().lower()
+        if not email:
+            continue
+        projects_by_email.setdefault(email, []).append({
+            'id': project['id'],
+            'title': project['title'],
+            'service': project['service'],
+            'status': row['service_status'] or project['status'],
+            'requestStatus': project['status'],
+            'createdAt': project['createdAt'],
+        })
+
+    for client in clients:
+        client['projects'] = projects_by_email.get(client['email'].lower(), [])
+    return clients
+
+
+@router.post('/clients', status_code=201)
+def create_client(data: ClientCreate, user: dict = Depends(staff)):
+    client_id = 'CLI-' + secrets.token_hex(6).upper()
+    try:
+        return client_store.create_client(client_id, data, user['id'], datetime.now(timezone.utc))
+    except DuplicateKeyError as error:
+        raise HTTPException(409, 'Já existe um cliente cadastrado com este e-mail.') from error
+
+
 @router.post('/requests', status_code=201)
 def create_request(data: Intake, request: Request):
     throttle(request, 'intake', 10)
@@ -178,6 +221,38 @@ def create_request(data: Intake, request: Request):
     with database() as connection:
         connection.execute('INSERT INTO requests (id, data) VALUES (?, ?)', (record['id'], Jsonb(record)))
         add_event(connection, 'Recebido', request_id=record['id'], created_at=created_at)
+        response = sanitized_request(record, connection)
+    try:
+        client_store.upsert_quote_client(data, datetime.fromisoformat(created_at))
+    except PyMongoError as error:
+        raise HTTPException(
+            503,
+            f'A solicitação {record["id"]} foi recebida, mas não foi possível salvar os dados do cliente. '
+            'Entre em contato com a equipe informando este protocolo.',
+        ) from error
+    return response
+
+
+@router.post('/requests/manual', status_code=201)
+def create_manual_request(data: Intake, user: dict = Depends(staff)):
+    created_at = now()
+    record = {
+        **data.model_dump(),
+        'id': 'SOL-' + secrets.token_hex(6).upper(),
+        'createdAt': created_at,
+        'status': 'Recebido',
+        'demo': False,
+    }
+    with database() as connection:
+        connection.execute('INSERT INTO requests (id, data) VALUES (?, ?)', (record['id'], Jsonb(record)))
+        add_event(
+            connection,
+            'Recebido',
+            request_id=record['id'],
+            actor=user,
+            note='Cadastro manual do cliente.',
+            created_at=created_at,
+        )
         return sanitized_request(record, connection)
 
 

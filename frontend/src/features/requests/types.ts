@@ -14,6 +14,8 @@ export type Intake = {
   attachments: Attachment[];
 };
 
+export type IntakeTextField = 'name' | 'email' | 'company' | 'title' | 'message';
+
 export type Quote = { id?: string; amount: string; delivery: string; message: string };
 
 export type RequestStatus =
