@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { ChevronRight, Clock3, FileText, SearchX } from 'lucide-react-native';
 import { Pressable, useWindowDimensions, View } from 'react-native';
 
@@ -18,7 +18,8 @@ export function ProjectList({ projects }: { projects: Project[] }) {
   const styles = useStyles();
   const common = useCommonStyles();
   const { width } = useWindowDimensions();
-  const { setSelected, setSearch, search } = useWorkspace();
+  const pathname = usePathname();
+  const { setSearch, search } = useWorkspace();
   const wide = width >= 800;
   if (!projects.length)
     return (
@@ -57,7 +58,7 @@ export function ProjectList({ projects }: { projects: Project[] }) {
           onPress={() =>
             project.realTaskId
               ? router.push(`/entregas?task=${encodeURIComponent(project.realTaskId)}`)
-              : setSelected(project)
+              : router.push({ pathname: '/operacao/[id]', params: { id: project.id, origin: pathname === '/dashboard' ? 'dashboard' : 'operacao', ...(project.id === 'DEMO-TRAD-001' && { exemplo: 'tradutor' }) } })
           }
           style={({ hovered }) => [
             styles.projectRow,
@@ -77,6 +78,7 @@ export function ProjectList({ projects }: { projects: Project[] }) {
                 {project.client} · {project.id}
               </Txt>
               <Txt style={styles.languages}>{project.languages}</Txt>
+              {project.demo && <Badge tone="amber">Projeto demonstrativo</Badge>}
               {wide && <View
                 accessibilityRole="progressbar"
                 accessibilityLabel={`Andamento de ${project.title}`}

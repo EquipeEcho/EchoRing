@@ -1,69 +1,74 @@
-import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 import { useSession } from '@/features/auth/contexts/session-context';
 import { getAssignedServices } from '@/features/deliveries/services/delivery-service';
+import { type TranslationService } from '@/features/deliveries/types';
 import { initialProjects, initialTasks } from '@/features/workspace/data/demo-workspace';
-import { type Project, type Workspace } from '@/features/workspace/types';
+import { type Workspace } from '@/features/workspace/types';
 
 const WorkspaceContext = createContext<Workspace | null>(null);
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { session } = useSession();
+  const [services, setServices] = useState<TranslationService[]>([]);
   const [projects, setProjects] = useState(session?.demo ? initialProjects : []);
   const [tasks, setTasks] = useState(session?.demo ? initialTasks : []);
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<Project | null>(null);
-  const [newRequest, setNewRequest] = useState(false);
   const [revision, setRevision] = useState(0);
+  const refresh = useCallback(() => setRevision(current => current + 1), []);
   const [settledRevision, setSettledRevision] = useState(-1);
   const [failure, setFailure] = useState<{ revision: number; message: string } | null>(null);
   const loading = !!session?.token && session.role !== 'hr' && revision !== settledRevision;
   const loadError = failure?.revision === revision ? failure.message : '';
+  const applyServices = useCallback((services: TranslationService[]) => {
+    setFailure(null);
+    setServices(services);
+    setProjects(
+      services.map((service) => ({
+        id: service.id,
+        realTaskId: service.id,
+        title: service.title,
+        client: service.clientName || service.company || 'Cliente',
+        initials: (service.clientName || 'CL')
+          .split(/\s+/)
+          .slice(0, 2)
+          .map((value) => value[0])
+          .join('')
+          .toUpperCase(),
+        languages: `${service.source} → ${service.target}`,
+        status: service.status,
+        deadline: service.deadline || 'A definir',
+        owner: service.translator?.name || session?.name || '',
+        progress:
+          service.workflow?.progress ?? (service.status === 'Entregue'
+            ? 100
+            : service.status === 'Pronta'
+              ? 90
+              : service.status === 'Aguardando avaliação'
+                ? 75
+                : service.status === 'Em andamento'
+                  ? 40
+                  : 10),
+      })),
+    );
+    setTasks(
+      services.map((service) => ({
+        id: service.id,
+        realTaskId: service.id,
+        title: service.title,
+        project: service.id,
+        due: service.deadline || 'A definir',
+        done: ['Pronta', 'Entregue'].includes(service.status),
+      })),
+    );
+  }, [session?.name]);
   useEffect(() => {
     if (!session?.token || session.role === 'hr') return;
     let active = true;
     void getAssignedServices(session.token)
       .then((services) => {
         if (!active) return;
-        setFailure(null);
-        setProjects(
-          services.map((service) => ({
-            id: service.id,
-            realTaskId: service.id,
-            title: service.title,
-            client: service.clientName || service.company || 'Cliente',
-            initials: (service.clientName || 'CL')
-              .split(/\s+/)
-              .slice(0, 2)
-              .map((value) => value[0])
-              .join('')
-              .toUpperCase(),
-            languages: `${service.source} → ${service.target}`,
-            status: service.status,
-            deadline: service.deadline || 'A definir',
-            owner: service.translator?.name || session.name,
-            progress:
-              service.status === 'Entregue'
-                ? 100
-                : service.status === 'Pronta'
-                  ? 90
-                  : service.status === 'Aguardando avaliação'
-                    ? 75
-                    : service.status === 'Em andamento'
-                      ? 40
-                      : 10,
-          })),
-        );
-        setTasks(
-          services.map((service) => ({
-            id: service.id,
-            realTaskId: service.id,
-            title: service.title,
-            project: service.id,
-            due: service.deadline || 'A definir',
-            done: ['Pronta', 'Entregue'].includes(service.status),
-          })),
-        );
+        applyServices(services);
       })
       .catch((error: unknown) => {
         if (active) {
@@ -76,7 +81,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [session, revision]);
+  }, [applyServices, session, revision]);
   function addRequest(data: { title: string; client: string; languages: string }) {
     setProjects((current) => [
       {
@@ -95,22 +100,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       },
       ...current,
     ]);
-    setNewRequest(false);
   }
   return (
     <WorkspaceContext.Provider
       value={{
+        services,
+        applyServices,
         loading,
         loadError,
-        refresh: () => setRevision(current => current + 1),
+        refresh,
         projects,
         tasks,
         search,
         setSearch,
-        selected,
-        setSelected,
-        newRequest,
-        setNewRequest,
         addRequest,
         toggleTask: (id) =>
           setTasks((current) =>

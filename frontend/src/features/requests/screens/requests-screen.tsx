@@ -1,3 +1,4 @@
+import { currencyInputFromDecimal, formatCurrencyInput } from '@/utils/input-formatters';
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -13,16 +14,18 @@ import {
   Send,
   UserCheck,
 } from 'lucide-react-native';
-import { Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { TextInput } from '@/components/ui/text-input';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog } from '@/components/ui/dialog';
+import { RecordPage } from '@/features/workspace/components/record-page';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DateSelectField } from '@/components/ui/fields/date-select-field';
 import { formatSelectedDate } from '@/components/ui/fields/date-utils';
 import { PageHeading } from '@/components/ui/page-heading';
 import { Txt } from '@/components/ui/text';
+import { StaffOfferManager } from '@/features/offers/components/staff-offer-manager';
 import { useRequestWorkflow } from '@/features/requests/hooks/use-request-workflow';
 import { useStyles } from '@/features/requests/styles/requests.styles';
 import { downloadDocument } from '@/lib/documents/download';
@@ -36,6 +39,7 @@ export function RequestsScreen() {
   const common = useCommonStyles();
   const { width } = useWindowDimensions();
   const {
+    requestId, detailLoading, reloadDetail, listHref,
     loading,
     refresh,
     requests,
@@ -67,12 +71,314 @@ export function RequestsScreen() {
     notice,
     save,
     prepare,
-    translators,
-    assignment,
-    setAssignment,
-    createTask,
     send,
   } = useRequestWorkflow();
+  if (requestId) return <RecordPage key={requestId}
+    title={confirm ? token ? 'Revisar e enviar orçamento' : 'Revisar simulação' : 'Detalhes da solicitação'}
+    eyebrow={requestId} description="Dados do pedido, documentos, orçamento e acompanhamento."
+    backLabel={confirm ? 'Voltar à solicitação' : 'Voltar às solicitações'} backHref={listHref}
+    onBack={confirm ? () => setConfirm(false) : close} busy={busy} loading={detailLoading && !selected}
+    error={!selected ? error || (!detailLoading ? 'Solicitação não encontrada.' : '') : undefined} onRetry={reloadDetail}>
+        {selected && !confirm && (
+          <>
+            <View style={[styles.requestHero, width < 600 && styles.requestHeroSmall]}>
+              <View style={[styles.requestHeroCopy, width < 600 && styles.requestHeroCopySmall]}>
+                <Badge
+                  tone={locked ? 'blue' : selected.status === 'Em análise' ? 'amber' : 'green'}
+                >
+                  {selected.status}
+                </Badge>
+                <Txt style={[styles.detailTitle, width < 600 && styles.detailTitleSmall]}>
+                  {selected.title}
+                </Txt>
+              </View>
+              {selected.status === 'Recebido' && (
+                <Button
+                  style={width < 600 && styles.requestHeroActionSmall}
+                  variant="secondary"
+                  icon={CheckCircle2}
+                  loading={busy}
+                  onPress={() => void analyze()}
+                >
+                  Iniciar análise
+                </Button>
+              )}
+            </View>
+            <View style={styles.contactStrip}>
+              <View style={styles.contactAvatar}>
+                <Txt style={styles.contactInitials}>
+                  {selected.name
+                    .split(/\s+/)
+                    .slice(0, 2)
+                    .map((part) => part[0])
+                    .join('')
+                    .toUpperCase() || '?'}
+                </Txt>
+              </View>
+              <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                <Txt style={styles.contactName}>{selected.name || 'Cliente não informado'}</Txt>
+                <Txt selectable style={styles.contactEmail}>
+                  {selected.email}
+                </Txt>
+              </View>
+              {!!selected.company && <Txt style={common.caption}>{selected.company}</Txt>}
+            </View>
+            <View style={styles.detailGrid}>
+              {[
+                ['Serviço', selected.service],
+                ['Idiomas', `${selected.source} → ${selected.target}`],
+                [
+                  'Prazo desejado',
+                  selected.deadline ? formatSelectedDate(selected.deadline) : 'Não informado',
+                ],
+              ].map(([label, value]) => (
+                <View key={label} style={styles.detailCell}>
+                  <Txt style={styles.detailLabel}>{label}</Txt>
+                  <Txt style={styles.detailValue}>{value}</Txt>
+                </View>
+              ))}
+            </View>
+            <View style={styles.sectionBlock}>
+              <Txt style={styles.sectionEyebrow}>CONTEXTO DO PROJETO</Txt>
+              <Txt selectable style={styles.projectMessage}>
+                {selected.message}
+              </Txt>
+            </View>
+            <View style={styles.documents}>
+              <View style={styles.sectionHeading}>
+                <View>
+                  <Txt style={styles.sectionEyebrow}>DOCUMENTOS</Txt>
+                  <Txt style={styles.sectionTitle}>
+                    {selected.attachments.length}{' '}
+                    {selected.attachments.length === 1 ? 'arquivo recebido' : 'arquivos recebidos'}
+                  </Txt>
+                </View>
+                <FileText size={21} color={colors.muted} />
+              </View>
+              {selected.attachments.map((file, index) => (
+                <Pressable
+                  key={file.name + index}
+                  accessibilityRole="button"
+                  accessibilityLabel={file.name}
+                  onPress={() => downloadDocument(file)}
+                  style={styles.documentRow}
+                >
+                  <View style={styles.documentIcon}>
+                    <Download size={17} color={colors.accent} />
+                  </View>
+                  <Txt numberOfLines={1} style={{ flex: 1, fontSize: 13, fontWeight: '600' }}>
+                    {file.name}
+                  </Txt>
+                  <Txt style={common.caption}>Baixar</Txt>
+                </Pressable>
+              ))}
+              {!selected.attachments.length && (
+                <Txt style={common.caption}>
+                  Nenhum documento anexado. Solicite o material ao cliente, se necessário.
+                </Txt>
+              )}
+            </View>
+            <View style={styles.quotePanel}>
+              <View style={styles.quoteHeading}>
+                <View style={styles.quoteIcon}>
+                  <Mail size={20} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Txt style={styles.sectionEyebrow}>
+                    {locked ? 'PROPOSTA FINAL' : 'ETAPA COMERCIAL'}
+                  </Txt>
+                  <Txt style={styles.quoteTitle}>
+                    {locked ? 'Orçamento registrado' : 'Prepare a proposta'}
+                  </Txt>
+                </View>
+              </View>
+              <View style={[styles.quoteFields, width < 650 && { flexDirection: 'column' }]}>
+                <View style={styles.quoteField}>
+                  <Txt style={styles.label}>Valor do orçamento (R$)</Txt>
+                  <TextInput
+                    accessibilityLabel="Valor do orçamento (R$)"
+                    value={quote.amount}
+                    onChangeText={(value) => {
+                      setQuote((current) => ({ ...current, amount: formatCurrencyInput(value) }));
+                      setNotice('');
+                    }}
+                    placeholder="Ex.: 350,00"
+                    placeholderTextColor={colors.muted}
+                    editable={!locked && !busy}
+                    keyboardType="decimal-pad"
+                    onBlur={() => setQuote(current => ({ ...current, amount: currencyInputFromDecimal(current.amount) }))}
+                    maxLength={18}
+                    style={styles.input}
+                  />
+                </View>
+                <DateSelectField
+                  compact={width < 650}
+                  label="Prazo de entrega"
+                  value={quote.delivery}
+                  onChange={(value) => {
+                    setQuote((current) => ({ ...current, delivery: value }));
+                    setNotice('');
+                  }}
+                  disabled={locked || busy}
+                />
+              </View>
+              <View style={styles.quoteField}>
+                <Txt style={styles.label}>Mensagem ao cliente</Txt>
+                <TextInput
+                  accessibilityLabel="Mensagem ao cliente"
+                  value={quote.message}
+                  onChangeText={(value) => {
+                    setQuote((current) => ({ ...current, message: value }));
+                    setNotice('');
+                  }}
+                  placeholder="Escopo, condições e próximos passos"
+                  placeholderTextColor={colors.muted}
+                  editable={!locked && !busy}
+                  multiline
+                  maxLength={3000}
+                  style={[styles.input, styles.textarea]}
+                />
+              </View>
+              {!!notice && (
+                <Txt accessibilityLiveRegion="polite" testID="quote-notice" style={styles.notice}>
+                  {notice}
+                </Txt>
+              )}
+              {!!error && (
+                <Txt accessibilityRole="alert" style={styles.error}>
+                  {error}
+                </Txt>
+              )}
+              {!locked && (
+                <View style={styles.modalActions}>
+                  <Button
+                    variant="secondary"
+                    icon={Save}
+                    loading={busy}
+                    onPress={() => void save()}
+                  >
+                    Salvar rascunho
+                  </Button>
+                  <Button icon={Send} disabled={busy} onPress={() => void prepare()}>
+                    {token ? 'Revisar e enviar por e-mail' : 'Revisar envio simulado'}
+                  </Button>
+                </View>
+              )}
+            </View>
+            {selected.status === 'Orçamento enviado' && (
+              <View style={styles.waiting}>
+                <Mail size={20} color={colors.blue} />
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Txt style={{ fontWeight: '600' }}>Aguardando a resposta do cliente</Txt>
+                  <Txt style={common.caption}>
+                    O e-mail contém links pessoais para aprovar ou recusar. Atualize a lista para
+                    consultar a decisão.
+                  </Txt>
+                </View>
+              </View>
+            )}
+            {selected.status === 'Orçamento recusado' && (
+              <View style={styles.waiting}>
+                <Txt style={{ color: colors.amber }}>
+                  O cliente recusou este orçamento. A tarefa não pode ser criada.
+                </Txt>
+              </View>
+            )}
+            {token && (selected.status === 'Orçamento aprovado' || selected.task) && (
+              <StaffOfferManager key={selected.id} request={selected} token={token} onChanged={reloadDetail} />
+            )}
+            {selected.task && (
+              <View style={styles.waiting}>
+                <UserCheck size={20} color={colors.green} />
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Txt style={{ fontWeight: '600' }}>{selected.task.translator.name}</Txt>
+                  <Txt style={common.caption}>
+                    {selected.task.id} · {selected.task.status} · prazo{' '}
+                    {formatSelectedDate(selected.task.deadline)}
+                  </Txt>
+                </View>
+              </View>
+            )}
+            {selected.emailSentAt && (
+              <Txt style={common.caption}>
+                Aceito pelo provedor em {new Date(selected.emailSentAt).toLocaleString('pt-BR')}. A
+                entrega na caixa de entrada depende do provedor.
+              </Txt>
+            )}
+            {!!selected.history?.length && (
+              <View style={styles.history}>
+                <View style={common.row}>
+                  <History size={18} color={colors.accent} />
+                  <Txt style={styles.sectionEyebrow}>HISTÓRICO</Txt>
+                </View>
+                {selected.history.map((event, index) => (
+                  <View key={`${event.createdAt}-${index}`} style={styles.historyRow}>
+                    <View style={styles.historyDot} />
+                    <View style={{ flex: 1 }}>
+                      <Txt style={{ fontSize: 13, fontWeight: '600' }}>{event.status}</Txt>
+                      <Txt style={common.caption}>
+                        {event.actorName} · {new Date(event.createdAt).toLocaleString('pt-BR')}
+                        {event.note ? ` · ${event.note}` : ''}
+                      </Txt>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+            {!token && (
+              <Txt style={common.caption}>Prévia local. A simulação não envia e-mails.</Txt>
+            )}
+
+          </>
+        )}
+        {confirm && (
+          <>
+            <View style={styles.reviewBanner}>
+              <Badge tone="amber">
+                {token ? 'Confira antes de enviar' : 'Prévia local · nenhum e-mail será enviado'}
+              </Badge>
+              <Txt style={common.caption}>
+                Depois da confirmação, o status desta solicitação será atualizado.
+              </Txt>
+            </View>
+            <View style={styles.reviewRecipient}>
+              <Txt style={styles.detailLabel}>DESTINATÁRIO</Txt>
+              <Txt selectable style={styles.reviewEmail}>
+                {selected?.email}
+              </Txt>
+              <Txt style={styles.reviewTitle}>{selected?.title}</Txt>
+            </View>
+            <View style={styles.reviewTerms}>
+              <View>
+                <Txt style={styles.detailLabel}>VALOR</Txt>
+                <Txt style={styles.reviewAmount}>{money(quote.amount)}</Txt>
+              </View>
+              <View>
+                <Txt style={styles.detailLabel}>PRAZO</Txt>
+                <Txt style={styles.detailValue}>{formatSelectedDate(quote.delivery)}</Txt>
+              </View>
+            </View>
+            <View style={styles.sectionBlock}>
+              <Txt style={styles.sectionEyebrow}>MENSAGEM AO CLIENTE</Txt>
+              <Txt style={styles.projectMessage}>{quote.message}</Txt>
+            </View>
+            {!!error && (
+              <Txt accessibilityRole="alert" style={styles.error}>
+                {error}
+              </Txt>
+            )}
+            <View style={styles.modalActions}>
+              <Button variant="secondary" disabled={busy} onPress={() => setConfirm(false)}>
+                Voltar e editar
+              </Button>
+              <Button icon={ArrowUpRight} loading={busy} onPress={() => void send()}>
+                {token ? 'Confirmar envio' : 'Confirmar simulação'}
+              </Button>
+            </View>
+          </>
+        )}
+
+  </RecordPage>;
   return (
     <ScrollView
       contentContainerStyle={[styles.page, width < 700 && { padding: 20 }]}
@@ -223,7 +529,7 @@ export function RequestsScreen() {
                 <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
                   <Txt style={styles.requestTitle}>{request.title}</Txt>
                   <Txt style={common.caption}>
-                    {request.name}
+                    {request.name || 'Cliente não informado'}
                     {request.company ? ` · ${request.company}` : ''}
                   </Txt>
                   <Txt style={styles.requestMeta}>
@@ -274,404 +580,7 @@ export function RequestsScreen() {
           }
         />
       )}
-      <Dialog
-        open={!!selected}
-        onClose={() => {
-          if (busy) return;
-          if (confirm) setConfirm(false);
-          else close();
-        }}
-        size="wide"
-        eyebrow={selected?.id}
-        title={
-          confirm
-            ? token
-              ? 'Revisar e enviar orçamento'
-              : 'Revisar simulação'
-            : 'Detalhes da solicitação'
-        }
-        description={
-          confirm
-            ? 'Confira os dados finais antes de continuar.'
-            : 'Dados recebidos pelo formulário de orçamento.'
-        }
-      >
-        {selected && !confirm && (
-          <>
-            <View style={[styles.requestHero, width < 600 && styles.requestHeroSmall]}>
-              <View style={[styles.requestHeroCopy, width < 600 && styles.requestHeroCopySmall]}>
-                <Badge
-                  tone={locked ? 'blue' : selected.status === 'Em análise' ? 'amber' : 'green'}
-                >
-                  {selected.status}
-                </Badge>
-                <Txt style={[styles.detailTitle, width < 600 && styles.detailTitleSmall]}>
-                  {selected.title}
-                </Txt>
-              </View>
-              {selected.status === 'Recebido' && (
-                <Button
-                  style={width < 600 && styles.requestHeroActionSmall}
-                  variant="secondary"
-                  icon={CheckCircle2}
-                  loading={busy}
-                  onPress={() => void analyze()}
-                >
-                  Iniciar análise
-                </Button>
-              )}
-            </View>
-            <View style={styles.contactStrip}>
-              <View style={styles.contactAvatar}>
-                <Txt style={styles.contactInitials}>
-                  {selected.name
-                    .split(/\s+/)
-                    .slice(0, 2)
-                    .map((part) => part[0])
-                    .join('')
-                    .toUpperCase()}
-                </Txt>
-              </View>
-              <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-                <Txt style={styles.contactName}>{selected.name}</Txt>
-                <Txt selectable style={styles.contactEmail}>
-                  {selected.email}
-                </Txt>
-              </View>
-              {!!selected.company && <Txt style={common.caption}>{selected.company}</Txt>}
-            </View>
-            <View style={styles.detailGrid}>
-              {[
-                ['Serviço', selected.service],
-                ['Idiomas', `${selected.source} → ${selected.target}`],
-                [
-                  'Prazo desejado',
-                  selected.deadline ? formatSelectedDate(selected.deadline) : 'Não informado',
-                ],
-              ].map(([label, value]) => (
-                <View key={label} style={styles.detailCell}>
-                  <Txt style={styles.detailLabel}>{label}</Txt>
-                  <Txt style={styles.detailValue}>{value}</Txt>
-                </View>
-              ))}
-            </View>
-            <View style={styles.sectionBlock}>
-              <Txt style={styles.sectionEyebrow}>CONTEXTO DO PROJETO</Txt>
-              <Txt selectable style={styles.projectMessage}>
-                {selected.message}
-              </Txt>
-            </View>
-            <View style={styles.documents}>
-              <View style={styles.sectionHeading}>
-                <View>
-                  <Txt style={styles.sectionEyebrow}>DOCUMENTOS</Txt>
-                  <Txt style={styles.sectionTitle}>
-                    {selected.attachments.length}{' '}
-                    {selected.attachments.length === 1 ? 'arquivo recebido' : 'arquivos recebidos'}
-                  </Txt>
-                </View>
-                <FileText size={21} color={colors.muted} />
-              </View>
-              {selected.attachments.map((file, index) => (
-                <Pressable
-                  key={file.name + index}
-                  accessibilityRole="button"
-                  accessibilityLabel={file.name}
-                  onPress={() => downloadDocument(file)}
-                  style={styles.documentRow}
-                >
-                  <View style={styles.documentIcon}>
-                    <Download size={17} color={colors.accent} />
-                  </View>
-                  <Txt numberOfLines={1} style={{ flex: 1, fontSize: 13, fontWeight: '600' }}>
-                    {file.name}
-                  </Txt>
-                  <Txt style={common.caption}>Baixar</Txt>
-                </Pressable>
-              ))}
-              {!selected.attachments.length && (
-                <Txt style={common.caption}>
-                  Nenhum documento anexado. Solicite o material ao cliente, se necessário.
-                </Txt>
-              )}
-            </View>
-            <View style={styles.quotePanel}>
-              <View style={styles.quoteHeading}>
-                <View style={styles.quoteIcon}>
-                  <Mail size={20} color={colors.accent} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Txt style={styles.sectionEyebrow}>
-                    {locked ? 'PROPOSTA FINAL' : 'ETAPA COMERCIAL'}
-                  </Txt>
-                  <Txt style={styles.quoteTitle}>
-                    {locked ? 'Orçamento registrado' : 'Prepare a proposta'}
-                  </Txt>
-                </View>
-              </View>
-              <View style={[styles.quoteFields, width < 650 && { flexDirection: 'column' }]}>
-                <View style={styles.quoteField}>
-                  <Txt style={styles.label}>Valor do orçamento (R$)</Txt>
-                  <TextInput
-                    accessibilityLabel="Valor do orçamento (R$)"
-                    value={quote.amount}
-                    onChangeText={(value) => {
-                      setQuote((current) => ({ ...current, amount: value }));
-                      setNotice('');
-                    }}
-                    placeholder="Ex.: 350,00"
-                    placeholderTextColor={colors.muted}
-                    editable={!locked && !busy}
-                    keyboardType="decimal-pad"
-                    maxLength={12}
-                    style={styles.input}
-                  />
-                </View>
-                <DateSelectField
-                  compact={width < 650}
-                  label="Prazo de entrega"
-                  value={quote.delivery}
-                  onChange={(value) => {
-                    setQuote((current) => ({ ...current, delivery: value }));
-                    setNotice('');
-                  }}
-                  disabled={locked || busy}
-                />
-              </View>
-              <View style={styles.quoteField}>
-                <Txt style={styles.label}>Mensagem ao cliente</Txt>
-                <TextInput
-                  accessibilityLabel="Mensagem ao cliente"
-                  value={quote.message}
-                  onChangeText={(value) => {
-                    setQuote((current) => ({ ...current, message: value }));
-                    setNotice('');
-                  }}
-                  placeholder="Escopo, condições e próximos passos"
-                  placeholderTextColor={colors.muted}
-                  editable={!locked && !busy}
-                  multiline
-                  maxLength={3000}
-                  style={[styles.input, styles.textarea]}
-                />
-              </View>
-              {!!notice && (
-                <Txt accessibilityLiveRegion="polite" testID="quote-notice" style={styles.notice}>
-                  {notice}
-                </Txt>
-              )}
-              {!!error && (
-                <Txt accessibilityRole="alert" style={styles.error}>
-                  {error}
-                </Txt>
-              )}
-              {!locked && (
-                <View style={styles.modalActions}>
-                  <Button
-                    variant="secondary"
-                    icon={Save}
-                    loading={busy}
-                    onPress={() => void save()}
-                  >
-                    Salvar rascunho
-                  </Button>
-                  <Button icon={Send} disabled={busy} onPress={() => void prepare()}>
-                    {token ? 'Revisar e enviar por e-mail' : 'Revisar envio simulado'}
-                  </Button>
-                </View>
-              )}
-            </View>
-            {selected.status === 'Orçamento enviado' && (
-              <View style={styles.waiting}>
-                <Mail size={20} color={colors.blue} />
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Txt style={{ fontWeight: '600' }}>Aguardando a resposta do cliente</Txt>
-                  <Txt style={common.caption}>
-                    O e-mail contém links pessoais para aprovar ou recusar. Atualize a lista para
-                    consultar a decisão.
-                  </Txt>
-                </View>
-              </View>
-            )}
-            {selected.status === 'Orçamento recusado' && (
-              <View style={styles.waiting}>
-                <Txt style={{ color: colors.amber }}>
-                  O cliente recusou este orçamento. A tarefa não pode ser criada.
-                </Txt>
-              </View>
-            )}
-            {selected.status === 'Orçamento aprovado' && token && !selected.task && (
-              <View style={styles.assignment}>
-                <View style={styles.quoteHeading}>
-                  <View style={styles.quoteIcon}>
-                    <UserCheck size={20} color={colors.accent} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Txt style={styles.sectionEyebrow}>ALOCAÇÃO</Txt>
-                    <Txt style={styles.quoteTitle}>Escolha o tradutor</Txt>
-                  </View>
-                </View>
-                <View style={styles.translatorList}>
-                  {translators.map((translator) => (
-                    <Pressable
-                      key={translator.id}
-                      accessibilityRole="radio"
-                      accessibilityLabel={`Tradutor: ${translator.name}`}
-                      accessibilityState={{ checked: assignment.translatorId === translator.id }}
-                      onPress={() =>
-                        setAssignment((current) => ({ ...current, translatorId: translator.id }))
-                      }
-                      style={[
-                        styles.translator,
-                        assignment.translatorId === translator.id && styles.translatorActive,
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.radio,
-                          assignment.translatorId === translator.id && styles.radioActive,
-                        ]}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Txt style={{ fontWeight: '600' }}>{translator.name}</Txt>
-                        <Txt style={common.caption}>{translator.email}</Txt>
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-                {!translators.length && (
-                  <Txt style={common.caption}>
-                    Nenhum tradutor ativo. Peça ao administrador para cadastrar ou ativar uma conta
-                    de tradutor.
-                  </Txt>
-                )}
-                <DateSelectField
-                  compact
-                  label="Prazo da tarefa"
-                  value={assignment.deadline}
-                  onChange={(deadline) => setAssignment((current) => ({ ...current, deadline }))}
-                  disabled={busy}
-                />
-                <View style={styles.quoteField}>
-                  <Txt style={styles.label}>Observações para o tradutor (opcional)</Txt>
-                  <TextInput
-                    accessibilityLabel="Observações para o tradutor"
-                    value={assignment.observations}
-                    onChangeText={(observations) =>
-                      setAssignment((current) => ({ ...current, observations }))
-                    }
-                    placeholder="Escopo, terminologia e cuidados específicos"
-                    placeholderTextColor={colors.muted}
-                    multiline
-                    maxLength={3000}
-                    style={[styles.input, styles.textarea]}
-                  />
-                </View>
-                <Button
-                  icon={UserCheck}
-                  loading={busy}
-                  disabled={!translators.length}
-                  onPress={() => void createTask()}
-                >
-                  Criar tarefa e atribuir
-                </Button>
-              </View>
-            )}
-            {selected.task && (
-              <View style={styles.waiting}>
-                <UserCheck size={20} color={colors.green} />
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Txt style={{ fontWeight: '600' }}>{selected.task.translator.name}</Txt>
-                  <Txt style={common.caption}>
-                    {selected.task.id} · {selected.task.status} · prazo{' '}
-                    {formatSelectedDate(selected.task.deadline)}
-                  </Txt>
-                </View>
-              </View>
-            )}
-            {selected.emailSentAt && (
-              <Txt style={common.caption}>
-                Aceito pelo provedor em {new Date(selected.emailSentAt).toLocaleString('pt-BR')}. A
-                entrega na caixa de entrada depende do provedor.
-              </Txt>
-            )}
-            {!!selected.history?.length && (
-              <View style={styles.history}>
-                <View style={common.row}>
-                  <History size={18} color={colors.accent} />
-                  <Txt style={styles.sectionEyebrow}>HISTÓRICO</Txt>
-                </View>
-                {selected.history.map((event, index) => (
-                  <View key={`${event.createdAt}-${index}`} style={styles.historyRow}>
-                    <View style={styles.historyDot} />
-                    <View style={{ flex: 1 }}>
-                      <Txt style={{ fontSize: 13, fontWeight: '600' }}>{event.status}</Txt>
-                      <Txt style={common.caption}>
-                        {event.actorName} · {new Date(event.createdAt).toLocaleString('pt-BR')}
-                        {event.note ? ` · ${event.note}` : ''}
-                      </Txt>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-            {!token && (
-              <Txt style={common.caption}>Prévia local. A simulação não envia e-mails.</Txt>
-            )}
-            <View style={styles.modalActions}>
-              <Button variant="ghost" disabled={busy} onPress={close}>
-                Fechar solicitação
-              </Button>
-            </View>
-          </>
-        )}
-        {confirm && (
-          <>
-            <View style={styles.reviewBanner}>
-              <Badge tone="amber">
-                {token ? 'Confira antes de enviar' : 'Prévia local · nenhum e-mail será enviado'}
-              </Badge>
-              <Txt style={common.caption}>
-                Depois da confirmação, o status desta solicitação será atualizado.
-              </Txt>
-            </View>
-            <View style={styles.reviewRecipient}>
-              <Txt style={styles.detailLabel}>DESTINATÁRIO</Txt>
-              <Txt selectable style={styles.reviewEmail}>
-                {selected?.email}
-              </Txt>
-              <Txt style={styles.reviewTitle}>{selected?.title}</Txt>
-            </View>
-            <View style={styles.reviewTerms}>
-              <View>
-                <Txt style={styles.detailLabel}>VALOR</Txt>
-                <Txt style={styles.reviewAmount}>{money(quote.amount)}</Txt>
-              </View>
-              <View>
-                <Txt style={styles.detailLabel}>PRAZO</Txt>
-                <Txt style={styles.detailValue}>{formatSelectedDate(quote.delivery)}</Txt>
-              </View>
-            </View>
-            <View style={styles.sectionBlock}>
-              <Txt style={styles.sectionEyebrow}>MENSAGEM AO CLIENTE</Txt>
-              <Txt style={styles.projectMessage}>{quote.message}</Txt>
-            </View>
-            {!!error && (
-              <Txt accessibilityRole="alert" style={styles.error}>
-                {error}
-              </Txt>
-            )}
-            <View style={styles.modalActions}>
-              <Button variant="secondary" disabled={busy} onPress={() => setConfirm(false)}>
-                Voltar e editar
-              </Button>
-              <Button icon={ArrowUpRight} loading={busy} onPress={() => void send()}>
-                {token ? 'Confirmar envio' : 'Confirmar simulação'}
-              </Button>
-            </View>
-          </>
-        )}
-      </Dialog>
+
     </ScrollView>
   );
 }

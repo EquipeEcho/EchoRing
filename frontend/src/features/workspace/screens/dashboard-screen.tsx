@@ -24,7 +24,7 @@ export function DashboardScreen() {
   const { colors } = useTheme();
   const styles = useStyles();
   const common = useCommonStyles();
-  const { projects, tasks, search, setNewRequest } = useWorkspace();
+  const { projects, tasks, search } = useWorkspace();
   const { session } = useSession();
   const employee = session?.role === 'employee' || session?.role === 'admin';
   const { width } = useWindowDimensions();
@@ -46,7 +46,7 @@ export function DashboardScreen() {
         subtitle={`${employee ? 'Projetos da equipe' : 'Meus projetos'} · ${date}`}
         action={
           employee ? (
-            <Button icon={Plus} onPress={() => setNewRequest(true)}>
+            <Button icon={Plus} onPress={() => router.push({ pathname: '/operacao/nova', params: { origin: 'dashboard' } })}>
               Nova requisição
             </Button>
           ) : session?.role === 'translator' ? <Button onPress={() => router.push('/entregas')}>Minhas entregas</Button> : undefined

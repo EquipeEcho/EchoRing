@@ -1,4 +1,4 @@
-import { type ServiceStatus } from '@/features/deliveries/types';
+import { type ServiceStatus, type TranslationService } from '@/features/deliveries/types';
 
 export type ProjectStatus =
   | 'Em tradução'
@@ -19,6 +19,7 @@ export type Project = {
   owner: string;
   urgent?: boolean;
   progress: number;
+  demo?: boolean;
   realTaskId?: string;
 };
 
@@ -32,6 +33,8 @@ export type Task = {
 };
 
 export type Workspace = {
+  services: TranslationService[];
+  applyServices: (services: TranslationService[]) => void;
   loading: boolean;
   loadError: string;
   refresh: () => void;
@@ -40,9 +43,5 @@ export type Workspace = {
   toggleTask: (id: number | string) => void;
   search: string;
   setSearch: (value: string) => void;
-  selected: Project | null;
-  setSelected: (project: Project | null) => void;
-  newRequest: boolean;
-  setNewRequest: (open: boolean) => void;
   addRequest: (data: { title: string; client: string; languages: string }) => void;
 };

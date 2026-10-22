@@ -1,5 +1,18 @@
 import { type Project, type Task } from '@/features/workspace/types';
 
+export const translatorProjectPreview: Project = {
+  id: 'DEMO-TRAD-001',
+  title: 'Tradução de manual técnico de equipamentos',
+  client: 'Vértice Engenharia (cliente fictício)',
+  initials: 'VE',
+  languages: 'Inglês → Português',
+  status: 'Em andamento',
+  deadline: 'Em 3 dias · exemplo',
+  owner: 'Tradutor de demonstração',
+  progress: 55,
+  demo: true,
+};
+
 export const initialProjects: Project[] = [
   {
     id: 'OS-2026-084',

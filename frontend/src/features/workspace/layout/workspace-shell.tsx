@@ -6,13 +6,12 @@ import {
   CircleHelp,
   Ellipsis,
   ListTodo,
-  LogOut,
   Search,
-  UserRound,
   X,
 } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { TextInput } from '@/components/ui/text-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui/badge';
@@ -25,8 +24,9 @@ import { Txt } from '@/components/ui/text';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { roleLabel } from '@/features/auth/constants';
 import { useSession } from '@/features/auth/contexts/session-context';
+import { useOfferNotifications } from '@/features/offers/hooks/use-offer-notifications';
 import { useInbox } from '@/features/requests/contexts/inbox-context';
-import { WorkspaceDialogs } from '@/features/workspace/components/workspace-dialogs';
+import { AccountDialog } from '@/features/workspace/components/account-dialog';
 import { useWorkspace } from '@/features/workspace/contexts/workspace-context';
 import { NavItem } from '@/features/workspace/layout/nav-item';
 import {
@@ -70,8 +70,10 @@ export function WorkspaceShell() {
   }, []);
   const section =
     visibleModules.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.title ??
-    (pathname === '/tarefas' ? 'Minhas tarefas' : pathname === '/mais' ? 'Mais' : 'Meu espaço');
+    (pathname === '/tarefas' ? 'Minhas tarefas' : pathname === '/mais' ? 'Mais' : pathname.startsWith('/tradutores/') ? 'Perfil do tradutor' : 'Meu espaço');
   const { requests } = useInbox();
+  const offerNotifications = useOfferNotifications();
+  const offerUnread = offerNotifications.items.filter(item => !item.readAt).length;
   const received = requests.filter((item) => item.status === 'Recebido').length;
   const pending = tasks.filter((task) => !task.done).length;
   function logout() {
@@ -122,14 +124,14 @@ export function WorkspaceShell() {
               <Txt style={styles.navSection}>ESPAÇO DE TRABALHO</Txt>
               {visibleModules
                 .filter((item) =>
-                  ['/dashboard', '/operacao', '/entregas', '/solicitacoes', '/perfil'].includes(item.href),
+                  ['/dashboard', '/operacao', '/entregas', '/solicitacoes', '/perfil', '/oportunidades', '/workflows'].includes(item.href),
                 )
                 .map((item) => (
                   <NavItem
                     key={item.href}
                     {...item}
                     active={pathname === item.href || pathname.startsWith(`${item.href}/`)}
-                    badge={item.href === '/solicitacoes' ? received : undefined}
+                    badge={item.href === '/solicitacoes' ? received : item.href === '/oportunidades' ? offerUnread : undefined}
                   />
                 ))}
               <NavItem
@@ -212,19 +214,19 @@ export function WorkspaceShell() {
                   <IconButton
                     icon={Bell}
                     label="Notificações"
-                    onPress={() => setNotifications(true)}
+                    onPress={() => { setNotifications(true); void offerNotifications.refresh(); }}
                   />
                 ) : (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Notificações"
-                    onPress={() => setNotifications(true)}
+                    onPress={() => { setNotifications(true); void offerNotifications.refresh(); }}
                     style={({ pressed }) => [styles.mobileAction, pressed && { opacity: 0.65 }]}
                   >
                     <Bell size={24} color={colors.ink} strokeWidth={1.8} />
                   </Pressable>
                 )}
-                {!read && (session?.demo || pending > 0 || received > 0) && <View pointerEvents="none" style={styles.notificationDot} />}
+                {((!read && (session?.demo || pending > 0 || received > 0)) || offerUnread > 0) && <View pointerEvents="none" style={styles.notificationDot} />}
               </View>
               {!desktop && profileButton}
             </View>
@@ -314,40 +316,7 @@ export function WorkspaceShell() {
           )}
         </View>
       </View>
-      <Dialog
-        open={profile}
-        onClose={() => setProfile(false)}
-        size="compact"
-        eyebrow="CONTA ATUAL"
-        title="Meu perfil"
-      >
-        <View style={common.row}>
-          <View style={[styles.avatar, { width: 48, height: 48 }]}>
-            <Txt style={{ color: colors.white, fontWeight: '600' }}>{initials}</Txt>
-          </View>
-          <View>
-            <Txt style={{ fontWeight: '600' }}>{session?.name}</Txt>
-            <Txt style={common.caption}>{session?.email}</Txt>
-          </View>
-        </View>
-        <Badge>
-          {session
-            ? `${roleLabel[session.role]}${session.demo ? ' · Demonstração' : ' · Conta autenticada'}`
-            : ''}
-        </Badge>
-        <Txt style={common.caption}>
-          Aliança Traduções /{' '}
-          {session?.role === 'translator'
-            ? 'Portal do tradutor'
-            : session?.role === 'hr'
-              ? 'Recursos Humanos'
-              : 'Gestão da plataforma'}
-        </Txt>
-        {session?.role === 'translator' && <Button variant="secondary" icon={UserRound} onPress={() => { setProfile(false); router.push('/perfil'); }}>Ver perfil profissional</Button>}
-        <Button variant="secondary" icon={LogOut} onPress={logout}>
-          Sair da conta
-        </Button>
-      </Dialog>
+      <AccountDialog open={profile} session={session} initials={initials} onClose={() => setProfile(false)} onSignOut={logout} />
       <Dialog
         open={notifications}
         onClose={() => setNotifications(false)}
@@ -357,6 +326,12 @@ export function WorkspaceShell() {
         description="Acompanhe prazos, entregas e movimentações recentes."
       >
         {session?.demo && <Badge tone="neutral">Dados demonstrativos</Badge>}
+        {!!offerNotifications.error && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{offerNotifications.error}</Txt>}
+        {offerNotifications.items.map(item => <View key={item.id} style={{ gap: 8, borderBottomWidth: 1, borderBottomColor: colors.line, paddingBottom: 16 }}>
+          <Txt style={{ fontWeight: item.readAt ? '400' : '600' }}>{item.message}</Txt>
+          <Txt style={common.caption}>{new Date(item.createdAt).toLocaleString('pt-BR')}{item.readAt ? ' · Lida' : ' · Nova'}</Txt>
+          <Button variant="secondary" onPress={() => { void offerNotifications.markRead(item.id); setNotifications(false); router.push(item.href as Href); }}>Ver {role === 'translator' ? 'oportunidades' : 'solicitações'}</Button>
+        </View>)}
         {(session?.demo ? [
           [
             'Tradução pronta para revisão',
@@ -386,9 +361,9 @@ export function WorkspaceShell() {
             <Txt style={{ fontSize: 10, color: colors.muted }}>{time}</Txt>
           </View>
         ))}
-        {!session?.demo && pending === 0 && received === 0 && <EmptyState icon={Bell} title="Tudo em dia" text="Não há novas pendências nos dados carregados. Consulte Projetos e Tarefas para acompanhar sua rotina." />}
-        <Button variant="secondary" onPress={() => setRead(true)} disabled={read}>
-          {read ? 'Todas as notificações lidas' : 'Marcar todas como lidas'}
+        {!session?.demo && pending === 0 && received === 0 && offerNotifications.items.length === 0 && !offerNotifications.error && <EmptyState icon={Bell} title="Tudo em dia" text="Não há novas pendências nos dados carregados. Consulte Projetos e Tarefas para acompanhar sua rotina." />}
+        <Button variant="secondary" onPress={() => { setRead(true); void Promise.all(offerNotifications.items.filter(item => !item.readAt).map(item => offerNotifications.markRead(item.id))); }} disabled={read && offerUnread === 0}>
+          {read && offerUnread === 0 ? 'Todas as notificações lidas' : 'Marcar todas como lidas'}
         </Button>
       </Dialog>
       <Dialog
@@ -404,6 +379,7 @@ export function WorkspaceShell() {
         {[
           { title: 'Acompanhar projetos', text: 'Veja o andamento, os idiomas e o prazo de cada projeto.', href: '/operacao' },
           { title: 'Organizar minhas tarefas', text: 'Consulte pendências ou veja as atividades já concluídas.', href: '/tarefas' },
+          ...(role === 'translator' ? [{ title: 'Atualizar meu perfil', text: 'Mantenha seus idiomas, experiência e disponibilidade atualizados.', href: '/perfil' }] : []),
           ...(role === 'admin' ? [{ title: 'Gerenciar acessos', text: 'Cadastre tradutores e membros da equipe na área de Usuários.', href: '/usuarios' }] : []),
         ].filter(item => role !== 'hr' || item.href !== '/operacao').map(item => <Pressable
           key={item.href}
@@ -419,7 +395,6 @@ export function WorkspaceShell() {
           Voltar ao painel
         </Button>
       </Dialog>
-      <WorkspaceDialogs />
     </SafeAreaView>
   );
 }
