@@ -1,15 +1,1 @@
-export const languageOptions = [
-  'Português',
-  'Inglês',
-  'Espanhol',
-  'Francês',
-  'Alemão',
-  'Italiano',
-  'Mandarim',
-  'Japonês',
-  'Coreano',
-  'Árabe',
-  'Russo',
-  'Holandês',
-  'Outro / consultar disponibilidade',
-];
+export { languageMatches, languageOptions } from '@/data/language-options';

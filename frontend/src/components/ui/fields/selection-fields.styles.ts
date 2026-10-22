@@ -28,6 +28,7 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
   value: { flex: 1, minWidth: 0, fontSize: 15, lineHeight: 22 },
   placeholder: { color: colors.muted },
   optionList: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+  search: { minHeight: 48, borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15 },
   option: {
     width: '48%',
     minHeight: 50,

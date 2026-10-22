@@ -1,4 +1,5 @@
-import { TextInput, View } from 'react-native';
+import { View } from 'react-native';
+import { TextInput } from '@/components/ui/text-input';
 
 import { Txt } from '@/components/ui/text';
 import type { QuoteForm } from '@/features/landing/hooks/use-quote-form';
