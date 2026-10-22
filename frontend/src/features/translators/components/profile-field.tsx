@@ -1,4 +1,5 @@
-import { TextInput, View, type KeyboardTypeOptions } from 'react-native';
+import { View, type KeyboardTypeOptions } from 'react-native';
+import { TextInput } from '@/components/ui/text-input';
 
 import { Txt } from '@/components/ui/text';
 import { useStyles } from '@/features/translators/styles/onboarding.styles';

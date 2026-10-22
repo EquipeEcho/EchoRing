@@ -11,8 +11,8 @@ import { Txt } from '@/components/ui/text';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useSession } from '@/features/auth/contexts/session-context';
 import { needsTranslatorOnboarding } from '@/features/auth/types';
-import { ProfileFormSection } from '@/features/translators/components/profile-form-section';
 import { profileSteps } from '@/features/translators/constants';
+import { ProfileFormSection } from '@/features/translators/components/profile-form-section';
 import { useTranslatorOnboarding } from '@/features/translators/hooks/use-translator-onboarding';
 import { useStyles } from '@/features/translators/styles/onboarding.styles';
 import { useTheme } from '@/theme/theme-context';
@@ -71,7 +71,7 @@ function OnboardingForm() {
               /> : <>
                 <View style={styles.sectionHeading}>
                   <Txt style={styles.eyebrow}>ETAPA {step + 1} DE 4</Txt>
-                  <Txt accessibilityRole="header" style={styles.sectionTitle}>{['Contato e localização', 'Idiomas e pares de tradução', 'Formação e experiência', 'Seu perfil profissional'][step]}</Txt>
+                  <Txt accessibilityRole="header" style={styles.sectionTitle}>{['Contato e localização', 'Idiomas', 'Formação e experiência', 'Seu perfil profissional'][step]}</Txt>
                   <Txt style={styles.sectionDescription}>{[
                     'Confirme suas informações de contato. Campos com * são obrigatórios.',
                     'Conte quais idiomas domina e em quais direções você traduz.',
@@ -79,7 +79,7 @@ function OnboardingForm() {
                     'Enriqueça seu perfil com informações opcionais e confira o cadastro antes de concluir.',
                   ][step]}</Txt>
                 </View>
-                <ProfileFormSection data={data} email={session?.email ?? ''} step={step} disabled={busy} errors={errors} change={change} review />
+                <ProfileFormSection data={data} email={session?.email ?? ""} step={step} disabled={busy} errors={errors} change={change} review />
                 {!!form.error && <Txt accessibilityRole="alert" style={styles.error}>{form.error}</Txt>}
                 {!!form.notice && <View style={styles.notice}><Txt accessibilityLiveRegion="polite" style={styles.noticeText}>{form.notice}</Txt></View>}
                 <View style={styles.footer}>

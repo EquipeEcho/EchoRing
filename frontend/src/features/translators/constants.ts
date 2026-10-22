@@ -8,7 +8,7 @@ export const serviceOptions = ['Tradução', 'Revisão', 'Localização', 'Legen
 export function emptyTranslatorProfile(name: string): TranslatorProfile {
   return {
     fullName: name, phone: '', whatsapp: false, country: '', city: '', timezone: '',
-    professionalTitle: '', bio: '', languages: [], translationPairs: [], education: '',
+    professionalTitle: '', bio: '', languages: [], education: '',
     experienceYears: null, experienceSummary: '', specializations: [], services: [],
     tools: [], certifications: '', portfolioLinks: [], availabilityHours: null,
     availabilityNotes: '', otherInformation: '',
