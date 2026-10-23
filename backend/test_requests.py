@@ -1,26 +1,9 @@
 """Testes de integração do fluxo completo de uma solicitação de tradução."""
 
-import base64
-import hashlib
-import os
-import smtplib
-import unittest
-import uuid
-from datetime import datetime, timezone
-from unittest.mock import patch
+from sqlalchemy import insert, inspect, select, text
 
-from fastapi.testclient import TestClient
-
-from main import app
-import requests_api
-import mongomock
-from app import mongo
-from app.repositories import client_store
-from app.core.portal_auth import staff
-from app.repositories import translator_profile_store
-from app.services.email import service as email_service
-from app.core import email_service as core_email
-
+from app.database_pg import get_engine, to_datetime
+from app.db_models import AuthSession, Delivery, Service, User
 
 class ClientMongoTests(unittest.TestCase):
     """Testa persistência de clientes no Mongo sem depender do PostgreSQL."""
@@ -51,7 +34,7 @@ class ClientMongoTests(unittest.TestCase):
         self.assertEqual(created.json()['email'], 'client@example.test')
         self.assertEqual(created.json()['company'], 'Example Co')
         with patch('app.routes.requests_routes.database') as database:
-            database.return_value.__enter__.return_value.execute.return_value.fetchall.return_value = []
+            database.return_value.__enter__.return_value.execute.return_value.mappings.return_value.all.return_value = []
             self.assertEqual(self.client.get('/clients').json(), [created.json()])
 
         stored = mongo.get_db()['clients'].find_one({'_id': created.json()['id']})
@@ -126,12 +109,8 @@ class RequestsTests(unittest.TestCase):
         """Remove apenas schemas identificados como teste para proteger os demais dados."""
         if not schema.startswith('test_'):
             raise RuntimeError('Recusa ao remover schema que não pertence aos testes.')
-        connection = requests_api.postgres_connection()
-        try:
-            connection.execute(requests_api.sql.SQL('DROP SCHEMA IF EXISTS {} CASCADE').format(requests_api.sql.Identifier(schema)))
-            connection.commit()
-        finally:
-            connection.close()
+        with get_engine().begin() as connection:
+            connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
 
     def create(self):
         """Cria uma solicitação válida e devolve seu identificador."""
@@ -153,17 +132,18 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         session = response.json()
         with requests_api.database() as connection:
-            translator = connection.execute('SELECT id FROM users WHERE email = ?', (session['email'],)).fetchone()
+            translator = connection.execute(select(User.id).where(User.email == session['email'])).mappings().first()
         return {**session, 'id': translator['id']}, {'Authorization': 'Bearer ' + session['token']}
 
     def create_service(self, translator_id, service_id='OS-TEST-001', status='Em andamento'):
         """Insere uma tarefa diretamente para os testes focados em entrega e revisão."""
         with requests_api.database() as connection:
             connection.execute(
-                '''INSERT INTO services (id, request_id, title, translator_id, status, deadline, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                (service_id, 'SOL-' + service_id, 'Test manual', translator_id, status, '2026-10-01', requests_api.now()),
+            insert(Service).values(
+                id=service_id, request_id='SOL-' + service_id, title='Test manual', translator_id=translator_id,
+                status=status, deadline='2026-10-01', created_at=to_datetime(requests_api.now()),
             )
+        )
         return service_id
 
     def test_public_intake_is_persistent_and_staff_only(self):
@@ -304,7 +284,7 @@ class RequestsTests(unittest.TestCase):
         self.assertNotIn('password', created.json())
         self.assertEqual(self.client.post('/users', headers=admin_headers, json=new_user).status_code, 409)
         with requests_api.database() as connection:
-            stored = connection.execute('SELECT password_hash FROM users WHERE email = ?', ('hr@example.test',)).fetchone()
+            stored = connection.execute(select(User.password_hash).where(User.email == 'hr@example.test')).mappings().first()
             self.assertTrue(stored['password_hash'].startswith('pbkdf2_sha256$'))
             self.assertNotEqual(stored['password_hash'], new_user['password'])
         hr_login = self.client.post('/auth/login', json={'email': 'hr@example.test', 'password': new_user['password']})
@@ -364,7 +344,7 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(profile_in_mongo['data']['city'], 'São Paulo')
         self.assertIsNone(profile_in_mongo.get('completed_at'))
         with requests_api.database() as connection:
-            self.assertIsNone(connection.execute("SELECT to_regclass('translator_profiles') AS profile_table").fetchone()['profile_table'])
+            self.assertFalse(inspect(connection.connection()).has_table('translator_profiles'))
         with TestClient(app) as second_client:
             restored = second_client.get('/translator-profile/me', headers=headers).json()
             self.assertEqual(restored['profile']['city'], 'São Paulo')
@@ -471,7 +451,7 @@ class RequestsTests(unittest.TestCase):
         self.assertEqual(self.client.post('/staff/logout', headers=self.headers).status_code, 200)
         self.assertEqual(self.client.get('/requests', headers=self.headers).status_code, 401)
         with requests_api.database() as connection:
-            connection.execute('INSERT INTO sessions (digest, expires) VALUES (?, ?)', (hashlib.sha256(b'expired').hexdigest(), 0))
+            connection.execute(insert(AuthSession).values(digest=hashlib.sha256(b'expired').hexdigest(), expires=0))
         self.assertEqual(self.client.get('/requests', headers={'Authorization': 'Bearer expired'}).status_code, 401)
         for _ in range(4):
             self.assertEqual(self.client.post('/staff/login', json={'email': 'wrong', 'password': 'wrong'}).status_code, 401)
@@ -511,8 +491,8 @@ class RequestsTests(unittest.TestCase):
         self.assertNotIn('content', delivery)
 
         with requests_api.database() as connection:
-            stored = connection.execute('SELECT content FROM deliveries WHERE id = ?', (delivery['id'],)).fetchone()
-            service = connection.execute('SELECT status FROM services WHERE id = ?', (service_id,)).fetchone()
+           stored = connection.execute(select(Delivery.content).where(Delivery.id == delivery['id'])).mappings().first()
+           service = connection.execute(select(Service.status).where(Service.id == service_id)).mappings().first()
         self.assertEqual(bytes(stored['content']), b'Translated document')
         self.assertEqual(service['status'], 'Aguardando avaliação')
         assigned = self.client.get('/services', headers=translator_headers).json()[0]
@@ -621,9 +601,10 @@ class RequestsTests(unittest.TestCase):
         translator, translator_headers = self.translator_session()
         with requests_api.database() as connection:
             connection.execute(
-                '''INSERT INTO users (id, email, name, role, password_hash, active)
-                   VALUES (?, ?, ?, 'translator', ?, TRUE)''',
-                ('other-translator', 'other@example.test', 'Other Translator', requests_api.hash_password('other-password-long-enough')),
+                insert(User).values(
+                    id='other-translator', email='other@example.test', name='Other Translator', role='translator',
+                    password_hash=requests_api.hash_password('other-password-long-enough'), active=True,
+                )
             )
         other_login = self.client.post('/auth/login', json={
             'email': 'other@example.test', 'password': 'other-password-long-enough',
