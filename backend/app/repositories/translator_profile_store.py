@@ -1,34 +1,20 @@
-"""Leitura e gravação do perfil do tradutor no MongoDB."""
+"""PostgreSQL profile record and activity projection used by the portal."""
+from app.core.portal_auth import public_user
+from app.database_pg import json_data
+from app.models.translator_profile import TranslatorProfileDraft
 
-from app.mongo import get_db
-
-
-def _collection():
-    return get_db()['translator_profiles']
-
-
-def find_profile(user_id):
-    """Devolve o documento do perfil ou None se o tradutor ainda não salvou nada."""
-    return _collection().find_one({'_id': user_id})
-
-
-def save_draft(user_id, data, timestamp):
-    """Cria ou atualiza o rascunho sem marcar o cadastro como concluído."""
-    _collection().update_one(
-        {'_id': user_id},
-        {'$set': {'data': data, 'updated_at': timestamp}},
-        upsert=True,
-    )
-
-
-def save_complete(user_id, data, timestamp):
-    """Salva o perfil completo; a data de conclusão é gravada só na primeira vez."""
-    _collection().update_one(
-        {'_id': user_id},
-        {'$set': {'data': data, 'updated_at': timestamp}},
-        upsert=True,
-    )
-    _collection().update_one(
-        {'_id': user_id, 'completed_at': None},
-        {'$set': {'completed_at': timestamp}},
-    )
+def translator_profile_record(connection, user):
+    record = connection.execute('SELECT data, completed_at, updated_at FROM translator_profiles WHERE user_id = ?', (user['id'],)).fetchone()
+    profile = TranslatorProfileDraft.model_validate(json_data(record['data']) if record else {'fullName': user['name']})
+    activity = connection.execute('''SELECT COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE status IN ('Tradutor atribuído', 'Em andamento', 'Revisão solicitada')) AS active,
+        COUNT(*) FILTER (WHERE status = 'Aguardando avaliação') AS awaiting,
+        COUNT(*) FILTER (WHERE status IN ('Pronta', 'Entregue')) AS completed
+        FROM services WHERE translator_id = ?''', (user['id'],)).fetchone()
+    return {
+        'profile': profile.model_dump(), 'account': public_user(user),
+        'completedAt': record['completed_at'].isoformat() if record and record['completed_at'] else None,
+        'updatedAt': record['updated_at'].isoformat() if record else None,
+        'activity': {'totalProjects': activity['total'], 'activeProjects': activity['active'],
+                     'awaitingReview': activity['awaiting'], 'completedProjects': activity['completed']},
+    }

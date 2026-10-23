@@ -9,9 +9,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 from psycopg.types.json import Jsonb
 
-load_dotenv(Path(__file__).with_name('.env'))
+load_dotenv(Path(__file__).resolve().parents[1] / '.env')
 
-from requests_api import database, now
+from app.database_pg import database, now
 
 
 TABLE_COLUMNS = {

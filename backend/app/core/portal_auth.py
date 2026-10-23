@@ -1,56 +1,17 @@
-"""Authentication, password hashing, rate limiting and role dependencies."""
-
+"""Portal sessions, configured accounts and role/access dependencies."""
 import hashlib
-import hmac
 import os
-import secrets
-import threading
 import time
-
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-
+from app.core.security import hash_password, password_matches
 from app.database_pg import database
 
 bearer = HTTPBearer(auto_error=False)
-_lock = threading.Lock()
-_attempts: dict[tuple[str, str], list[float]] = {}
-PASSWORD_ITERATIONS = 600_000
-SESSION_SECONDS = 8 * 60 * 60
-
-
-def throttle(request: Request, category: str, maximum: int):
-    key = (request.client.host if request.client else 'unknown', category)
-    timestamp = time.time()
-    with _lock:
-        for old_key in list(_attempts):
-            _attempts[old_key] = [value for value in _attempts[old_key] if value > timestamp - 60]
-            if not _attempts[old_key]:
-                del _attempts[old_key]
-        values = _attempts.setdefault(key, [])
-        if len(values) >= maximum:
-            raise HTTPException(429, 'Muitas tentativas. Aguarde um minuto e tente novamente.')
-        values.append(timestamp)
-
-
-def hash_password(password: str):
-    salt = secrets.token_bytes(16)
-    digest = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, PASSWORD_ITERATIONS)
-    return f'pbkdf2_sha256${PASSWORD_ITERATIONS}${salt.hex()}${digest.hex()}'
-
-
-def password_matches(password: str, encoded: str):
-    try:
-        algorithm, iterations, salt, expected = encoded.split('$', 3)
-        if algorithm != 'pbkdf2_sha256':
-            return False
-        actual = hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(salt), int(iterations))
-        return hmac.compare_digest(actual, bytes.fromhex(expected))
-    except (TypeError, ValueError):
-        return False
 
 
 def configured_accounts():
+    """Monta as contas iniciais definidas no ambiente e ignora e-mails repetidos."""
     accounts = []
     configured_emails = set()
     for prefix, role, default_name in (
@@ -72,6 +33,7 @@ def configured_accounts():
 
 
 def sync_configured_accounts(connection, accounts):
+    """Cria ou atualiza as contas do ambiente sem recalcular hashes sem necessidade."""
     for account in accounts:
         existing = connection.execute('SELECT password_hash FROM users WHERE email = ?', (account['email'],)).fetchone()
         password_hash = existing['password_hash'] if existing and password_matches(account['password'], existing['password_hash']) else hash_password(account['password'])
@@ -84,6 +46,7 @@ def sync_configured_accounts(connection, accounts):
 
 
 def authenticated_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+    """Valida o token da sessão e devolve somente um usuário ativo e não expirado."""
     if not credentials:
         raise HTTPException(401, 'Entre com sua conta para continuar.')
     digest = hashlib.sha256(credentials.credentials.encode()).hexdigest()
@@ -101,6 +64,7 @@ def authenticated_user(credentials: HTTPAuthorizationCredentials | None = Depend
 
 
 def staff(user: dict = Depends(authenticated_user)):
+    """Restringe a rota à equipe interna e ao administrador."""
     if user['role'] not in ('admin', 'employee'):
         raise HTTPException(403, 'Sua conta não tem permissão para acessar esta área.')
     return user
@@ -142,3 +106,11 @@ def public_user(user):
 def user_record(user):
     """Formata um usuário para a API sem incluir seu hash de senha."""
     return {'id': user['id'], **public_user(user), 'active': bool(user['active'])}
+
+
+def ensure_task_access(service, user):
+    """Libera a equipe ou somente o tradutor que realmente recebeu a tarefa."""
+    if user['role'] in ('admin', 'employee'):
+        return
+    if user['role'] != 'translator' or service['translator_id'] != user['id']:
+        raise HTTPException(403, 'Esta tarefa não está atribuída à sua conta.')

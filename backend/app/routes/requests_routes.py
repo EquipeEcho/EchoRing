@@ -1,220 +1,27 @@
-"""Routes for portal authentication, user management, translation requests and quotes."""
-
+"""Translation intake, quotes, client decisions and initial assignment."""
 import hashlib
 import hmac
 import os
 import secrets
-import sys
-import time
 from datetime import datetime, timedelta, timezone
-
-import psycopg
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
-from fastapi.security import HTTPAuthorizationCredentials
 from psycopg.types.json import Jsonb
-from pymongo.errors import DuplicateKeyError, PyMongoError
-
-from app.core.email_service import deliver_quote, notify_translator_assigned
-from app.core.portal_auth import (
-    SESSION_SECONDS,
-    administrator,
-    authenticated_user,
-    bearer,
-    configured_accounts,
-    hash_password,
-    password_matches,
-    public_user,
-    staff,
-    sync_configured_accounts,
-    throttle,
-    translator_account,
-    user_record,
-)
-from app.core.workflow import (
-    _request_for_quote,
-    add_event,
-    read_request,
-    read_service,
-    sanitized_request,
-    task_record,
-)
+from app.core.portal_auth import staff
+from app.core.security import throttle
 from app.database_pg import database, environment_flag, json_data, now
-from app.models.translation import (
-    ClientCreate,
-    Intake,
-    Login,
-    QuoteDecision,
-    TranslatorAssignment,
-    Update,
-    UserCreate,
-)
-from app.repositories import translator_profile_store as profile_store
+from app.models.translation import Intake, QuoteDecision, TranslatorAssignment, Update
+from app.repositories.translation_store import _request_for_quote, add_event, read_request, read_service, sanitized_request, task_record
+from app.services.email.quote_service import deliver_quote
+from app.services.email.workflow_service import notify_translator_assigned
+from pymongo.errors import PyMongoError
 from app.repositories import client_store
-from translator_profiles import TranslatorProfileComplete, TranslatorProfileDraft
 
 router = APIRouter()
 
 
-@router.post('/auth/login')
-@router.post('/staff/login', include_in_schema=False)
-def login(data: Login, request: Request):
-    throttle(request, 'auth-login', 5)
-    accounts = configured_accounts()
-    with database() as connection:
-        sync_configured_accounts(connection, accounts)
-        candidate = connection.execute('SELECT * FROM users WHERE email = ?', (data.email.strip().lower(),)).fetchone()
-    fallback = 'pbkdf2_sha256$600000$00000000000000000000000000000000$33d727f3156a25e032f442eb429832a86bc213bd395aa8e59f4ebc754c54ddef'
-    valid_password = password_matches(data.password, candidate['password_hash'] if candidate else fallback)
-    if not candidate or not candidate['active'] or not valid_password:
-        raise HTTPException(401, 'E-mail ou senha incorretos.')
-    user = dict(candidate)
-    token = secrets.token_urlsafe(48)
-    expires = time.time() + SESSION_SECONDS
-    with database() as connection:
-        connection.execute('DELETE FROM sessions WHERE expires <= ?', (time.time(),))
-        connection.execute(
-            'INSERT INTO sessions (digest, expires, user_id) VALUES (?, ?, ?)',
-            (hashlib.sha256(token.encode()).hexdigest(), expires, user['id']),
-        )
-    return {'token': token, 'expires': expires, **public_user(user)}
-
-
-@router.get('/auth/me')
-def me(user: dict = Depends(authenticated_user)):
-    return public_user(user)
-
-
-@router.post('/auth/logout')
-@router.post('/staff/logout', include_in_schema=False)
-def logout(credentials: HTTPAuthorizationCredentials | None = Depends(bearer), user: dict = Depends(authenticated_user)):
-    digest = hashlib.sha256(credentials.credentials.encode()).hexdigest()
-    with database() as connection:
-        connection.execute('DELETE FROM sessions WHERE digest = ?', (digest,))
-    return {'ok': True}
-
-
-@router.get('/users')
-def list_users(admin: dict = Depends(administrator)):
-    with database() as connection:
-        sync_configured_accounts(connection, configured_accounts())
-        users = connection.execute('SELECT id, name, email, role, active, onboarding_required FROM users ORDER BY LOWER(name)').fetchall()
-    return [user_record(user) for user in users]
-
-
-@router.post('/users', status_code=201)
-def create_user(data: UserCreate, admin: dict = Depends(administrator)):
-    try:
-        with database() as connection:
-            if connection.execute('SELECT 1 FROM users WHERE email = ?', (data.email,)).fetchone():
-                raise HTTPException(409, 'Já existe uma conta com este e-mail.')
-            user_id = secrets.token_hex(16)
-            connection.execute(
-                'INSERT INTO users (id, email, name, role, password_hash, active, onboarding_required) VALUES (?, ?, ?, ?, ?, TRUE, ?)',
-                (user_id, data.email, data.name, data.role, hash_password(data.password), data.role == 'translator'),
-            )
-            user = connection.execute('SELECT id, name, email, role, active, onboarding_required FROM users WHERE id = ?', (user_id,)).fetchone()
-    except psycopg.IntegrityError as error:
-        raise HTTPException(409, 'Já existe uma conta com este e-mail.') from error
-    return user_record(user)
-
-
-@router.get('/translators')
-def list_translators(user: dict = Depends(staff)):
-    with database() as connection:
-        sync_configured_accounts(connection, configured_accounts())
-        users = connection.execute(
-            "SELECT id, name, email, role, active, onboarding_required FROM users WHERE role = 'translator' AND active = TRUE AND onboarding_required = FALSE ORDER BY LOWER(name)"
-        ).fetchall()
-    return [user_record(item) for item in users]
-
-
-def translator_profile_record(user):
-    """Combina a conta relacional com o cadastro profissional persistido no MongoDB."""
-    record = profile_store.find_profile(user['id'])
-    profile = TranslatorProfileDraft.model_validate(record['data'] if record else {'fullName': user['name']})
-    return {
-        'profile': profile.model_dump(), 'account': public_user(user),
-        'completedAt': record.get('completed_at') if record else None,
-        'updatedAt': record.get('updated_at') if record else None,
-    }
-
-
-@router.get('/translator-profile/me')
-def read_translator_profile(user: dict = Depends(translator_account)):
-    """Dados privados do próprio tradutor, reutilizáveis pela futura página de perfil."""
-    with database() as connection:
-        current = connection.execute('SELECT * FROM users WHERE id = ?', (user['id'],)).fetchone()
-    return translator_profile_record(dict(current))
-
-
-@router.patch('/translator-profile/me')
-def save_translator_profile_draft(data: TranslatorProfileDraft, user: dict = Depends(translator_account)):
-    """Salva o formulário incompleto sem liberar o acesso ao portal."""
-    with database() as connection:
-        current = connection.execute('SELECT * FROM users WHERE id = ? FOR UPDATE', (user['id'],)).fetchone()
-        if not current['onboarding_required']:
-            raise HTTPException(409, 'Seu cadastro já está concluído. Atualizações devem utilizar o perfil completo.')
-        previous = profile_store.find_profile(user['id'])
-        merged = TranslatorProfileDraft.model_validate({
-            **(previous['data'] if previous else {'fullName': current['name']}),
-            **data.model_dump(exclude_unset=True),
-        })
-        profile_store.save_draft(user['id'], merged.model_dump(), now())
-    return translator_profile_record(dict(current))
-
-
-@router.put('/translator-profile/me')
-def complete_translator_profile(data: TranslatorProfileComplete, user: dict = Depends(translator_account)):
-    """Persiste o perfil no MongoDB e libera o acesso à conta no PostgreSQL."""
-    with database() as connection:
-        current = connection.execute('SELECT * FROM users WHERE id = ? FOR UPDATE', (user['id'],)).fetchone()
-        profile_store.save_complete(user['id'], data.model_dump(), now())
-        connection.execute('UPDATE users SET name = ?, onboarding_required = FALSE WHERE id = ?', (data.fullName, user['id']))
-    return translator_profile_record({**dict(current), 'name': data.fullName, 'onboarding_required': False})
-
-
-@router.get('/clients')
-def list_clients(user: dict = Depends(staff)):
-    clients = client_store.list_clients()
-    with database() as connection:
-        rows = connection.execute(
-            '''SELECT requests.data, services.id AS service_id, services.status AS service_status
-               FROM requests
-               LEFT JOIN services ON services.request_id = requests.id
-               ORDER BY requests.created_at DESC'''
-        ).fetchall()
-
-    projects_by_email = {}
-    for row in rows:
-        project = json_data(row['data'])
-        email = project.get('email', '').strip().lower()
-        if not email:
-            continue
-        projects_by_email.setdefault(email, []).append({
-            'id': project['id'],
-            'title': project['title'],
-            'service': project['service'],
-            'status': row['service_status'] or project['status'],
-            'requestStatus': project['status'],
-            'createdAt': project['createdAt'],
-        })
-
-    for client in clients:
-        client['projects'] = projects_by_email.get(client['email'].lower(), [])
-    return clients
-
-
-@router.post('/clients', status_code=201)
-def create_client(data: ClientCreate, user: dict = Depends(staff)):
-    client_id = 'CLI-' + secrets.token_hex(6).upper()
-    try:
-        return client_store.create_client(client_id, data, user['id'], datetime.now(timezone.utc))
-    except DuplicateKeyError as error:
-        raise HTTPException(409, 'Já existe um cliente cadastrado com este e-mail.') from error
-
-
 @router.post('/requests', status_code=201)
 def create_request(data: Intake, request: Request):
+    """Cria a solicitação pública e registra seu primeiro evento como recebida."""
     throttle(request, 'intake', 10)
     created_at = now()
     record = {**data.model_dump(), 'id': 'SOL-' + secrets.token_hex(6).upper(), 'createdAt': created_at, 'status': 'Recebido', 'demo': False}
@@ -258,6 +65,7 @@ def create_manual_request(data: Intake, user: dict = Depends(staff)):
 
 @router.get('/requests')
 def list_requests(user: dict = Depends(staff)):
+    """Lista as solicitações mais recentes para a equipe interna."""
     with database() as connection:
         rows = connection.execute('SELECT data FROM requests ORDER BY created_at DESC').fetchall()
         return [sanitized_request(json_data(row['data']), connection) for row in rows]
@@ -265,6 +73,7 @@ def list_requests(user: dict = Depends(staff)):
 
 @router.get('/requests/{request_id}')
 def request_detail(request_id: str, user: dict = Depends(staff)):
+    """Entrega à equipe todos os dados da solicitação, incluindo os anexos."""
     with database() as connection:
         data, _ = read_request(connection, request_id)
         return sanitized_request(data, connection, include_content=True)
@@ -272,6 +81,7 @@ def request_detail(request_id: str, user: dict = Depends(staff)):
 
 @router.patch('/requests/{request_id}')
 def update_request(request_id: str, changes: Update, user: dict = Depends(staff)):
+    """Salva o rascunho do orçamento enquanto a solicitação ainda aceita edição."""
     if changes.status is not None and changes.status != 'Em análise':
         raise HTTPException(422, 'Status inválido.')
     if changes.status is None and changes.quote is None:
@@ -297,6 +107,7 @@ def update_request(request_id: str, changes: Update, user: dict = Depends(staff)
 
 @router.post('/requests/{request_id}/send-quote')
 def send_quote(request_id: str, user: dict = Depends(staff)):
+    """Protege contra envio duplicado e confirma o estado somente após enviar o e-mail."""
     auto_approve = environment_flag('AUTO_APPROVE_QUOTES')
     response_token = '' if auto_approve else secrets.token_urlsafe(48)
     with database() as connection:
@@ -311,6 +122,7 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
         days = max(1, min(int(os.getenv('QUOTE_RESPONSE_DAYS', '30')), 365))
         data['quoteResponseExpiresAt'] = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
         connection.execute('UPDATE requests SET data = ?, sending = TRUE WHERE id = ?', (Jsonb(data), request_id))
+    # O envio fica fora da transação para não segurar o bloqueio do banco enquanto o SMTP responde.
     if auto_approve:
         approved_at = now()
         data.update(
@@ -325,8 +137,7 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
             )
             return sanitized_request(data, connection, include_content=True)
     try:
-        quote_sender = getattr(sys.modules.get('requests_api'), 'deliver_quote', deliver_quote)
-        quote_sender(data, response_token)
+        deliver_quote(data, response_token)
     except Exception as error:
         with database() as connection:
             connection.execute('UPDATE requests SET sending = FALSE WHERE id = ?', (request_id,))
@@ -343,6 +154,7 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
 
 @router.post('/quotes/{quote_id}/decision')
 def decide_quote(quote_id: str, decision: QuoteDecision, request: Request):
+    """Valida o link pessoal e registra uma única decisão do cliente."""
     throttle(request, 'quote-decision', 20)
     with database() as connection:
         data = _request_for_quote(connection, quote_id)
@@ -373,10 +185,9 @@ def assign_translator(request_id: str, assignment: TranslatorAssignment, backgro
             raise HTTPException(409, 'A solicitação precisa ter um orçamento aprovado antes da atribuição.')
         if connection.execute('SELECT 1 FROM services WHERE request_id = ?', (request_id,)).fetchone():
             raise HTTPException(409, 'Esta solicitação já possui uma tarefa.')
-        assigned = connection.execute(
-            "SELECT id, name, email FROM users WHERE id = ? AND role = 'translator' AND active = TRUE AND onboarding_required = FALSE",
-            (assignment.translatorId,),
-        ).fetchone()
+        if connection.execute('SELECT 1 FROM job_offers WHERE request_id = ?', (request_id,)).fetchone():
+            raise HTTPException(409, 'Esta solicitação utiliza ofertas. O tradutor precisa aceitar uma oportunidade.')
+        assigned = connection.execute("SELECT id, name, email FROM users WHERE id = ? AND role = 'translator' AND active = TRUE AND onboarding_required = FALSE", (assignment.translatorId,)).fetchone()
         if not assigned:
             raise HTTPException(422, 'Selecione um tradutor ativo.')
         task_id = 'TRD-' + secrets.token_hex(6).upper()
@@ -392,6 +203,9 @@ def assign_translator(request_id: str, assignment: TranslatorAssignment, backgro
                     translator={'id': assigned['id'], 'name': assigned['name'], 'email': assigned['email']})
         connection.execute('UPDATE requests SET data = ? WHERE id = ?', (Jsonb(data), request_id))
         add_event(connection, 'Tradutor atribuído', request_id, task_id, user, assignment.observations, created_at)
+        if assignment.workflowTemplateId:
+            from app.services.translation_workflows_service import assign_workflow
+            assign_workflow(connection, read_service(connection, task_id), assignment.workflowTemplateId, user)
         task = task_record(connection, read_service(connection, task_id))
     notify_translator_assigned(assigned, data, task_id, assignment.deadline, background_tasks)
     return task
