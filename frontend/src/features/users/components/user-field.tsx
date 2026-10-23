@@ -1,5 +1,6 @@
 import { Eye, EyeOff } from 'lucide-react-native';
-import { TextInput, View } from 'react-native';
+import { View } from 'react-native';
+import { TextInput } from '@/components/ui/text-input';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { Txt } from '@/components/ui/text';

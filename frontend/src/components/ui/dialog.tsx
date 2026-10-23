@@ -21,6 +21,7 @@ export function Dialog({
   eyebrow,
   description,
   size = 'default',
+  density = 'default',
   mobileSheet = false,
   children,
 }: {
@@ -30,6 +31,7 @@ export function Dialog({
   eyebrow?: string;
   description?: string;
   size?: 'compact' | 'default' | 'wide';
+  density?: 'default' | 'compact';
   mobileSheet?: boolean;
   children: ReactNode;
 }) {
@@ -96,12 +98,13 @@ export function Dialog({
             mobile && size === 'compact' && s.dialogCompactMobile,
             mobile && size === 'wide' && s.dialogWideMobile,
             mobile && mobileSheet && s.dialogSelectionMobile,
+            density === 'compact' && size === 'compact' && s.denseCompact,
           ]}
         >
-          <View style={[s.header, mobile && s.headerMobile]}>
+          <View style={[s.header, mobile && s.headerMobile, density === 'compact' && s.denseHeader]}>
             <View style={s.headerCopy}>
               {eyebrow && <Txt style={s.eyebrow}>{eyebrow}</Txt>}
-              <Txt nativeID={titleId} accessibilityRole="header" style={[s.title, mobile && s.titleMobile]}>
+              <Txt nativeID={titleId} accessibilityRole="header" style={[s.title, mobile && s.titleMobile, density === 'compact' && s.denseTitle]}>
                 {title}
               </Txt>
               {description && <Txt style={s.description}>{description}</Txt>}
@@ -112,6 +115,7 @@ export function Dialog({
               onPress={onClose}
               style={({ hovered, pressed }) => [
                 s.close,
+                density === 'compact' && s.denseClose,
                 hovered && s.closeHover,
                 pressed && { opacity: 0.72 },
               ]}
@@ -121,7 +125,7 @@ export function Dialog({
           </View>
           <ScrollView
             style={s.scroll}
-            contentContainerStyle={[s.content, mobile && s.contentMobile]}
+            contentContainerStyle={[s.content, mobile && s.contentMobile, density === 'compact' && s.denseContent]}
             keyboardShouldPersistTaps="handled"
             nestedScrollEnabled
             showsVerticalScrollIndicator
@@ -201,4 +205,9 @@ const useStyles = createThemedStyles((colors, selectColor) => ({
   scroll: { flex: 1, minHeight: 0 },
   content: { paddingHorizontal: 28, paddingVertical: 26, gap: 22 },
   contentMobile: { paddingHorizontal: 20, paddingVertical: 22, gap: 20 },
+  denseCompact: { maxWidth: 400, minHeight: 0 },
+  denseHeader: { minHeight: 64, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 0 },
+  denseTitle: { fontSize: 20, lineHeight: 26 },
+  denseClose: { borderWidth: 0, borderRadius: 10, backgroundColor: 'transparent' },
+  denseContent: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 18, gap: 12 },
 }));

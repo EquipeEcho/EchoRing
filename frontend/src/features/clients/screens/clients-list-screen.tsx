@@ -51,7 +51,8 @@ export function ClientsListScreen() {
   }, [session]);
 
   useEffect(() => {
-    void load();
+    const initial = setTimeout(() => void load(), 0);
+    return () => clearTimeout(initial);
   }, [load]);
 
   const registerButton = (

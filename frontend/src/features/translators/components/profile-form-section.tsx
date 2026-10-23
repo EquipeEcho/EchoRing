@@ -61,7 +61,6 @@ export function ProfileFormSection({ data, email, step, disabled = false, errors
                     <Txt style={styles.sectionLabel}>Confira seu cadastro</Txt>
                     <Txt style={styles.summary}>{data.fullName}{`\n`}{email}{`\n`}{data.phone} · {data.city}, {data.country}</Txt>
                     <Txt style={styles.summary}>{data.languages.map(language => `${language.name} (${language.level})`).join(' · ')}</Txt>
-                    <Txt style={styles.summary}>{data.translationPairs.map(pair => `${pair.source} → ${pair.target}`).join(' · ')}</Txt>
                     <Txt style={styles.summary}>{data.experienceYears} anos de experiência · {data.specializations.join(', ')}</Txt>
                     <Txt style={styles.summary}>Formação: {data.education}</Txt>
                     <Txt style={styles.summary}>Trajetória: {data.experienceSummary}</Txt>
@@ -69,4 +68,3 @@ export function ProfileFormSection({ data, email, step, disabled = false, errors
                 </View>}
   </>);
 }
-

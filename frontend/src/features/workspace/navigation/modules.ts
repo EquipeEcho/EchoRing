@@ -1,6 +1,8 @@
 import {
   ChartNoAxesCombined,
+  BriefcaseBusiness,
   FolderKanban,
+  GitBranch,
   House,
   Inbox,
   LayoutGrid,
@@ -41,6 +43,12 @@ export const modules: WorkspaceModule[] = [
     href: '/entregas',
     icon: UploadCloud,
     description: 'Envio de traduções concluídas para revisão',
+  },
+  {
+    title: 'Workflows',
+    href: '/workflows',
+    icon: GitBranch,
+    description: 'Modelos de tradução e acompanhamento das etapas dos serviços',
   },
   {
     title: 'Solicitações',
@@ -86,7 +94,8 @@ export function modulesFor(role: UserRole) {
     return modules.filter((item) => !['/usuarios', '/area/administracao'].includes(item.href));
   if (role === 'hr')
     return modules.filter((item) => ['/dashboard', '/area/cadastros'].includes(item.href));
-  return [...modules.filter((item) => ['/dashboard', '/operacao', '/entregas'].includes(item.href)),
+  return [...modules.filter((item) => ['/dashboard', '/operacao', '/entregas', '/workflows'].includes(item.href)),
+    { title: 'Oportunidades', href: '/oportunidades', icon: BriefcaseBusiness, description: 'Convites, remuneração e decisões' },
     { title: 'Meu perfil', href: '/perfil', icon: UserRound, description: 'Apresentação, idiomas e trajetória profissional' }];
 }
 
@@ -105,7 +114,7 @@ export function mobilePrimaryModulesFor(role: UserRole): WorkspaceModule[] {
   )!;
   return [
     { ...dashboard, title: 'Início', icon: House },
-    { ...contextual, title: role === 'translator' ? 'Projetos' : contextual.title },
+    role === 'translator' ? available.find(item => item.href === '/oportunidades')! : contextual,
     tasksModule,
   ];
 }

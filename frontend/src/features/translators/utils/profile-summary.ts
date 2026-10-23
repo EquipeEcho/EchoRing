@@ -2,7 +2,7 @@ import { type TranslatorProfile } from '@/features/translators/types';
 
 export function profileCompleteness(profile: TranslatorProfile) {
   const fields = [profile.fullName, profile.phone, profile.country && profile.city, profile.professionalTitle, profile.bio,
-    profile.languages.length, profile.translationPairs.length, profile.education, profile.experienceYears !== null,
+    profile.languages.length, profile.education, profile.experienceYears !== null,
     profile.experienceSummary, profile.specializations.length, profile.services.length, profile.tools.length,
     profile.certifications, profile.portfolioLinks.length, profile.availabilityHours !== null];
   const filled = fields.filter(Boolean).length;
@@ -15,4 +15,3 @@ export function profileLink(value: string) {
     return ['https:', 'http:'].includes(url.protocol) && url.hostname && !url.username && !url.password && !/\s/.test(value) ? url : null;
   } catch { return null; }
 }
-

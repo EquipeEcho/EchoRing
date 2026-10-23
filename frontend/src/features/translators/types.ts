@@ -2,7 +2,6 @@ import { type Account } from '@/features/auth/types';
 
 export type LanguageLevel = 'Nativo' | 'Fluente' | 'Avançado' | 'Intermediário';
 export type TranslatorLanguage = { name: string; level: LanguageLevel };
-export type TranslationPair = { source: string; target: string };
 
 export type TranslatorProfile = {
   fullName: string;
@@ -14,7 +13,6 @@ export type TranslatorProfile = {
   professionalTitle: string;
   bio: string;
   languages: TranslatorLanguage[];
-  translationPairs: TranslationPair[];
   education: string;
   experienceYears: number | null;
   experienceSummary: string;
@@ -33,6 +31,7 @@ export type TranslatorProfileRecord = {
   account: Account;
   completedAt: string | null;
   updatedAt: string | null;
+  activity?: { totalProjects: number; activeProjects: number; awaitingReview: number; completedProjects: number };
 };
 
 export type ProfileErrors = Partial<Record<keyof TranslatorProfile, string>>;

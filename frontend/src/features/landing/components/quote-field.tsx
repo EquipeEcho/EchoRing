@@ -1,4 +1,5 @@
-import { TextInput, View } from 'react-native';
+import { View } from 'react-native';
+import { TextInput } from '@/components/ui/text-input';
 
 import { Txt } from '@/components/ui/text';
 import { useStyles } from '@/features/landing/styles/landing.styles';

@@ -7,7 +7,7 @@ import { useTheme } from '@/theme/theme-context';
 
 import { useStyles } from '@/features/workspace/styles/workspace.styles';
 
-export function WorkspacePage({ children }: { children: React.ReactNode }) {
+export function WorkspacePage({ children, showProjectStatus = true }: { children: React.ReactNode; showProjectStatus?: boolean }) {
   const styles = useStyles();
   const { width } = useWindowDimensions();
   const { colors } = useTheme();
@@ -21,11 +21,11 @@ export function WorkspacePage({ children }: { children: React.ReactNode }) {
       showsHorizontalScrollIndicator={false}
     >
       <View style={styles.pageInner}>
-        {loading && <View style={[styles.welcomeNote, { flexDirection: 'row', alignItems: 'center' }]}>
+        {showProjectStatus && loading && <View style={[styles.welcomeNote, { flexDirection: 'row', alignItems: 'center' }]}>
           <ActivityIndicator color={colors.accent} size="small" />
           <Txt accessibilityLiveRegion="polite" style={{ color: colors.muted, fontSize: 13 }}>Atualizando seus projetos e tarefas…</Txt>
         </View>}
-        {!!loadError && <View style={[styles.welcomeNote, { borderColor: colors.red }]}>
+        {showProjectStatus && !!loadError && <View style={[styles.welcomeNote, { borderColor: colors.red }]}>
           <Txt accessibilityRole="alert" style={{ color: colors.red }}>{loadError}</Txt>
           <Txt style={{ color: colors.muted, fontSize: 13, lineHeight: 21 }}>Seus dados não foram atualizados. Tente novamente para consultar a situação atual.</Txt>
           <Button variant="secondary" onPress={refresh}>Tentar novamente</Button>

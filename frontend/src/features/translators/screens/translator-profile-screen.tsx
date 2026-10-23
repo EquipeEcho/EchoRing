@@ -1,5 +1,5 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { ArrowUpRight, BriefcaseBusiness, Clock3, ExternalLink, GraduationCap, Languages, Mail, MapPin, Pencil, Phone, ShieldCheck, UserRound, Wrench } from 'lucide-react-native';
+import { ArrowLeft, ArrowUpRight, BriefcaseBusiness, Clock3, ExternalLink, GraduationCap, Languages, Mail, MapPin, Pencil, Phone, ShieldCheck, UserRound, Wrench } from 'lucide-react-native';
 import { type ReactNode, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 
@@ -9,7 +9,6 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeading } from '@/components/ui/page-heading';
 import { Txt } from '@/components/ui/text';
 import { useSession } from '@/features/auth/contexts/session-context';
-import { useTasks } from '@/features/deliveries/hooks/use-tasks';
 import { useTranslatorProfile } from '@/features/translators/hooks/use-translator-profile';
 import { useStyles } from '@/features/translators/styles/profile.styles';
 import { profileCompleteness, profileLink } from '@/features/translators/utils/profile-summary';
@@ -19,6 +18,13 @@ export function MyTranslatorProfileScreen() {
   const { session } = useSession();
   if (session?.role !== 'translator') return <Redirect href="/dashboard" />;
   return <ProfilePage />;
+}
+
+export function TeamTranslatorProfileScreen() {
+  const { session } = useSession();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  if (session?.role === 'translator') return <Redirect href="/perfil" />;
+  return <ProfilePage key={id} translatorId={id} />;
 }
 
 function Card({ title, icon: Icon, children }: { title: string; icon: typeof UserRound; children: ReactNode }) {
@@ -43,15 +49,15 @@ function Tags({ values }: { values: string[] }) {
     : <Txt style={styles.muted}>Ainda não informado.</Txt>;
 }
 
-function ProfilePage() {
+function ProfilePage({ translatorId }: { translatorId?: string }) {
   const styles = useStyles();
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const compact = width < 950;
   const { session } = useSession();
+  const own = !translatorId;
   const { atualizado } = useLocalSearchParams<{ atualizado?: string }>();
-  const { record, loading, error, retry } = useTranslatorProfile();
-  const { tasks } = useTasks();
+  const { record, loading, error, retry } = useTranslatorProfile(translatorId);
   const [linkError, setLinkError] = useState('');
   async function openLink(value: string) {
     setLinkError('');
@@ -61,22 +67,19 @@ function ProfilePage() {
   if (loading) return <View style={styles.loading}><ActivityIndicator color={colors.accent} accessibilityLabel="Carregando perfil do tradutor" /></View>;
   if (!record || error) return <ScrollView contentContainerStyle={styles.page}><EmptyState icon={UserRound} title="Não foi possível carregar o perfil" text={error || 'Perfil indisponível.'}
     action={<Button onPress={retry}>Tentar novamente</Button>} /></ScrollView>;
-  const { profile: data, account } = record;
-  const activity = {
-    totalProjects: tasks.length,
-    activeProjects: tasks.filter(task => ['Tradutor atribuído', 'Em andamento', 'Revisão solicitada'].includes(task.status)).length,
-    awaitingReview: tasks.filter(task => task.status === 'Aguardando avaliação').length,
-    completedProjects: tasks.filter(task => ['Pronta', 'Entregue'].includes(task.status)).length,
-  };
+  const { profile: data, account, activity } = record;
   const completeness = profileCompleteness(data);
   const initials = (data.fullName || account.name).trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
-  const updated = record.updatedAt && new Date(record.updatedAt);
-  const pageAction = !session?.demo ? <Button icon={Pencil} onPress={() => router.push('/perfil/editar')}>Editar perfil</Button> : undefined;
+  const location = [data.city, data.country].filter(Boolean).join(', ');
+  const updated = record.updatedAt ? new Date(record.updatedAt) : null;
+  const pageAction = own && !session?.demo ? <Button icon={Pencil} onPress={() => router.push('/perfil/editar')}>Editar perfil</Button>
+    : !own ? <Button variant="secondary" icon={ArrowLeft} onPress={() => router.canGoBack() ? router.back() : router.replace('/dashboard')}>Voltar</Button> : undefined;
   return <ScrollView contentContainerStyle={[styles.page, width < 700 && styles.pageSmall]} keyboardShouldPersistTaps="handled">
     <View style={styles.container}>
-      <PageHeading title="Meu perfil profissional" subtitle="Seu trabalho, sua trajetória e suas informações em um só lugar." action={width >= 700 ? pageAction : undefined} />
+      <PageHeading title={own ? 'Meu perfil profissional' : 'Perfil do tradutor'} subtitle={own ? 'Seu trabalho, sua trajetória e suas informações em um só lugar.' : 'Conheça a experiência e as áreas de atuação deste profissional.'}
+        action={width >= 700 ? pageAction : undefined} />
       {session?.demo && <View style={styles.notice}><Txt style={styles.noticeText}>Demonstração · dados fictícios. A edição está disponível no acesso autenticado.</Txt></View>}
-      {atualizado === '1' && <View style={styles.notice}><Txt accessibilityLiveRegion="polite" style={styles.noticeText}>Perfil atualizado com sucesso.</Txt></View>}
+      {own && atualizado === '1' && <View style={styles.notice}><Txt accessibilityLiveRegion="polite" style={styles.noticeText}>Perfil atualizado com sucesso.</Txt></View>}
       <View style={styles.hero}>
         <View style={styles.cover} />
         <View style={[styles.heroBody, width < 600 && styles.heroSmall]}>
@@ -85,14 +88,14 @@ function ProfilePage() {
             <View style={styles.heroCopy}><Txt style={styles.eyebrow}>TRADUTOR ECHO RING</Txt>
               <Txt accessibilityRole="header" style={styles.name}>{data.fullName || account.name}</Txt>
               <Txt style={styles.title}>{data.professionalTitle || 'Profissional de tradução'}</Txt>
-              <View style={styles.row}>{(data.city || data.country) && <><MapPin size={15} color={colors.muted} /><Txt style={styles.muted}>{[data.city, data.country].filter(Boolean).join(', ')}</Txt></>}
+              <View style={styles.row}>
+                {location ? <><MapPin size={15} color={colors.muted} /><Txt style={styles.muted}>{location}</Txt></> : null}
                 <Badge tone={account.onboardingRequired ? 'amber' : record.completedAt ? 'green' : 'neutral'}>{account.onboardingRequired ? 'Cadastro pendente' : record.completedAt ? 'Cadastro concluído' : 'Perfil em construção'}</Badge>
               </View>
             </View>
           </View>
           <View style={styles.chips}>
             <Badge tone="neutral">{data.languages.length} {data.languages.length === 1 ? 'idioma' : 'idiomas'}</Badge>
-            <Badge tone="neutral">{data.translationPairs.length} {data.translationPairs.length === 1 ? 'par de tradução' : 'pares de tradução'}</Badge>
             {data.experienceYears !== null && <Badge tone="neutral">{data.experienceYears === 0 ? 'Em início de carreira' : `${data.experienceYears} ${data.experienceYears === 1 ? 'ano' : 'anos'} de experiência`}</Badge>}
           </View>
           <View style={styles.heroFooter}>{width < 700 && pageAction}<View style={styles.privacy}><ShieldCheck size={16} color={colors.muted} /><Txt style={[styles.muted, { flex: 1 }]}>Perfil interno, visível ao tradutor e à equipe do EchoRing.</Txt></View>
@@ -104,9 +107,8 @@ function ProfilePage() {
       <View style={[styles.layout, compact && styles.layoutSmall]}>
         <View style={[styles.main, compact && styles.mainSmall]}>
           <Card title="Sobre o profissional" icon={UserRound}><Txt style={data.bio ? styles.text : styles.muted}>{data.bio || 'Este profissional ainda não adicionou uma apresentação.'}</Txt></Card>
-          <Card title="Idiomas e pares de tradução" icon={Languages}>
+          <Card title="Idiomas" icon={Languages}>
             {data.languages.length ? data.languages.map(language => <View key={language.name} style={styles.language}><Txt style={styles.text}>{language.name}</Txt><Badge tone="blue">{language.level}</Badge></View>) : <Txt style={styles.muted}>Nenhum idioma informado.</Txt>}
-            <Txt style={styles.label}>Direções de tradução</Txt><Tags values={data.translationPairs.map(pair => `${pair.source} → ${pair.target}`)} />
           </Card>
           <Card title="Especializações e serviços" icon={BriefcaseBusiness}><Txt style={styles.label}>Áreas de atuação</Txt><Tags values={data.specializations} />
             <Txt style={styles.label}>Serviços oferecidos</Txt><Tags values={data.services} /></Card>
@@ -132,10 +134,10 @@ function ProfilePage() {
             <TextDetail label="Disponibilidade semanal" value={data.availabilityHours === null ? undefined : `${data.availabilityHours} horas por semana`} />
             <TextDetail label="Fuso horário" value={data.timezone} /><TextDetail label="Horários e observações" value={data.availabilityNotes} />
           </Card>
-          <Card title="Atividade no EchoRing" icon={BriefcaseBusiness}><View style={styles.metricGrid}>
+          {activity && <Card title="Atividade no EchoRing" icon={BriefcaseBusiness}><View style={styles.metricGrid}>
             {[[activity.totalProjects, 'Projetos atribuídos'], [activity.activeProjects, 'Em andamento'], [activity.awaitingReview, 'Em avaliação'], [activity.completedProjects, 'Finalizados']].map(([value, label]) => <View key={label} style={styles.metric}><Txt style={styles.metricValue}>{value}</Txt><Txt style={styles.muted}>{label}</Txt></View>)}
-          </View><Button variant="secondary" onPress={() => router.push('/operacao')}>Ver meus projetos</Button></Card>
-          {!session?.demo && <Card title="Informações do perfil" icon={UserRound}>
+          </View>{own && <Button variant="secondary" onPress={() => router.push('/operacao')}>Ver meus projetos</Button>}</Card>}
+          {own && !session?.demo && <Card title="Informações do perfil" icon={UserRound}>
             <Txt style={styles.muted}>{completeness.filled} de {completeness.total} informações preenchidas</Txt>
             <View accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: completeness.percent }} style={styles.progressTrack}><View style={[styles.progress, { width: `${completeness.percent}%` }]} /></View>
             <Txt style={styles.muted}>Uma apresentação, serviços e exemplos de trabalho ajudam a equipe a conhecer melhor sua atuação. Os campos complementares são opcionais.</Txt>
@@ -146,4 +148,3 @@ function ProfilePage() {
     </View>
   </ScrollView>;
 }
-

@@ -1,5 +1,9 @@
+import { currencyToDecimal } from './input-formatters';
+
 export function money(value: string) {
-  return Number(value.replace(',', '.')).toLocaleString('pt-BR', {
+  const decimal = currencyToDecimal(value);
+  if (!decimal) return '—';
+  return Number(decimal).toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   });

@@ -1,4 +1,5 @@
-import { Plus } from 'lucide-react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Eye, Plus, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
@@ -11,16 +12,25 @@ import { FilterTab } from '@/features/workspace/components/filter-tab';
 import { ProjectList } from '@/features/workspace/components/project-list';
 import { WorkspacePage } from '@/features/workspace/components/workspace-page';
 import { useWorkspace } from '@/features/workspace/contexts/workspace-context';
+import { translatorProjectPreview } from '@/features/workspace/data/demo-workspace';
 import { useStyles } from '@/features/workspace/styles/workspace.styles';
 import { matchesSearch } from '@/features/workspace/utils/search';
+import { useCommonStyles } from '@/theme/common.styles';
 
 export function OperationsScreen() {
   const styles = useStyles();
-  const { projects, search, setSearch, setNewRequest } = useWorkspace();
+  const common = useCommonStyles();
+  const { projects, search, setSearch } = useWorkspace();
   const { session } = useSession();
+  const params = useLocalSearchParams<{ exemplo?: string }>();
+  const translator = session?.role === 'translator';
+  const showPreview = translator && params.exemplo === 'tradutor';
+  const displayedProjects = showPreview
+    ? [{ ...translatorProjectPreview, owner: session.name }, ...projects]
+    : projects;
   const employee = session?.role === 'employee' || session?.role === 'admin';
   const [status, setStatus] = useState('Todos');
-  const filtered = projects.filter(
+  const filtered = displayedProjects.filter(
     (project) =>
       (status === 'Todos' || project.status === status) && matchesSearch(project, search),
   );
@@ -35,12 +45,20 @@ export function OperationsScreen() {
         }
         action={
           employee ? (
-            <Button icon={Plus} onPress={() => setNewRequest(true)}>
+            <Button icon={Plus} onPress={() => router.push('/operacao/nova')}>
               Nova requisição
+            </Button>
+          ) : translator ? (
+            <Button variant="secondary" icon={showPreview ? X : Eye} onPress={() => { router.setParams({ exemplo: showPreview ? '' : 'tradutor' }); setStatus('Todos'); setSearch(''); }}>
+              {showPreview ? 'Ocultar projeto de exemplo' : 'Ver projeto de exemplo'}
             </Button>
           ) : undefined
         }
       />
+      {showPreview && <View style={styles.welcomeNote}>
+        <Badge tone="amber">Prévia do projeto do tradutor</Badge>
+        <Txt style={common.caption}>O projeto DEMO-TRAD-001 é fictício e serve para visualizar o cartão, o progresso e os detalhes. Seus projetos reais continuam na lista; este exemplo não é salvo no banco.</Txt>
+      </View>}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}

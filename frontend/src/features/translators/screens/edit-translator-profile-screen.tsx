@@ -90,4 +90,3 @@ function ProfileEditor({ record }: { record: TranslatorProfileRecord }) {
     </Dialog>
   </>;
 }
-

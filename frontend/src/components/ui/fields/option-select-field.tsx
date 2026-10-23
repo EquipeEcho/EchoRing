@@ -1,11 +1,13 @@
 import { Check, ChevronDown } from 'lucide-react-native';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Dialog } from '@/components/ui/dialog';
 import { useStyles } from '@/components/ui/fields/selection-fields.styles';
 import { type FieldBaseProps } from '@/components/ui/fields/types';
 import { Txt } from '@/components/ui/text';
+import { TextInput } from '@/components/ui/text-input';
+import { normalizeLanguageSearch } from '@/data/language-options';
 import { useTheme } from '@/theme/theme-context';
 
 export function OptionSelectField({
@@ -20,15 +22,24 @@ export function OptionSelectField({
   invalid,
   compact,
   prefix,
+  searchable = options.length > 12,
+  matchOption,
 }: FieldBaseProps & {
   options: string[];
   placeholder?: string;
   dialogTitle?: string;
   description?: string;
+  searchable?: boolean;
+  matchOption?: (option: string, query: string) => boolean;
 }) {
   const { colors } = useTheme();
   const styles = useStyles();
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [limit, setLimit] = useState(40);
+  const matches = useMemo(() => options.filter(option => !query.trim() || (matchOption
+    ? matchOption(option, query) : normalizeLanguageSearch(option).includes(normalizeLanguageSearch(query.trim())))), [options, query, matchOption]);
+  const visible = matches.slice(0, limit);
   return (
     <>
       <View testID="landing-field" style={[styles.field, compact && styles.fieldCompact]}>
@@ -42,7 +53,7 @@ export function OptionSelectField({
           accessibilityValue={{ text: value || placeholder }}
           aria-invalid={invalid}
           disabled={disabled}
-          onPress={() => setOpen(true)}
+          onPress={() => { setQuery(''); setLimit(40); setOpen(true); }}
           style={({ hovered, pressed }) => [
             styles.control,
             invalid && styles.controlInvalid,
@@ -66,8 +77,14 @@ export function OptionSelectField({
         title={dialogTitle}
         description={description}
       >
+        {searchable && <>
+          <TextInput accessibilityLabel={`Buscar em ${dialogTitle}`} value={query} onChangeText={text => { setQuery(text); setLimit(40); }}
+            placeholder="Buscar por nome ou código..." placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false}
+            style={[styles.search, { color: colors.ink, borderColor: colors.controlLine }]} />
+          <Txt style={styles.placeholder} accessibilityLiveRegion="polite">{matches.length} opções{matches.length > visible.length ? ` · exibindo ${visible.length}. Refine sua busca.` : ''}</Txt>
+        </>}
         <View style={styles.optionList}>
-          {options.map((option) => {
+          {visible.map((option) => {
             const selected = value === option;
             return (
               <Pressable
@@ -76,7 +93,9 @@ export function OptionSelectField({
                 accessibilityLabel={`${dialogTitle}: ${option}`}
                 accessibilityState={{ checked: selected }}
                 aria-checked={selected}
+                disabled={disabled}
                 onPress={() => {
+                  if (disabled) return;
                   onChange(option);
                   setOpen(false);
                 }}
@@ -95,6 +114,8 @@ export function OptionSelectField({
             );
           })}
         </View>
+        {!matches.length && <Txt style={styles.placeholder}>Nenhuma opção encontrada. Tente outro nome ou código.</Txt>}
+        {matches.length > limit && <Pressable accessibilityRole="button" accessibilityLabel="Mostrar mais opções" onPress={() => setLimit(current => current + 40)} style={styles.option}><Txt>Mostrar mais opções</Txt></Pressable>}
       </Dialog>
     </>
   );

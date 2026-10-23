@@ -5,7 +5,7 @@ import { demoTranslatorProfile } from '@/features/translators/data/demo-profile'
 import { readTranslatorProfile } from '@/features/translators/services/translator-profile-service';
 import { type TranslatorProfileRecord } from '@/features/translators/types';
 
-export function useTranslatorProfile() {
+export function useTranslatorProfile(translatorId?: string) {
   const { session } = useSession();
   const [record, setRecord] = useState<TranslatorProfileRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -18,14 +18,13 @@ export function useTranslatorProfile() {
   useEffect(() => {
     let active = true;
     const load = async () => {
-      const result = demo ? demoTranslatorProfile(name, email) : await readTranslatorProfile(token!);
+      const result = demo ? demoTranslatorProfile(name, email, translatorId) : await readTranslatorProfile(token!, translatorId);
       if (active) { setRecord(result); setError(''); }
     };
     void load().catch(failure => { if (active) setError((failure as Error).message); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [token, demo, name, email, reload]);
+  }, [token, demo, name, email, translatorId, reload]);
   function retry() { setLoading(true); setError(''); setReload(current => current + 1); }
   return { record, loading, error, retry };
 }
-

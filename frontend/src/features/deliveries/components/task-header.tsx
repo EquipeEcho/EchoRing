@@ -1,8 +1,10 @@
 import { FileCheck2 } from 'lucide-react-native';
-import { View } from 'react-native';
+import { router } from 'expo-router';
+import { Pressable, View } from 'react-native';
 
 import { Badge } from '@/components/ui/badge';
 import { Txt } from '@/components/ui/text';
+import { useSession } from '@/features/auth/contexts/session-context';
 import { statusTone } from '@/features/deliveries/constants';
 import { useStyles } from '@/features/deliveries/styles/deliveries.styles';
 import { type TranslationService } from '@/features/deliveries/types';
@@ -10,6 +12,7 @@ import { useCommonStyles } from '@/theme/common.styles';
 import { useTheme } from '@/theme/theme-context';
 
 export function TaskHeader({ task }: { task: TranslationService }) {
+  const { session } = useSession();
   const { colors } = useTheme();
   const styles = useStyles();
   const common = useCommonStyles();
@@ -24,6 +27,9 @@ export function TaskHeader({ task }: { task: TranslationService }) {
           {task.id}
           {task.requestId ? ` · ${task.requestId}` : ''}
         </Txt>
+        {task.translator && session?.role !== 'translator' && <Pressable accessibilityRole="link" accessibilityLabel={`Ver perfil de ${task.translator.name}`} onPress={() => router.push({ pathname: '/tradutores/[id]', params: { id: task.translator!.id } })}>
+          <Txt style={{ color: colors.accent, fontSize: 12, lineHeight: 20 }}>{task.translator.name} · Ver perfil</Txt>
+        </Pressable>}
       </View>
       <Badge tone={statusTone[task.status]}>{task.status}</Badge>
     </View>

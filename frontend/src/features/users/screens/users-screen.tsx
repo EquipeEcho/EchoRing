@@ -1,5 +1,7 @@
 import { Search, ShieldCheck, UserPlus, UsersRound } from 'lucide-react-native';
-import { Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
+import { router } from 'expo-router';
+import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { TextInput } from '@/components/ui/text-input';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -187,9 +189,9 @@ export function UsersScreen() {
                     </Txt>
                   </View>
                   <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-                    <Txt numberOfLines={1} style={styles.userName}>
-                      {user.name}
-                    </Txt>
+                    {user.role === 'translator' ? <Pressable accessibilityRole="link" accessibilityLabel={`Ver perfil de ${user.name}`} onPress={() => router.push({ pathname: '/tradutores/[id]', params: { id: user.id } })}>
+                      <Txt numberOfLines={1} style={[styles.userName, { color: colors.accent }]}>{user.name}</Txt>
+                    </Pressable> : <Txt numberOfLines={1} style={styles.userName}>{user.name}</Txt>}
                     <Txt numberOfLines={1} style={styles.userEmail}>
                       {user.email}
                     </Txt>

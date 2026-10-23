@@ -127,8 +127,9 @@ for (const theme of ['dark', 'light'] as const) {
     await expectReadable(page.getByRole('heading', { name: 'Nova requisição', exact: true }));
     await expectReadable(page.getByRole('textbox', { name: 'Título do projeto', exact: true }));
     await page.getByRole('button', { name: 'Idioma de origem', exact: true }).click();
-    await expectReadable(page.getByRole('radio', { name: 'Idioma de origem: Português', exact: true }).getByText('Português', { exact: true }));
-    await page.getByRole('radio', { name: 'Idioma de origem: Português', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Buscar em Idioma de origem', exact: true }).fill('pt-BR');
+    await expectReadable(page.getByRole('radio', { name: 'Idioma de origem: Português (Brasil)', exact: true }).getByText('Português (Brasil)', { exact: true }));
+    await page.getByRole('radio', { name: 'Idioma de origem: Português (Brasil)', exact: true }).click();
     await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
 
     await page.goto('/orcamento/teste');

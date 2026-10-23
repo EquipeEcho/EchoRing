@@ -66,7 +66,9 @@ test('translator session only exposes translator workspace areas', async ({ page
   await expect(page.getByRole('button', { name: 'Cadastros', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Pedidos', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Abrir meu perfil' }).click();
-  await expect(page.getByText('Tradutor · Conta autenticada')).toBeVisible();
+  const account = page.getByTestId('dialog-surface');
+  await expect(account.getByText('Tradutor', { exact: true })).toBeVisible();
+  await expect(account.getByText('Conta autenticada', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Fechar', exact: true }).click();
   if (testInfo.project.name === 'mobile') await page.getByRole('button', { name: 'Mais', exact: true }).click();
   else await page.goto('/mais');
@@ -118,17 +120,22 @@ test('general administrator can create a platform user', async ({ page }) => {
 test('project details, new request and status filters work', async ({ page }) => {
   await enterDemo(page);
   await page.getByRole('button', { name: /Abrir OS-2026-084:/ }).click();
+  await expect(page).toHaveURL(/\/operacao\/OS-2026-084/);
+  await expect(page.getByTestId('dialog-surface')).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Detalhes do projeto', exact: true })).toBeVisible();
   await expect(page.getByText('Português → Inglês', { exact: true }).last()).toBeVisible();
-  await page.getByRole('button', { name: 'Fechar detalhes' }).click();
+  await page.getByRole('button', { name: 'Voltar aos projetos' }).click();
   await page.getByRole('button', { name: 'Nova requisição', exact: true }).click();
   await page.getByRole('button', { name: 'Criar requisição', exact: true }).click();
   await expect(page.getByText('Preencha o título, o cliente e os idiomas.')).toBeVisible();
   await page.getByLabel('Título do projeto', { exact: true }).fill('Contrato de teste');
   await page.getByLabel('Cliente', { exact: true }).fill('Cliente de teste');
   await page.getByRole('button', { name: 'Idioma de origem', exact: true }).click();
-  await page.getByRole('radio', { name: 'Idioma de origem: Português', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Buscar em Idioma de origem', exact: true }).fill('pt-BR');
+  await page.getByRole('radio', { name: 'Idioma de origem: Português (Brasil)', exact: true }).click();
   await page.getByRole('button', { name: 'Idioma de destino', exact: true }).click();
-  await page.getByRole('radio', { name: 'Idioma de destino: Inglês', exact: true }).click();
+  await page.getByRole('radio', { name: 'Idioma de destino: Inglês (EUA)', exact: true }).click();
   await page.getByRole('button', { name: 'Criar requisição', exact: true }).click();
   await expect(page.getByRole('button', { name: /Abrir REQ-007: Contrato de teste/ })).toBeVisible();
   await page.getByRole('button', { name: 'Ver toda a operação' }).click();

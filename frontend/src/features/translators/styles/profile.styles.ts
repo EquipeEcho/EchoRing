@@ -55,4 +55,3 @@ export const useStyles = createThemedStyles(colors => ({
   editorFooter: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between', paddingTop: 20, borderTopWidth: 1, borderTopColor: colors.line },
   loading: { minHeight: 220, justifyContent: 'center', alignItems: 'center' },
 }));
-

@@ -1,3 +1,4 @@
+import { languageCode } from '@/data/language-options';
 import { type ProfileErrors, type TranslatorProfile } from '@/features/translators/types';
 
 export function validateProfileStep(profile: TranslatorProfile, step: number): ProfileErrors {
@@ -11,13 +12,12 @@ export function validateProfileStep(profile: TranslatorProfile, step: number): P
     if (profile.city.trim().length < 2) errors.city = 'Informe sua cidade.';
   }
   if (step === 1) {
-    const languages = profile.languages.map(language => language.name.trim().toLocaleLowerCase());
+    const languages = profile.languages.map(language => languageCode(language.name));
     if (languages.length < 2 || languages.some(name => !name) || new Set(languages).size !== languages.length) {
       errors.languages = 'Adicione pelo menos dois idiomas diferentes, com seus níveis de domínio.';
     }
-    const pairs = profile.translationPairs.map(pair => [pair.source.trim().toLocaleLowerCase(), pair.target.trim().toLocaleLowerCase()]);
-    if (!pairs.length || pairs.some(([source, target]) => source === target || !languages.includes(source) || !languages.includes(target)) || new Set(pairs.map(pair => pair.join('\0'))).size !== pairs.length) {
-      errors.translationPairs = 'Adicione pares diferentes, com origem e destino entre os idiomas informados.';
+    if (profile.languages.some(language => language.name.trim() && !languageCode(language.name))) {
+      errors.languages = 'Selecione apenas idiomas disponíveis na lista.';
     }
   }
   if (step === 2) {

@@ -56,12 +56,16 @@ async function contact(page: Page) {
   await page.getByRole('textbox', { name: 'País *', exact: true }).fill('Brasil');
   await page.getByRole('textbox', { name: 'Cidade *', exact: true }).fill('São Paulo');
   await page.getByRole('button', { name: 'Salvar e continuar', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Idiomas e pares de tradução', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Idiomas', exact: true })).toBeVisible();
 }
 
 async function select(page: Page, label: string, value: string) {
+  const count = await page.getByTestId('dialog-surface').count();
   await page.getByRole('button', { name: label, exact: true }).click();
+  const search = page.getByRole('textbox', { name: `Buscar em ${label}`, exact: true });
+  if (await search.count()) await search.fill(value);
   await page.getByRole('radio', { name: `${label}: ${value}`, exact: true }).click();
+  await expect(page.getByTestId('dialog-surface')).toHaveCount(count);
 }
 
 async function expectFormLayout(page: Page, final = false) {
@@ -85,17 +89,13 @@ test('invited translator completes required steps and optional profile, then fut
   expect(server.saves()).toBe(0);
   await expect(page.getByRole('textbox', { name: 'E-mail da conta', exact: true })).not.toBeEditable();
   await contact(page);
-  for (const [index, language] of ['Português', 'Inglês', 'Latim'].entries()) {
+  for (const [index, language] of ['Português (Brasil)', 'Inglês (EUA)', 'Latim'].entries()) {
     await page.getByRole('button', { name: 'Adicionar idioma', exact: true }).click();
-    await page.getByRole('textbox', { name: `Idioma ${index + 1}`, exact: true }).fill(language);
+    await select(page, `Idioma ${index + 1}`, language);
   }
   await select(page, 'Nível do idioma 3', 'Avançado');
-  await page.getByRole('button', { name: 'Adicionar par de tradução', exact: true }).click();
-  await select(page, 'Origem do par 1', 'Inglês');
-  await select(page, 'Destino do par 1', 'Português');
-  await page.getByRole('button', { name: 'Adicionar par de tradução', exact: true }).click();
-  await select(page, 'Origem do par 2', 'Latim');
-  await select(page, 'Destino do par 2', 'Português');
+  await expect(page.getByRole('button', { name: 'Adicionar par de tradução', exact: true })).toHaveCount(0);
+  await expect(page.getByText('Você poderá receber oportunidades entre eles, nos dois sentidos.', { exact: false })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('onboarding-languages.png') });
   await expectFormLayout(page);
   await page.getByRole('button', { name: 'Salvar e continuar', exact: true }).click();
@@ -133,7 +133,7 @@ test('invited translator completes required steps and optional profile, then fut
   await expect(page).toHaveURL(/dashboard/);
   await expect(page.getByRole('heading', { name: 'Visão geral', exact: true })).toBeVisible();
   expect(server.profile().languages).toHaveLength(3);
-  expect(server.profile().translationPairs).toHaveLength(2);
+  expect(server.profile()).not.toHaveProperty('translationPairs');
   expect(server.profile().specializations).toEqual(['Técnica', 'Filologia']);
   expect(server.profile().portfolioLinks).toEqual(['https://example.test/portfolio']);
   expect(server.profile().experienceYears).toBe(0);
@@ -157,20 +157,20 @@ test('draft survives reload and another login; direct workspace routes require c
   await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
   await expect(page.getByText('Rascunho salvo.', { exact: false })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('textbox', { name: 'Telefone *', exact: true })).toHaveValue('+55 11 99999-0000');
+  await expect(page.getByRole('textbox', { name: 'Telefone *', exact: true })).toHaveValue('+55 (11) 99999-0000');
   await page.getByTestId('theme-toggle').click();
-  await expect(page.getByRole('textbox', { name: 'Telefone *', exact: true })).toHaveValue('+55 11 99999-0000');
+  await expect(page.getByRole('textbox', { name: 'Telefone *', exact: true })).toHaveValue('+55 (11) 99999-0000');
   if (testInfo.project.name === 'mobile') await page.setViewportSize({ width: 320, height: 740 });
   await expectFormLayout(page);
-  for (const route of ['/dashboard', '/entregas', '/operacao', '/usuarios']) {
+  for (const route of ['/dashboard', '/entregas', '/operacao', '/usuarios', '/perfil', '/perfil/editar']) {
     await page.goto(route);
     await expect(page).toHaveURL(/completar-cadastro/);
-    await expect(page.getByRole('textbox', { name: 'Telefone *', exact: true })).toHaveValue('+55 11 99999-0000');
+    await expect(page.getByRole('textbox', { name: 'Telefone *', exact: true })).toHaveValue('+55 (11) 99999-0000');
   }
   await page.getByRole('button', { name: 'Salvar e sair', exact: true }).click();
   await expect(page).toHaveURL(/login/);
   await login(page);
-  await expect(page.getByRole('textbox', { name: 'Telefone *', exact: true })).toHaveValue('+55 11 99999-0000');
+  await expect(page.getByRole('textbox', { name: 'Telefone *', exact: true })).toHaveValue('+55 (11) 99999-0000');
   expect(server.completed()).toBe(false);
 });
 

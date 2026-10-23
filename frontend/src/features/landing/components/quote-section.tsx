@@ -19,7 +19,7 @@ import {
 import { Pressable, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
-import { languageOptions } from '@/components/ui/fields/constants';
+import { languageMatches, languageOptions } from '@/components/ui/fields/constants';
 import { DateSelectField } from '@/components/ui/fields/date-select-field';
 import { OptionSelectField } from '@/components/ui/fields/option-select-field';
 import { Txt } from '@/components/ui/text';
@@ -303,6 +303,7 @@ export function QuoteSection({
                       value={data.source}
                       onChange={(value) => change('source', value)}
                       options={languageOptions}
+                      matchOption={languageMatches}
                       dialogTitle="Idioma de origem"
                       description="Selecione o idioma atual do material."
                       disabled={busy}
@@ -331,6 +332,7 @@ export function QuoteSection({
                       value={data.target}
                       onChange={(value) => change('target', value)}
                       options={languageOptions}
+                      matchOption={languageMatches}
                       dialogTitle="Idioma de destino"
                       description="Selecione o idioma em que o conteúdo será entregue."
                       disabled={busy}

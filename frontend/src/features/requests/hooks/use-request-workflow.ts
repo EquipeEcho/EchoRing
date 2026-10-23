@@ -1,40 +1,42 @@
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { currencyInputFromDecimal, currencyToDecimal } from '@/utils/input-formatters';
 
 import { useSession } from '@/features/auth/contexts/session-context';
 import { emptyQuote } from '@/features/requests/constants/quote';
 import { useInbox } from '@/features/requests/contexts/inbox-context';
 import {
-  assignTranslator,
   getRequest,
-  getTranslators,
   sendQuote,
   updateRequest,
 } from '@/features/requests/services/request-service';
 import {
   type Quote,
   type TranslationRequest,
-  type TranslatorOption,
 } from '@/features/requests/types';
 
 export function useRequestWorkflow() {
+  const params = useLocalSearchParams<{ id?: string; view?: string; status?: string; search?: string }>();
+  const requestId = params.id;
+  const [detailRevision, setDetailRevision] = useState(0);
+  const reloadDetail = () => setDetailRevision(current => current + 1);
   const { session } = useSession();
   const token = session?.token;
   const { requests, loading, error: loadError, refresh } = useInbox();
-  const [view, setView] = useState<'active' | 'completed'>('active');
-  const [filter, setFilter] = useState('Todos');
-  const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<TranslationRequest | null>(null);
+  const view = params.view === 'completed' ? 'completed' : 'active';
+  const setView = (view: 'active' | 'completed') => router.setParams({ view, status: 'Todos' });
+  const filter = params.status || 'Todos';
+  const setFilter = (status: string) => router.setParams({ status });
+  const search = params.search || '';
+  const setSearch = (search: string) => router.setParams({ search });
+  const [record, setSelected] = useState<TranslationRequest | null>(null);
+  const selected = record?.id === requestId ? record : null;
+  const [detailLoading, setDetailLoading] = useState(!!requestId);
   const [quote, setQuote] = useState<Quote>({ ...emptyQuote });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [confirm, setConfirm] = useState(false);
-  const [translators, setTranslators] = useState<TranslatorOption[]>([]);
-  const [assignment, setAssignment] = useState({
-    translatorId: '',
-    deadline: '',
-    observations: '',
-  });
   const locked = !!selected && !['Recebido', 'Em análise'].includes(selected.status);
   const normalize = (value: string) =>
     value
@@ -60,28 +62,28 @@ export function useRequestWorkflow() {
           token ? 'Orçamento enviado' : 'Orçamento simulado',
           ...(token ? ['Orçamento aprovado', 'Tradutor atribuído', 'Aguardando avaliação'] : []),
         ];
-  async function open(request: TranslationRequest) {
-    setError('');
-    setNotice('');
-    setBusy(true);
-    try {
-      const detail = await getRequest(request.id, token);
-      const available =
-        token && detail.status === 'Orçamento aprovado' ? await getTranslators(token) : [];
-      setSelected(detail);
-      setQuote(detail.quote ?? { ...emptyQuote });
-      setTranslators(available);
-      setAssignment({
-        translatorId: '',
-        deadline: detail.quote?.delivery || detail.deadline || '',
-        observations: '',
-      });
-    } catch (failure) {
-      setError((failure as Error).message);
-    } finally {
-      setBusy(false);
-    }
+  const listHref = { pathname: '/solicitacoes' as const, params: { view, status: filter, search } };
+  function open(request: TranslationRequest) {
+    router.push({ pathname: '/solicitacoes/[id]', params: { id: request.id, view, status: filter, search } });
   }
+  useEffect(() => {
+    if (!requestId) return;
+    let active = true;
+    const initial = setTimeout(async () => {
+      setDetailLoading(true); setError(''); setNotice(''); setConfirm(false);
+      try {
+        const detail = await getRequest(requestId, token);
+        if (!active) return;
+        setSelected(detail);
+        setQuote(detail.quote ? { ...detail.quote, amount: currencyInputFromDecimal(detail.quote.amount) } : { ...emptyQuote });
+      } catch (failure) {
+        if (active) setError((failure as Error).message);
+      } finally {
+        if (active) setDetailLoading(false);
+      }
+    }, 0);
+    return () => { active = false; clearTimeout(initial); };
+  }, [requestId, token, detailRevision]);
   async function analyze() {
     if (!selected || busy) return;
     setBusy(true);
@@ -98,8 +100,9 @@ export function useRequestWorkflow() {
   async function save(): Promise<boolean> {
     if (!selected || busy) return false;
     if (
-      !/^\d{1,8}([.,]\d{1,2})?$/.test(quote.amount.trim()) ||
-      Number(quote.amount.replace(',', '.')) <= 0 ||
+      !currencyToDecimal(quote.amount) ||
+      Number(currencyToDecimal(quote.amount)) <= 0 ||
+      Number(currencyToDecimal(quote.amount)) >= 100000000 ||
       !quote.delivery.trim()
     ) {
       setError('Informe um valor positivo e o prazo de entrega.');
@@ -114,7 +117,7 @@ export function useRequestWorkflow() {
           selected.id,
           {
             quote: {
-              amount: quote.amount.trim(),
+              amount: currencyToDecimal(quote.amount),
               delivery: quote.delivery.trim(),
               message: quote.message.trim(),
             },
@@ -143,23 +146,8 @@ export function useRequestWorkflow() {
       const result = token
         ? await sendQuote(selected.id, token)
         : await updateRequest(selected.id, { status: 'Orçamento simulado' });
-      let available: TranslatorOption[] = [];
-      let translatorError = '';
-      if (token && result.status === 'Orçamento aprovado') {
-        try {
-          available = await getTranslators(token);
-        } catch (failure) {
-          translatorError = `O orçamento foi aprovado, mas não foi possível carregar os tradutores: ${(failure as Error).message}`;
-        }
-      }
       setSelected(result);
-      setTranslators(available);
       setConfirm(false);
-      setAssignment((current) => ({
-        ...current,
-        translatorId: '',
-        deadline: result.quote?.delivery || result.deadline || current.deadline,
-      }));
       setNotice(
         result.autoApproved
           ? 'Orçamento aprovado automaticamente para teste. Nenhum e-mail foi enviado.'
@@ -167,7 +155,6 @@ export function useRequestWorkflow() {
             ? 'Orçamento aceito pelo provedor de e-mail para envio ao cliente.'
             : 'Envio simulado. Nenhum e-mail foi enviado ao cliente.',
       );
-      if (translatorError) setError(translatorError);
       await refresh();
     } catch (failure) {
       setConfirm(false);
@@ -176,42 +163,11 @@ export function useRequestWorkflow() {
       setBusy(false);
     }
   }
-  async function createTask() {
-    if (!selected || !token || busy) return;
-    if (!assignment.translatorId || !assignment.deadline.trim()) {
-      setError('Selecione o tradutor e informe o prazo da tarefa.');
-      return;
-    }
-    setBusy(true);
-    setError('');
-    setNotice('');
-    try {
-      await assignTranslator(
-        selected.id,
-        {
-          ...assignment,
-          deadline: assignment.deadline.trim(),
-          observations: assignment.observations.trim(),
-        },
-        token,
-      );
-      setSelected(await getRequest(selected.id, token));
-      setNotice('Tarefa criada e disponibilizada no painel do tradutor.');
-      await refresh();
-    } catch (failure) {
-      setError((failure as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
   function close() {
-    if (!busy) {
-      setSelected(null);
-      setError('');
-      setNotice('');
-    }
+    if (!busy) router.replace(listHref);
   }
   return {
+    requestId, detailLoading, reloadDetail, listHref,
     loading,
     refresh,
     requests,
@@ -243,10 +199,6 @@ export function useRequestWorkflow() {
     notice,
     save,
     prepare,
-    translators,
-    assignment,
-    setAssignment,
-    createTask,
     send,
   };
 }
