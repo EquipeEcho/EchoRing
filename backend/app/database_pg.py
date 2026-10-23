@@ -1,17 +1,32 @@
-"""PostgreSQL connection, schema initialization and general utilities."""
+"""PostgreSQL via SQLAlchemy: engine, sessões, criação do schema e utilidades gerais."""
 
 import json
 import os
 import re
+import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
-import psycopg
-from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict
-from psycopg.rows import dict_row
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import URL, Engine
+from sqlalchemy.orm import Session
+
+from app.db_models import Base
 
 MAX_DELIVERY_BYTES = 5 * 1024 * 1024
+DRIVER = 'postgresql+psycopg'
+
+# Colunas adicionadas depois da primeira versão do banco. Bancos novos já nascem com elas
+# pelo create_all; este atalho só atualiza bancos antigos (o ideal futuro é usar Alembic).
+LEGACY_COLUMNS = (
+    'ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_required BOOLEAN NOT NULL DEFAULT FALSE',
+    "ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS files JSONB NOT NULL DEFAULT '[]'::jsonb",
+)
+
+_engines: dict[str, Engine] = {}
+_ready_schemas: set[tuple[str, str]] = set()
+_lock = threading.Lock()
 
 
 def environment_flag(name: str) -> bool:
@@ -20,6 +35,17 @@ def environment_flag(name: str) -> bool:
 
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def to_datetime(value):
+    """Converte o texto ISO (usado no JSON das solicitações) em datetime para colunas TIMESTAMPTZ."""
+    if value is None or isinstance(value, datetime):
+        return value
+    text_value = str(value).strip()
+    if text_value.endswith('Z'):
+        text_value = text_value[:-1] + '+00:00'
+    parsed = datetime.fromisoformat(text_value)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def json_data(value):
@@ -33,91 +59,82 @@ def postgres_schema() -> str:
     return schema
 
 
-def postgres_connection():
-    database_url = os.getenv('DATABASE_URL', '').strip()
-    if database_url:
-        settings = conninfo_to_dict(database_url)
+def database_url() -> URL:
+    """Monta a URL do SQLAlchemy a partir de DATABASE_URL ou das variáveis POSTGRES_*."""
+    raw_url = os.getenv('DATABASE_URL', '').strip()
+    if raw_url:
+        settings = conninfo_to_dict(raw_url)
         host_override = os.getenv('POSTGRES_HOST', '').strip()
         if host_override:
             settings['host'] = host_override
-        return psycopg.connect(**settings, row_factory=dict_row)
-    settings = {
-        'host': os.getenv('POSTGRES_HOST', 'localhost'),
-        'port': int(os.getenv('POSTGRES_PORT', '5432')),
-        'dbname': os.getenv('POSTGRES_DB', 'api5_relacional'),
-        'user': os.getenv('POSTGRES_USER', ''),
-        'password': os.getenv('POSTGRES_PASSWORD', ''),
-    }
-    if not settings['user'] or not settings['password']:
-        raise RuntimeError('Configure DATABASE_URL ou POSTGRES_USER e POSTGRES_PASSWORD.')
-    return psycopg.connect(**settings, row_factory=dict_row)
+    else:
+        settings = {
+            'host': os.getenv('POSTGRES_HOST', 'localhost'),
+            'port': os.getenv('POSTGRES_PORT', '5432'),
+            'dbname': os.getenv('POSTGRES_DB', 'api5_relacional'),
+            'user': os.getenv('POSTGRES_USER', ''),
+            'password': os.getenv('POSTGRES_PASSWORD', ''),
+        }
+        if not settings['user'] or not settings['password']:
+            raise RuntimeError('Configure DATABASE_URL ou POSTGRES_USER e POSTGRES_PASSWORD.')
+    port = settings.pop('port', None)
+    return URL.create(
+        DRIVER,
+        username=settings.pop('user', None) or None,
+        password=settings.pop('password', None) or None,
+        host=settings.pop('host', None) or None,
+        port=int(port) if port else None,
+        database=settings.pop('dbname', None) or None,
+        query={key: str(value) for key, value in settings.items()},  # sslmode etc.
+    )
 
 
-class DatabaseConnection:
-    """Small compatibility layer while keeping SQL parameterized with Psycopg."""
+def get_engine() -> Engine:
+    url = database_url()
+    key = url.render_as_string(hide_password=False)
+    with _lock:
+        engine = _engines.get(key)
+        if engine is None:
+            engine = create_engine(url, pool_pre_ping=True)
+            _engines[key] = engine
+        return engine
 
-    def __init__(self, connection):
-        self.connection = connection
 
-    def execute(self, query, parameters=()):
-        return self.connection.execute(query.replace('?', '%s'), parameters)
+def _quoted(schema: str) -> str:
+    # O nome já foi validado por postgres_schema(), então aspas duplas bastam.
+    return '"' + schema + '"'
 
 
-def initialize_schema(connection, schema):
-    connection.execute(sql.SQL('CREATE SCHEMA IF NOT EXISTS {}').format(sql.Identifier(schema)))
-    connection.execute(sql.SQL('SET LOCAL search_path TO {}').format(sql.Identifier(schema)))
-    connection.execute('''CREATE TABLE IF NOT EXISTS requests (
-        id TEXT PRIMARY KEY, data JSONB NOT NULL, sending BOOLEAN NOT NULL DEFAULT FALSE,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )''')
-    connection.execute('''CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
-        role TEXT NOT NULL, password_hash TEXT NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE
-    )''')
-    connection.execute('ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_required BOOLEAN NOT NULL DEFAULT FALSE')
-    connection.execute('''CREATE TABLE IF NOT EXISTS sessions (
-        digest TEXT PRIMARY KEY, expires DOUBLE PRECISION NOT NULL, user_id TEXT
-    )''')
-    connection.execute('''CREATE TABLE IF NOT EXISTS services (
-        id TEXT PRIMARY KEY, request_id TEXT, title TEXT NOT NULL, translator_id TEXT NOT NULL,
-        status TEXT NOT NULL, deadline TEXT, created_at TIMESTAMPTZ NOT NULL,
-        observations TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT '',
-        target TEXT NOT NULL DEFAULT '', updated_at TIMESTAMPTZ, started_at TIMESTAMPTZ,
-        ready_at TIMESTAMPTZ, delivered_at TIMESTAMPTZ, sending BOOLEAN NOT NULL DEFAULT FALSE
-    )''')
-    connection.execute('''CREATE TABLE IF NOT EXISTS deliveries (
-        id TEXT PRIMARY KEY, service_id TEXT NOT NULL, version INTEGER NOT NULL,
-        translator_id TEXT NOT NULL, name TEXT NOT NULL, media_type TEXT NOT NULL,
-        size INTEGER NOT NULL, content BYTEA NOT NULL, status TEXT NOT NULL,
-        feedback TEXT, submitted_at TIMESTAMPTZ NOT NULL, reviewed_at TIMESTAMPTZ, reviewed_by TEXT,
-        files JSONB NOT NULL DEFAULT '[]'::jsonb,
-        UNIQUE(service_id, version)
-    )''')
-    connection.execute("ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS files JSONB NOT NULL DEFAULT '[]'::jsonb")
-    connection.execute('''CREATE TABLE IF NOT EXISTS workflow_events (
-        id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, request_id TEXT, service_id TEXT,
-        status TEXT NOT NULL, note TEXT, actor_id TEXT, actor_name TEXT,
-        created_at TIMESTAMPTZ NOT NULL
-    )''')
-    connection.execute('CREATE INDEX IF NOT EXISTS sessions_user_id ON sessions (user_id)')
-    connection.execute('CREATE INDEX IF NOT EXISTS services_translator_id ON services (translator_id)')
-    connection.execute('CREATE UNIQUE INDEX IF NOT EXISTS services_request_id ON services (request_id) WHERE request_id IS NOT NULL')
-    connection.execute('CREATE INDEX IF NOT EXISTS deliveries_service_id ON deliveries (service_id, version)')
-    connection.execute('CREATE INDEX IF NOT EXISTS deliveries_status ON deliveries (status, submitted_at)')
-    connection.execute('CREATE INDEX IF NOT EXISTS workflow_events_request ON workflow_events (request_id, created_at)')
-    connection.execute('CREATE INDEX IF NOT EXISTS workflow_events_service ON workflow_events (service_id, created_at)')
+def initialize_schema(engine: Engine, schema: str):
+    """Cria schema, tabelas e índices uma vez por processo, em transação própria já confirmada."""
+    key = (engine.url.render_as_string(hide_password=False), schema)
+    if key in _ready_schemas:
+        return
+    with _lock:
+        if key in _ready_schemas:
+            return
+        with engine.begin() as connection:
+            connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS {_quoted(schema)}'))
+            connection.execute(text(f'SET LOCAL search_path TO {_quoted(schema)}'))
+            Base.metadata.create_all(connection)
+            for statement in LEGACY_COLUMNS:
+                connection.execute(text(statement))
+        _ready_schemas.add(key)
 
 
 @contextmanager
 def database():
-    connection = postgres_connection()
+    """Entrega uma Session do SQLAlchemy; confirma ao sair e desfaz se houver exceção."""
+    engine = get_engine()
     schema = postgres_schema()
+    initialize_schema(engine, schema)
+    session = Session(engine, expire_on_commit=False)
     try:
-        initialize_schema(connection, schema)
-        yield DatabaseConnection(connection)
-        connection.commit()
+        session.execute(text(f'SET LOCAL search_path TO {_quoted(schema)}'))
+        yield session
+        session.commit()
     except Exception:
-        connection.rollback()
+        session.rollback()
         raise
     finally:
-        connection.close()
+        session.close()
