@@ -7,10 +7,13 @@ import sqlite3
 from pathlib import Path
 
 from dotenv import load_dotenv
-from psycopg.types.json import Jsonb
+from sqlalchemy import DateTime, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 load_dotenv(Path(__file__).with_name('.env'))
 
+from app.database_pg import to_datetime
+from app.db_models import AuthSession, Delivery, LegacyMigration, Service, TranslationRequest, User, WorkflowEvent
 from requests_api import database, now
 
 
@@ -28,7 +31,11 @@ TABLE_COLUMNS = {
     ),
 }
 
+# Tabelas com estrutura equivalente, copiadas pelo mesmo fluxo.
+COPY_MODELS = {'sessions': AuthSession, 'services': Service, 'deliveries': Delivery}
 
+
+# As funções abaixo leem o SQLite legado (origem); o SQL cru aqui é do SQLite, não do PostgreSQL.
 def sqlite_columns(connection, table):
     """Lê as colunas existentes porque bancos antigos podem ter estruturas diferentes."""
     return {row['name'] for row in connection.execute(f'PRAGMA table_info({table})')}
@@ -49,6 +56,13 @@ def values_for(row, columns, available):
     return tuple(row[column] if column in available else defaults.get(column) for column in columns)
 
 
+def coerce(table, column, value):
+    """Converte textos ISO do SQLite em datetime nas colunas TIMESTAMPTZ."""
+    if value is not None and isinstance(table.c[column].type, DateTime):
+        return to_datetime(value)
+    return value
+
+
 def import_legacy(sqlite_path):
     """Copia as tabelas conhecidas sem repetir uma migração já registrada."""
     source = sqlite3.connect(sqlite_path)
@@ -58,10 +72,8 @@ def import_legacy(sqlite_path):
     try:
         tables = sqlite_tables(source)
         with database() as target:
-            target.execute('''CREATE TABLE IF NOT EXISTS legacy_migrations (
-                source_key TEXT PRIMARY KEY, source_path TEXT NOT NULL, migrated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )''')
-            if target.execute('SELECT 1 FROM legacy_migrations WHERE source_key = ?', (source_key,)).fetchone():
+            # A tabela legacy_migrations já é criada pelo modelo LegacyMigration (create_all).
+            if target.execute(select(LegacyMigration.source_key).where(LegacyMigration.source_key == source_key)).first():
                 return {'alreadyMigrated': True, 'counts': {}}
 
             # Usuários e solicitações precisam de ajustes próprios antes de entrar no PostgreSQL.
@@ -70,12 +82,9 @@ def import_legacy(sqlite_path):
                 available = sqlite_columns(source, 'users')
                 rows = source.execute('SELECT * FROM users').fetchall()
                 for row in rows:
-                    values = list(values_for(row, columns, available))
-                    values[-1] = bool(values[-1])
-                    target.execute(
-                        '''INSERT INTO users (id, email, name, role, password_hash, active)
-                           VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING''', tuple(values),
-                    )
+                    values = dict(zip(columns, values_for(row, columns, available)))
+                    values['active'] = bool(values['active'])
+                    target.execute(pg_insert(User).values(**values).on_conflict_do_nothing(index_elements=['id']))
                 counts['users'] = len(rows)
 
             if 'requests' in tables:
@@ -83,28 +92,28 @@ def import_legacy(sqlite_path):
                 for row in rows:
                     data = json.loads(row['data'])
                     target.execute(
-                        '''INSERT INTO requests (id, data, sending, created_at) VALUES (?, ?, ?, ?)
-                           ON CONFLICT (id) DO NOTHING''',
-                        (row['id'], Jsonb(data), bool(row['sending']), data.get('createdAt') or now()),
+                        pg_insert(TranslationRequest)
+                        .values(
+                            id=row['id'], data=data, sending=bool(row['sending']),
+                            created_at=to_datetime(data.get('createdAt') or now()),
+                        )
+                        .on_conflict_do_nothing(index_elements=['id'])
                     )
                 counts['requests'] = len(rows)
 
             # Estas tabelas têm estrutura equivalente e podem seguir o mesmo fluxo de cópia.
-            for table in ('sessions', 'services', 'deliveries'):
+            for table, model in COPY_MODELS.items():
                 if table not in tables:
                     continue
                 columns = TABLE_COLUMNS[table]
                 available = sqlite_columns(source, table)
                 rows = source.execute(f'SELECT * FROM {table}').fetchall()
-                placeholders = ', '.join('?' for _ in columns)
                 for row in rows:
-                    values = list(values_for(row, columns, available))
+                    values = dict(zip(columns, values_for(row, columns, available)))
                     if table == 'services':
-                        values[-1] = bool(values[-1])
-                    target.execute(
-                        f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders}) ON CONFLICT DO NOTHING",
-                        tuple(values),
-                    )
+                        values['sending'] = bool(values['sending'])
+                    values = {column: coerce(model.__table__, column, value) for column, value in values.items()}
+                    target.execute(pg_insert(model).values(**values).on_conflict_do_nothing())
                 counts[table] = len(rows)
 
             # Os ids do histórico são recriados pelo PostgreSQL para manter sua sequência local.
@@ -113,18 +122,14 @@ def import_legacy(sqlite_path):
                 available = sqlite_columns(source, 'workflow_events')
                 rows = source.execute('SELECT * FROM workflow_events ORDER BY id').fetchall()
                 for row in rows:
-                    target.execute(
-                        '''INSERT INTO workflow_events
-                           (request_id, service_id, status, note, actor_id, actor_name, created_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                        values_for(row, columns, available),
-                    )
+                    values = dict(zip(columns, values_for(row, columns, available)))
+                    values = {column: coerce(WorkflowEvent.__table__, column, value) for column, value in values.items()}
+                    target.execute(pg_insert(WorkflowEvent).values(**values))
                 counts['workflow_events'] = len(rows)
 
             # O caminho vira uma chave estável para o mesmo arquivo não ser importado duas vezes.
             target.execute(
-                'INSERT INTO legacy_migrations (source_key, source_path) VALUES (?, ?)',
-                (source_key, str(sqlite_path.resolve())),
+                pg_insert(LegacyMigration).values(source_key=source_key, source_path=str(sqlite_path.resolve()))
             )
     finally:
         source.close()
