@@ -8,11 +8,11 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 
-import psycopg
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
-from psycopg.types.json import Jsonb
 from pymongo.errors import DuplicateKeyError, PyMongoError
+from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy.exc import IntegrityError
 
 from app.core.email_service import deliver_quote, notify_translator_assigned
 from app.core.portal_auth import (
@@ -38,7 +38,8 @@ from app.core.workflow import (
     sanitized_request,
     task_record,
 )
-from app.database_pg import database, environment_flag, json_data, now
+from app.database_pg import database, environment_flag, json_data, now, to_datetime
+from app.db_models import AuthSession, Service, TranslationRequest, User
 from app.models.translation import (
     ClientCreate,
     Intake,
@@ -54,15 +55,19 @@ from translator_profiles import TranslatorProfileComplete, TranslatorProfileDraf
 
 router = APIRouter()
 
+USER_PUBLIC_COLUMNS = (User.id, User.name, User.email, User.role, User.active, User.onboarding_required)
+
 
 @router.post('/auth/login')
 @router.post('/staff/login', include_in_schema=False)
 def login(data: Login, request: Request):
     throttle(request, 'auth-login', 5)
     accounts = configured_accounts()
-    with database() as connection:
-        sync_configured_accounts(connection, accounts)
-        candidate = connection.execute('SELECT * FROM users WHERE email = ?', (data.email.strip().lower(),)).fetchone()
+    with database() as session:
+        sync_configured_accounts(session, accounts)
+        candidate = session.execute(
+            select(User.__table__).where(User.email == data.email.strip().lower())
+        ).mappings().first()
     fallback = 'pbkdf2_sha256$600000$00000000000000000000000000000000$33d727f3156a25e032f442eb429832a86bc213bd395aa8e59f4ebc754c54ddef'
     valid_password = password_matches(data.password, candidate['password_hash'] if candidate else fallback)
     if not candidate or not candidate['active'] or not valid_password:
@@ -70,11 +75,12 @@ def login(data: Login, request: Request):
     user = dict(candidate)
     token = secrets.token_urlsafe(48)
     expires = time.time() + SESSION_SECONDS
-    with database() as connection:
-        connection.execute('DELETE FROM sessions WHERE expires <= ?', (time.time(),))
-        connection.execute(
-            'INSERT INTO sessions (digest, expires, user_id) VALUES (?, ?, ?)',
-            (hashlib.sha256(token.encode()).hexdigest(), expires, user['id']),
+    with database() as session:
+        session.execute(delete(AuthSession).where(AuthSession.expires <= time.time()))
+        session.execute(
+            insert(AuthSession).values(
+                digest=hashlib.sha256(token.encode()).hexdigest(), expires=expires, user_id=user['id'],
+            )
         )
     return {'token': token, 'expires': expires, **public_user(user)}
 
@@ -88,43 +94,48 @@ def me(user: dict = Depends(authenticated_user)):
 @router.post('/staff/logout', include_in_schema=False)
 def logout(credentials: HTTPAuthorizationCredentials | None = Depends(bearer), user: dict = Depends(authenticated_user)):
     digest = hashlib.sha256(credentials.credentials.encode()).hexdigest()
-    with database() as connection:
-        connection.execute('DELETE FROM sessions WHERE digest = ?', (digest,))
+    with database() as session:
+        session.execute(delete(AuthSession).where(AuthSession.digest == digest))
     return {'ok': True}
 
 
 @router.get('/users')
 def list_users(admin: dict = Depends(administrator)):
-    with database() as connection:
-        sync_configured_accounts(connection, configured_accounts())
-        users = connection.execute('SELECT id, name, email, role, active, onboarding_required FROM users ORDER BY LOWER(name)').fetchall()
+    with database() as session:
+        sync_configured_accounts(session, configured_accounts())
+        users = session.execute(select(*USER_PUBLIC_COLUMNS).order_by(func.lower(User.name))).mappings().all()
     return [user_record(user) for user in users]
 
 
 @router.post('/users', status_code=201)
 def create_user(data: UserCreate, admin: dict = Depends(administrator)):
     try:
-        with database() as connection:
-            if connection.execute('SELECT 1 FROM users WHERE email = ?', (data.email,)).fetchone():
+        with database() as session:
+            if session.execute(select(User.id).where(User.email == data.email)).first():
                 raise HTTPException(409, 'Já existe uma conta com este e-mail.')
             user_id = secrets.token_hex(16)
-            connection.execute(
-                'INSERT INTO users (id, email, name, role, password_hash, active, onboarding_required) VALUES (?, ?, ?, ?, ?, TRUE, ?)',
-                (user_id, data.email, data.name, data.role, hash_password(data.password), data.role == 'translator'),
+            session.execute(
+                insert(User).values(
+                    id=user_id, email=data.email, name=data.name, role=data.role,
+                    password_hash=hash_password(data.password), active=True,
+                    onboarding_required=data.role == 'translator',
+                )
             )
-            user = connection.execute('SELECT id, name, email, role, active, onboarding_required FROM users WHERE id = ?', (user_id,)).fetchone()
-    except psycopg.IntegrityError as error:
+            user = session.execute(select(*USER_PUBLIC_COLUMNS).where(User.id == user_id)).mappings().first()
+    except IntegrityError as error:
         raise HTTPException(409, 'Já existe uma conta com este e-mail.') from error
     return user_record(user)
 
 
 @router.get('/translators')
 def list_translators(user: dict = Depends(staff)):
-    with database() as connection:
-        sync_configured_accounts(connection, configured_accounts())
-        users = connection.execute(
-            "SELECT id, name, email, role, active, onboarding_required FROM users WHERE role = 'translator' AND active = TRUE AND onboarding_required = FALSE ORDER BY LOWER(name)"
-        ).fetchall()
+    with database() as session:
+        sync_configured_accounts(session, configured_accounts())
+        users = session.execute(
+            select(*USER_PUBLIC_COLUMNS)
+            .where(User.role == 'translator', User.active.is_(True), User.onboarding_required.is_(False))
+            .order_by(func.lower(User.name))
+        ).mappings().all()
     return [user_record(item) for item in users]
 
 
@@ -142,16 +153,18 @@ def translator_profile_record(user):
 @router.get('/translator-profile/me')
 def read_translator_profile(user: dict = Depends(translator_account)):
     """Dados privados do próprio tradutor, reutilizáveis pela futura página de perfil."""
-    with database() as connection:
-        current = connection.execute('SELECT * FROM users WHERE id = ?', (user['id'],)).fetchone()
+    with database() as session:
+        current = session.execute(select(User.__table__).where(User.id == user['id'])).mappings().first()
     return translator_profile_record(dict(current))
 
 
 @router.patch('/translator-profile/me')
 def save_translator_profile_draft(data: TranslatorProfileDraft, user: dict = Depends(translator_account)):
     """Salva o formulário incompleto sem liberar o acesso ao portal."""
-    with database() as connection:
-        current = connection.execute('SELECT * FROM users WHERE id = ? FOR UPDATE', (user['id'],)).fetchone()
+    with database() as session:
+        current = session.execute(
+            select(User.__table__).where(User.id == user['id']).with_for_update()
+        ).mappings().first()
         if not current['onboarding_required']:
             raise HTTPException(409, 'Seu cadastro já está concluído. Atualizações devem utilizar o perfil completo.')
         previous = profile_store.find_profile(user['id'])
@@ -166,23 +179,31 @@ def save_translator_profile_draft(data: TranslatorProfileDraft, user: dict = Dep
 @router.put('/translator-profile/me')
 def complete_translator_profile(data: TranslatorProfileComplete, user: dict = Depends(translator_account)):
     """Persiste o perfil no MongoDB e libera o acesso à conta no PostgreSQL."""
-    with database() as connection:
-        current = connection.execute('SELECT * FROM users WHERE id = ? FOR UPDATE', (user['id'],)).fetchone()
+    with database() as session:
+        current = session.execute(
+            select(User.__table__).where(User.id == user['id']).with_for_update()
+        ).mappings().first()
         profile_store.save_complete(user['id'], data.model_dump(), now())
-        connection.execute('UPDATE users SET name = ?, onboarding_required = FALSE WHERE id = ?', (data.fullName, user['id']))
+        session.execute(
+            update(User).where(User.id == user['id']).values(name=data.fullName, onboarding_required=False)
+        )
     return translator_profile_record({**dict(current), 'name': data.fullName, 'onboarding_required': False})
 
 
 @router.get('/clients')
 def list_clients(user: dict = Depends(staff)):
     clients = client_store.list_clients()
-    with database() as connection:
-        rows = connection.execute(
-            '''SELECT requests.data, services.id AS service_id, services.status AS service_status
-               FROM requests
-               LEFT JOIN services ON services.request_id = requests.id
-               ORDER BY requests.created_at DESC'''
-        ).fetchall()
+    with database() as session:
+        rows = session.execute(
+            select(
+                TranslationRequest.data,
+                Service.id.label('service_id'),
+                Service.status.label('service_status'),
+            )
+            .select_from(TranslationRequest)
+            .outerjoin(Service, Service.request_id == TranslationRequest.id)
+            .order_by(TranslationRequest.created_at.desc())
+        ).mappings().all()
 
     projects_by_email = {}
     for row in rows:
@@ -218,10 +239,10 @@ def create_request(data: Intake, request: Request):
     throttle(request, 'intake', 10)
     created_at = now()
     record = {**data.model_dump(), 'id': 'SOL-' + secrets.token_hex(6).upper(), 'createdAt': created_at, 'status': 'Recebido', 'demo': False}
-    with database() as connection:
-        connection.execute('INSERT INTO requests (id, data) VALUES (?, ?)', (record['id'], Jsonb(record)))
-        add_event(connection, 'Recebido', request_id=record['id'], created_at=created_at)
-        response = sanitized_request(record, connection)
+    with database() as session:
+        session.execute(insert(TranslationRequest).values(id=record['id'], data=record))
+        add_event(session, 'Recebido', request_id=record['id'], created_at=created_at)
+        response = sanitized_request(record, session)
     try:
         client_store.upsert_quote_client(data, datetime.fromisoformat(created_at))
     except PyMongoError as error:
@@ -243,31 +264,33 @@ def create_manual_request(data: Intake, user: dict = Depends(staff)):
         'status': 'Recebido',
         'demo': False,
     }
-    with database() as connection:
-        connection.execute('INSERT INTO requests (id, data) VALUES (?, ?)', (record['id'], Jsonb(record)))
+    with database() as session:
+        session.execute(insert(TranslationRequest).values(id=record['id'], data=record))
         add_event(
-            connection,
+            session,
             'Recebido',
             request_id=record['id'],
             actor=user,
             note='Cadastro manual do cliente.',
             created_at=created_at,
         )
-        return sanitized_request(record, connection)
+        return sanitized_request(record, session)
 
 
 @router.get('/requests')
 def list_requests(user: dict = Depends(staff)):
-    with database() as connection:
-        rows = connection.execute('SELECT data FROM requests ORDER BY created_at DESC').fetchall()
-        return [sanitized_request(json_data(row['data']), connection) for row in rows]
+    with database() as session:
+        rows = session.execute(
+            select(TranslationRequest.data).order_by(TranslationRequest.created_at.desc())
+        ).mappings().all()
+        return [sanitized_request(json_data(row['data']), session) for row in rows]
 
 
 @router.get('/requests/{request_id}')
 def request_detail(request_id: str, user: dict = Depends(staff)):
-    with database() as connection:
-        data, _ = read_request(connection, request_id)
-        return sanitized_request(data, connection, include_content=True)
+    with database() as session:
+        data, _ = read_request(session, request_id)
+        return sanitized_request(data, session, include_content=True)
 
 
 @router.patch('/requests/{request_id}')
@@ -276,8 +299,8 @@ def update_request(request_id: str, changes: Update, user: dict = Depends(staff)
         raise HTTPException(422, 'Status inválido.')
     if changes.status is None and changes.quote is None:
         raise HTTPException(422, 'Nenhuma alteração informada.')
-    with database() as connection:
-        data, sending = read_request(connection, request_id, for_update=True)
+    with database() as session:
+        data, sending = read_request(session, request_id, for_update=True)
         if sending or data['status'] not in ('Recebido', 'Em análise'):
             raise HTTPException(409, 'Esta solicitação não aceita mais alterações no orçamento.')
         previous_status = data['status']
@@ -289,18 +312,18 @@ def update_request(request_id: str, changes: Update, user: dict = Depends(staff)
             data['status'] = changes.status
         if data['status'] == 'Em análise' and not data.get('analysisStartedAt'):
             data['analysisStartedAt'] = now()
-        connection.execute('UPDATE requests SET data = ? WHERE id = ?', (Jsonb(data), request_id))
+        session.execute(update(TranslationRequest).where(TranslationRequest.id == request_id).values(data=data))
         if previous_status != data['status']:
-            add_event(connection, data['status'], request_id=request_id, actor=user, created_at=data.get('analysisStartedAt'))
-        return sanitized_request(data, connection, include_content=True)
+            add_event(session, data['status'], request_id=request_id, actor=user, created_at=data.get('analysisStartedAt'))
+        return sanitized_request(data, session, include_content=True)
 
 
 @router.post('/requests/{request_id}/send-quote')
 def send_quote(request_id: str, user: dict = Depends(staff)):
     auto_approve = environment_flag('AUTO_APPROVE_QUOTES')
     response_token = '' if auto_approve else secrets.token_urlsafe(48)
-    with database() as connection:
-        data, sending = read_request(connection, request_id, for_update=True)
+    with database() as session:
+        data, sending = read_request(session, request_id, for_update=True)
         if sending or data['status'] == 'Orçamento enviado':
             raise HTTPException(409, 'Este orçamento já foi enviado ou está em envio.')
         if data['status'] != 'Em análise' or not data.get('quote'):
@@ -310,42 +333,48 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
         data['quoteResponseTokenDigest'] = hashlib.sha256(response_token.encode()).hexdigest()
         days = max(1, min(int(os.getenv('QUOTE_RESPONSE_DAYS', '30')), 365))
         data['quoteResponseExpiresAt'] = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
-        connection.execute('UPDATE requests SET data = ?, sending = TRUE WHERE id = ?', (Jsonb(data), request_id))
+        session.execute(
+            update(TranslationRequest).where(TranslationRequest.id == request_id).values(data=data, sending=True)
+        )
     if auto_approve:
         approved_at = now()
         data.update(
             status='Orçamento aprovado', quoteDecision='approve',
             quoteRespondedAt=approved_at, autoApproved=True,
         )
-        with database() as connection:
-            connection.execute('UPDATE requests SET data = ?, sending = FALSE WHERE id = ?', (Jsonb(data), request_id))
+        with database() as session:
+            session.execute(
+                update(TranslationRequest).where(TranslationRequest.id == request_id).values(data=data, sending=False)
+            )
             add_event(
-                connection, 'Orçamento aprovado', request_id=request_id, actor=user,
+                session, 'Orçamento aprovado', request_id=request_id, actor=user,
                 note='Aprovação automática habilitada para testes.', created_at=approved_at,
             )
-            return sanitized_request(data, connection, include_content=True)
+            return sanitized_request(data, session, include_content=True)
     try:
         quote_sender = getattr(sys.modules.get('requests_api'), 'deliver_quote', deliver_quote)
         quote_sender(data, response_token)
     except Exception as error:
-        with database() as connection:
-            connection.execute('UPDATE requests SET sending = FALSE WHERE id = ?', (request_id,))
+        with database() as session:
+            session.execute(update(TranslationRequest).where(TranslationRequest.id == request_id).values(sending=False))
         if isinstance(error, HTTPException):
             raise
         raise HTTPException(502, 'Não foi possível confirmar o envio pelo provedor. O rascunho foi preservado; confira a caixa de saída antes de tentar novamente.') from error
     sent_at = now()
     data.update(status='Orçamento enviado', emailSentAt=sent_at, quoteSentAt=sent_at)
-    with database() as connection:
-        connection.execute('UPDATE requests SET data = ?, sending = FALSE WHERE id = ?', (Jsonb(data), request_id))
-        add_event(connection, 'Orçamento enviado', request_id=request_id, actor=user, created_at=sent_at)
-        return sanitized_request(data, connection, include_content=True)
+    with database() as session:
+        session.execute(
+            update(TranslationRequest).where(TranslationRequest.id == request_id).values(data=data, sending=False)
+        )
+        add_event(session, 'Orçamento enviado', request_id=request_id, actor=user, created_at=sent_at)
+        return sanitized_request(data, session, include_content=True)
 
 
 @router.post('/quotes/{quote_id}/decision')
 def decide_quote(quote_id: str, decision: QuoteDecision, request: Request):
     throttle(request, 'quote-decision', 20)
-    with database() as connection:
-        data = _request_for_quote(connection, quote_id)
+    with database() as session:
+        data = _request_for_quote(session, quote_id)
         digest = hashlib.sha256(decision.token.encode()).hexdigest()
         if not data.get('quoteResponseTokenDigest') or not hmac.compare_digest(digest, data['quoteResponseTokenDigest']):
             raise HTTPException(403, 'Este link de orçamento é inválido.')
@@ -360,38 +389,43 @@ def decide_quote(quote_id: str, decision: QuoteDecision, request: Request):
         status = 'Orçamento aprovado' if decision.decision == 'approve' else 'Orçamento recusado'
         responded_at = now()
         data.update(status=status, quoteDecision=decision.decision, quoteRespondedAt=responded_at)
-        connection.execute('UPDATE requests SET data = ? WHERE id = ?', (Jsonb(data), data['id']))
-        add_event(connection, status, request_id=data['id'], created_at=responded_at)
+        session.execute(update(TranslationRequest).where(TranslationRequest.id == data['id']).values(data=data))
+        add_event(session, status, request_id=data['id'], created_at=responded_at)
     return {'requestId': data['id'], 'quoteId': quote_id, 'title': data['title'], 'status': status, 'respondedAt': responded_at}
 
 
 @router.post('/requests/{request_id}/assign', status_code=201)
 def assign_translator(request_id: str, assignment: TranslatorAssignment, background_tasks: BackgroundTasks, user: dict = Depends(staff)):
-    with database() as connection:
-        data, _ = read_request(connection, request_id, for_update=True)
+    with database() as session:
+        data, _ = read_request(session, request_id, for_update=True)
         if data['status'] != 'Orçamento aprovado':
             raise HTTPException(409, 'A solicitação precisa ter um orçamento aprovado antes da atribuição.')
-        if connection.execute('SELECT 1 FROM services WHERE request_id = ?', (request_id,)).fetchone():
+        if session.execute(select(Service.id).where(Service.request_id == request_id)).first():
             raise HTTPException(409, 'Esta solicitação já possui uma tarefa.')
-        assigned = connection.execute(
-            "SELECT id, name, email FROM users WHERE id = ? AND role = 'translator' AND active = TRUE AND onboarding_required = FALSE",
-            (assignment.translatorId,),
-        ).fetchone()
+        assigned = session.execute(
+            select(User.id, User.name, User.email).where(
+                User.id == assignment.translatorId,
+                User.role == 'translator',
+                User.active.is_(True),
+                User.onboarding_required.is_(False),
+            )
+        ).mappings().first()
         if not assigned:
             raise HTTPException(422, 'Selecione um tradutor ativo.')
         task_id = 'TRD-' + secrets.token_hex(6).upper()
         created_at = now()
-        connection.execute(
-            '''INSERT INTO services
-               (id, request_id, title, translator_id, status, deadline, observations, source, target, created_at, updated_at)
-               VALUES (?, ?, ?, ?, 'Tradutor atribuído', ?, ?, ?, ?, ?, ?)''',
-            (task_id, request_id, data['title'], assigned['id'], assignment.deadline, assignment.observations,
-             data['source'], data['target'], created_at, created_at),
+        session.execute(
+            insert(Service).values(
+                id=task_id, request_id=request_id, title=data['title'], translator_id=assigned['id'],
+                status='Tradutor atribuído', deadline=assignment.deadline,
+                observations=assignment.observations, source=data['source'], target=data['target'],
+                created_at=to_datetime(created_at), updated_at=to_datetime(created_at),
+            )
         )
         data.update(status='Tradutor atribuído', assignedAt=created_at, taskId=task_id,
                     translator={'id': assigned['id'], 'name': assigned['name'], 'email': assigned['email']})
-        connection.execute('UPDATE requests SET data = ? WHERE id = ?', (Jsonb(data), request_id))
-        add_event(connection, 'Tradutor atribuído', request_id, task_id, user, assignment.observations, created_at)
-        task = task_record(connection, read_service(connection, task_id))
+        session.execute(update(TranslationRequest).where(TranslationRequest.id == request_id).values(data=data))
+        add_event(session, 'Tradutor atribuído', request_id, task_id, user, assignment.observations, created_at)
+        task = task_record(session, read_service(session, task_id))
     notify_translator_assigned(assigned, data, task_id, assignment.deadline, background_tasks)
     return task
