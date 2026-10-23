@@ -25,7 +25,7 @@ export function useLandingLayout() {
           : wide && width < 1200
             ? 58
             : wide
-              ? 80
+              ? 76
               : 68,
     lineHeight:
       width < 360
@@ -39,7 +39,7 @@ export function useLandingLayout() {
           : wide && width < 1200
             ? 65
             : wide
-              ? 87
+              ? 84
               : 75,
     letterSpacing: width < 360 ? -1.3 : mobile ? -1.5 : -3.4,
   };

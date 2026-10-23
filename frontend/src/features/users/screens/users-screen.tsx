@@ -1,6 +1,7 @@
 import { Search, ShieldCheck, UserPlus, UsersRound } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { TextInput } from '@/components/ui/text-input';
 
 import { Badge } from '@/components/ui/badge';
@@ -22,7 +23,9 @@ export function UsersScreen() {
   const styles = useStyles();
   const common = useCommonStyles();
   const { width } = useWindowDimensions();
-  const compact = width < 760;
+  const [contentWidth, setContentWidth] = useState(width);
+  const compact = contentWidth < 720;
+  const stackedToolbar = contentWidth < 980;
   const {
     begin,
     notice,
@@ -52,7 +55,7 @@ export function UsersScreen() {
       showsVerticalScrollIndicator={false}
       showsHorizontalScrollIndicator={false}
     >
-      <View style={styles.inner}>
+      <View style={styles.inner} onLayout={event => setContentWidth(event.nativeEvent.layout.width)}>
         <PageHeading
           title="Usuários"
           subtitle="Cadastre pessoas e defina como cada uma acessa a plataforma."
@@ -79,15 +82,15 @@ export function UsersScreen() {
             </Button>
           </View>
         )}
-        <View style={[styles.overview, compact && styles.overviewSmall]}>
+        <View style={[styles.overview, contentWidth < 900 && styles.overviewSmall]}>
           <View style={styles.overviewLead}>
-            <View style={styles.overviewAccent} />
-            <View>
+            <View style={styles.overviewIcon}><UsersRound size={23} color={colors.muted} /></View>
+            <View style={styles.overviewCopy}>
               <Txt style={styles.overviewEyebrow}>DIRETÓRIO DA EQUIPE</Txt>
               <View style={styles.totalLine}>
                 <Txt style={styles.total}>{users.length}</Txt>
                 <Txt style={styles.totalLabel}>
-                  {users.length === 1 ? 'acesso ativo' : 'acessos ativos'}
+                  {users.length === 1 ? 'pessoa cadastrada' : 'pessoas cadastradas'}
                 </Txt>
               </View>
             </View>
@@ -117,102 +120,117 @@ export function UsersScreen() {
             ))}
           </View>
         </View>
-        <View style={[styles.toolbar, compact && styles.toolbarSmall]}>
-          <View testID="search-field" style={[styles.search, compact && { width: '100%' }]}>
-            <Search size={18} color={colors.muted} />
-            <TextInput
-              accessibilityLabel="Buscar usuários"
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Buscar por nome ou e-mail"
-              placeholderTextColor={colors.muted}
-              style={styles.searchInput}
-            />
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.filters}
-          >
-            {roleFilters.map((filter) => (
-              <Pressable
-                key={filter.value}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: roleFilter === filter.value }}
-                onPress={() => setRoleFilter(filter.value)}
-                style={[styles.filter, roleFilter === filter.value && styles.filterActive]}
-              >
-                <Txt
-                  style={[
-                    styles.filterText,
-                    roleFilter === filter.value && styles.filterTextActive,
-                  ]}
+        <View style={styles.directory}>
+          <View style={[styles.toolbar, stackedToolbar && styles.toolbarSmall]}>
+            <View testID="search-field" style={[styles.search, stackedToolbar && { width: '100%' }]}>
+              <Search size={18} color={colors.muted} />
+              <TextInput
+                accessibilityLabel="Buscar usuários"
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Buscar por nome ou e-mail"
+                placeholderTextColor={colors.muted}
+                style={styles.searchInput}
+              />
+            </View>
+            <ScrollView
+              horizontal
+              style={{ minWidth: 0, flexShrink: 1 }}
+              accessibilityRole="tablist"
+              showsHorizontalScrollIndicator={false}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.filters}
+            >
+              {roleFilters.map((filter) => (
+                <Pressable
+                  key={filter.value}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: roleFilter === filter.value }}
+                  onPress={() => setRoleFilter(filter.value)}
+                  style={({ hovered, pressed }) => [styles.filter, hovered && styles.filterHover, roleFilter === filter.value && styles.filterActive, pressed && { opacity: 0.75 }]}
                 >
-                  {filter.label}
-                </Txt>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-        {!loading && !error && !users.length ? (
-          <EmptyState
-            icon={UsersRound}
-            title="Nenhum usuário cadastrado"
-            text="Adicione a primeira pessoa que utilizará a plataforma."
-            action={
-              <Button icon={UserPlus} onPress={begin}>
-                Adicionar usuário
-              </Button>
-            }
-          />
-        ) : (
-          <View style={styles.directory}>
-            {!compact && (
-              <View style={styles.tableHead}>
-                <Txt style={[styles.columnLabel, { flex: 1 }]}>Pessoa</Txt>
-                <Txt style={[styles.columnLabel, styles.roleColumn]}>Perfil de acesso</Txt>
-                <Txt style={[styles.columnLabel, styles.statusColumn]}>Situação</Txt>
-              </View>
-            )}
-            {visibleUsers.map((user) => (
-              <View key={user.id} style={[styles.userRow, compact && styles.userRowSmall]}>
-                <View style={styles.identity}>
-                  <View style={styles.avatar}>
-                    <Txt style={styles.avatarText}>
-                      {user.name
-                        .split(/\s+/)
-                        .slice(0, 2)
-                        .map((part) => part[0])
-                        .join('')
-                        .toUpperCase()}
-                    </Txt>
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-                    {user.role === 'translator' ? <Pressable accessibilityRole="link" accessibilityLabel={`Ver perfil de ${user.name}`} onPress={() => router.push({ pathname: '/tradutores/[id]', params: { id: user.id } })}>
-                      <Txt numberOfLines={1} style={[styles.userName, { color: colors.accent }]}>{user.name}</Txt>
-                    </Pressable> : <Txt numberOfLines={1} style={styles.userName}>{user.name}</Txt>}
-                    <Txt numberOfLines={1} style={styles.userEmail}>
-                      {user.email}
-                    </Txt>
-                  </View>
-                </View>
-                <View style={[styles.roleColumn, compact && styles.mobileMeta]}>
-                  <Badge
-                    tone={
-                      user.role === 'admin'
-                        ? 'red'
-                        : user.role === 'translator'
-                          ? 'blue'
-                          : user.role === 'hr'
-                            ? 'amber'
-                            : 'green'
-                    }
+                  <Txt
+                    style={[
+                      styles.filterText,
+                      roleFilter === filter.value && styles.filterTextActive,
+                    ]}
                   >
-                    {roleLabel[user.role]}
-                  </Badge>
-                  {compact && (
-                    <View style={styles.status}>
+                    {filter.label}
+                  </Txt>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+          {!loading && !error && !users.length ? (
+            <EmptyState
+              icon={UsersRound}
+              title="Nenhum usuário cadastrado"
+              text="Adicione a primeira pessoa que utilizará a plataforma."
+              action={
+                <Button icon={UserPlus} onPress={begin}>
+                  Adicionar usuário
+                </Button>
+              }
+            />
+          ) : (
+            <View>
+              {!compact && (
+                <View style={styles.tableHead}>
+                  <Txt style={[styles.columnLabel, { flex: 1 }]}>Pessoa</Txt>
+                  <Txt style={[styles.columnLabel, styles.roleColumn]}>Perfil de acesso</Txt>
+                  <Txt style={[styles.columnLabel, styles.statusColumn]}>Situação</Txt>
+                </View>
+              )}
+              {visibleUsers.map((user) => (
+                <View key={user.id} style={[styles.userRow, compact && styles.userRowSmall]}>
+                  <View style={styles.identity}>
+                    <View style={styles.avatar}>
+                      <Txt style={styles.avatarText}>
+                        {user.name
+                          .split(/\s+/)
+                          .slice(0, 2)
+                          .map((part) => part[0])
+                          .join('')
+                          .toUpperCase()}
+                      </Txt>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                      {user.role === 'translator' ? <Pressable accessibilityRole="link" accessibilityLabel={`Ver perfil de ${user.name}`} onPress={() => router.push({ pathname: '/tradutores/[id]', params: { id: user.id } })}>
+                        <Txt numberOfLines={1} style={[styles.userName, { color: colors.accent }]}>{user.name}</Txt>
+                      </Pressable> : <Txt numberOfLines={1} style={styles.userName}>{user.name}</Txt>}
+                      <Txt numberOfLines={1} style={styles.userEmail}>
+                        {user.email}
+                      </Txt>
+                    </View>
+                  </View>
+                  <View style={[styles.roleColumn, compact && styles.mobileMeta]}>
+                    <Badge
+                      tone={
+                        user.role === 'admin'
+                          ? 'red'
+                          : user.role === 'translator'
+                            ? 'blue'
+                            : user.role === 'hr'
+                              ? 'amber'
+                              : 'green'
+                      }
+                    >
+                      {roleLabel[user.role]}
+                    </Badge>
+                    {compact && (
+                      <View style={styles.status}>
+                        <View
+                          style={[
+                            styles.statusDot,
+                            { backgroundColor: !user.active ? colors.red : user.onboardingRequired ? colors.amber : colors.green },
+                          ]}
+                        />
+                        <Txt style={styles.statusText}>{!user.active ? 'Inativo' : user.onboardingRequired ? 'Cadastro pendente' : 'Ativo'}</Txt>
+                      </View>
+                    )}
+                  </View>
+                  {!compact && (
+                    <View style={[styles.statusColumn, styles.status]}>
                       <View
                         style={[
                           styles.statusDot,
@@ -223,39 +241,29 @@ export function UsersScreen() {
                     </View>
                   )}
                 </View>
-                {!compact && (
-                  <View style={[styles.statusColumn, styles.status]}>
-                    <View
-                      style={[
-                        styles.statusDot,
-                        { backgroundColor: !user.active ? colors.red : user.onboardingRequired ? colors.amber : colors.green },
-                      ]}
-                    />
-                    <Txt style={styles.statusText}>{!user.active ? 'Inativo' : user.onboardingRequired ? 'Cadastro pendente' : 'Ativo'}</Txt>
-                  </View>
-                )}
+              ))}
+              {!loading && !!users.length && !visibleUsers.length && (
+                <EmptyState
+                  icon={Search}
+                  title="Nenhuma pessoa encontrada"
+                  text="Tente outro termo ou perfil de acesso."
+                />
+              )}
+              {loading && (
+                <View style={styles.loading}>
+                  <ActivityIndicator color={colors.accent} accessibilityLabel="Carregando usuários" />
+                  <Txt style={common.caption}>Carregando diretório...</Txt>
+                </View>
+              )}
+              <View style={styles.directoryFooter}>
+                <ShieldCheck size={16} color={colors.muted} />
+                <Txt style={styles.footerText}>
+                  Apenas administradores gerais podem criar novos acessos.
+                </Txt>
               </View>
-            ))}
-            {!loading && !!users.length && !visibleUsers.length && (
-              <EmptyState
-                icon={Search}
-                title="Nenhuma pessoa encontrada"
-                text="Tente outro termo ou perfil de acesso."
-              />
-            )}
-            {loading && (
-              <View style={styles.loading}>
-                <Txt style={common.caption}>Carregando diretório...</Txt>
-              </View>
-            )}
-            <View style={styles.directoryFooter}>
-              <ShieldCheck size={16} color={colors.muted} />
-              <Txt style={common.caption}>
-                Apenas administradores gerais podem criar novos acessos.
-              </Txt>
             </View>
-          </View>
-        )}
+          )}
+        </View>
       </View>
       <Dialog
         open={open}

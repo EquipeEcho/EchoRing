@@ -54,14 +54,17 @@ export function WorkflowsScreen() {
         <Txt style={s.muted}>{state.simulated ? 'Os trabalhos, nomes, responsáveis, etapas e prazos abaixo são fictícios. Estes exemplos não alteram seus serviços.' : 'Etapas, responsáveis e bloqueios são registrados no trabalho. O percentual considera as etapas concluídas. Serviços anteriores precisam de um workflow atribuído pela equipe.'}</Txt>
       </View>
       <View style={s.tabs} role="tablist" accessibilityLabel="Áreas de workflows">
-        {(['jobs', 'templates'] as const).map(value => <Pressable key={value} accessibilityRole="tab" aria-selected={tab === value} accessibilityState={{ selected: tab === value }} onPress={() => setTab(value)} style={[s.tab, tab === value && s.tabActive]}>
-          <Txt style={[s.tabText, tab === value && { color: colors.accent }]}>{value === 'templates' ? 'Modelos de workflow' : state.staff ? 'Acompanhamento' : 'Meus trabalhos'}</Txt>
+        {(['jobs', 'templates'] as const).map(value => <Pressable key={value} accessibilityRole="tab" aria-selected={tab === value} accessibilityState={{ selected: tab === value }} onPress={() => setTab(value)} style={({ hovered, pressed }) => [s.tab, (hovered || pressed) && { backgroundColor: colors.surface }, tab === value && s.tabActive]}>
+          <Txt style={[s.tabText, tab === value && { color: colors.ink, fontWeight: '600' }]}>{value === 'templates' ? 'Modelos de workflow' : state.staff ? 'Acompanhamento' : 'Meus trabalhos'}</Txt>
         </Pressable>)}
       </View>
       {tab === 'templates' ? <WorkflowLibrary compact={compact} onOpen={template => state.openTemplate(template.id)} /> : <>
         <View style={{ gap: 9 }}>
           <Txt style={s.muted}>Resumo dos trabalhos</Txt>
-          <View style={s.metrics}>{metrics.map(metric => <View key={metric.label} style={s.metric}><metric.icon size={18} color={metric.color} /><Txt style={[s.metricNumber, { color: metric.color }]}>{metric.value}</Txt><Txt style={s.muted}>{metric.label}</Txt></View>)}</View>
+          <View style={s.metrics}>{metrics.map(metric => <View key={metric.label} style={s.metric}>
+            <View style={s.metricTop}><Txt style={s.metricNumber}>{metric.value}</Txt><metric.icon size={20} color={metric.color} /></View>
+            <Txt style={s.muted}>{metric.label}</Txt>
+          </View>)}</View>
         </View>
         {state.staff && <View style={{ gap: 12 }}>
           <View style={s.row}><UsersRound size={18} color={colors.accent} /><Txt accessibilityRole="header" style={s.sectionTitle}>Tradutores com trabalhos ativos</Txt><Badge tone="neutral">{state.translators.length}</Badge></View>

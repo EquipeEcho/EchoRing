@@ -28,15 +28,21 @@ export function ProfileLanguages({ data, change, disabled, errors }: {
             change('languages', data.languages.filter((_, item) => item !== index));
           }} />
         </View>
-        <OptionSelectField compact label={`Idioma ${index + 1}`} value={language.name} placeholder="Selecione um idioma" disabled={disabled}
-          options={languageOptions.filter(name => languageCode(name) === languageCode(language.name) || !codes.includes(languageCode(name)))} matchOption={languageMatches}
-          searchable description="Busque pelo nome ou código do idioma. A lista inclui variantes regionais e LIBRAS."
-          onChange={name => {
-            change('languages', data.languages.map((item, itemIndex) => itemIndex === index ? { ...item, name } : item));
-          }} />
-        <OptionSelectField compact label={`Nível do idioma ${index + 1}`} value={language.level} disabled={disabled}
-          options={languageLevels} dialogTitle={`Nível do idioma ${index + 1}`}
-          onChange={level => change('languages', data.languages.map((item, itemIndex) => itemIndex === index ? { ...item, level: level as LanguageLevel } : item))} />
+        <View style={styles.fieldGrid}>
+          <View style={styles.fieldColumn}>
+            <OptionSelectField compact label={`Idioma ${index + 1}`} value={language.name} placeholder="Selecione um idioma" disabled={disabled}
+            options={languageOptions.filter(name => languageCode(name) === languageCode(language.name) || !codes.includes(languageCode(name)))} matchOption={languageMatches}
+            searchable description="Busque pelo nome ou código do idioma. A lista inclui variantes regionais e LIBRAS."
+            onChange={name => {
+              change('languages', data.languages.map((item, itemIndex) => itemIndex === index ? { ...item, name } : item));
+            }} />
+          </View>
+          <View style={styles.fieldColumn}>
+            <OptionSelectField compact label={`Nível do idioma ${index + 1}`} value={language.level} disabled={disabled}
+            options={languageLevels} dialogTitle={`Nível do idioma ${index + 1}`}
+            onChange={level => change('languages', data.languages.map((item, itemIndex) => itemIndex === index ? { ...item, level: level as LanguageLevel } : item))} />
+          </View>
+        </View>
       </View>)}
       <Button variant="secondary" icon={Plus} disabled={disabled || data.languages.length >= 30}
         onPress={() => change('languages', [...data.languages, { name: '', level: data.languages.length ? 'Fluente' : 'Nativo' }])}>Adicionar idioma</Button>

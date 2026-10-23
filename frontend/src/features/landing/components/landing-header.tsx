@@ -32,16 +32,16 @@ export function LandingHeader({
       <View style={[styles.headerLinks, compact && { gap: 10 }]}>
         {!compact && (
           <>
-            <Pressable accessibilityRole="button" onPress={() => go('services')}>
+            <Pressable accessibilityRole="button" onPress={() => go('services')} style={styles.navTarget}>
               <Txt style={styles.navLink}>Serviços</Txt>
             </Pressable>
-            <Pressable accessibilityRole="button" onPress={() => go('languages')}>
+            <Pressable accessibilityRole="button" onPress={() => go('languages')} style={styles.navTarget}>
               <Txt style={styles.navLink}>Idiomas</Txt>
             </Pressable>
-            <Pressable accessibilityRole="button" onPress={() => go('process')}>
+            <Pressable accessibilityRole="button" onPress={() => go('process')} style={styles.navTarget}>
               <Txt style={styles.navLink}>Sobre</Txt>
             </Pressable>
-            <Pressable accessibilityRole="button" onPress={() => go('quote')}>
+            <Pressable accessibilityRole="button" onPress={() => go('quote')} style={styles.navTarget}>
               <Txt style={styles.navLink}>Contato</Txt>
             </Pressable>
           </>

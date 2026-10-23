@@ -2,6 +2,7 @@ import { Pressable, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
 import { useStyles } from '@/features/deliveries/styles/deliveries.styles';
+import { useTheme } from '@/theme/theme-context';
 
 export function WorkflowTabs<T extends string>({
   value,
@@ -13,6 +14,7 @@ export function WorkflowTabs<T extends string>({
   tabs: { value: T; label: string; count: number }[];
 }) {
   const styles = useStyles();
+  const { colors } = useTheme();
   return (
     <View accessibilityRole="tablist" style={styles.tabs}>
       {tabs.map((tab) => (
@@ -22,7 +24,7 @@ export function WorkflowTabs<T extends string>({
           aria-selected={value === tab.value}
           accessibilityState={{ selected: value === tab.value }}
           onPress={() => onChange(tab.value)}
-          style={[styles.tab, value === tab.value && styles.tabActive]}
+          style={({ hovered, pressed }) => [styles.tab, (hovered || pressed) && { backgroundColor: colors.surface }, value === tab.value && styles.tabActive]}
         >
           <Txt style={[styles.tabText, value === tab.value && styles.tabTextActive]}>
             {tab.label} ({tab.count})

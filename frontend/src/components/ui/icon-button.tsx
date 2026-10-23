@@ -54,7 +54,7 @@ const useStyles = createThemedStyles((colors, selectColor) => ({
   iconButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
@@ -70,7 +70,7 @@ const useStyles = createThemedStyles((colors, selectColor) => ({
     backgroundColor: colors.elevated,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 12,
+    borderRadius: 10,
     minWidth: 100,
   },
   tooltipText: { color: selectColor(colors.white, colors.ink), fontSize: 11, textAlign: 'center' },

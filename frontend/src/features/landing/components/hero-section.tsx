@@ -12,7 +12,7 @@ export function HeroSection({
   onLayout,
   onNavigate: go,
 }: LandingSectionProps & { onNavigate: NavigateSection }) {
-  const { colors } = useTheme();
+  const { colors, theme } = useTheme();
   const styles = useStyles();
   const { mobile, short, heroHeight, pageGutter, heroType } = layout;
   return (
@@ -29,7 +29,7 @@ export function HeroSection({
       <Image
         source={require('@/assets/images/landing/hero-globe.png')}
         resizeMode="cover"
-        style={[styles.heroImage, mobile && styles.heroImageMobile]}
+        style={[styles.heroImage, mobile && styles.heroImageMobile, theme === 'light' && { opacity: 0.12 }]}
       />
       <View pointerEvents="none" style={[styles.heroShade, mobile && styles.heroShadeMobile]} />
       <View style={[styles.heroCopy, mobile && { maxWidth: '100%' }]}>

@@ -53,9 +53,10 @@ export function WorkflowControls({ job, onSaved, onRefresh }: {
     finally { setBusy(false); }
   }
   if (job.source !== 'api' || !session?.token) return null;
+  if (!workflow && (!staff || job.serviceStatus === 'Entregue') && !error && !notice) return null;
   const permitted = definition?.role === 'translator' ? !staff : staff;
   const reviewingFiles = staff && definition?.role !== 'translator' && job.serviceStatus === 'Aguardando avaliação';
-  return <View style={{ gap: 12 }}>
+  return <View style={s.controls}>
     {!workflow && staff && job.serviceStatus !== 'Entregue' && <>
       <Txt style={s.sectionTitle}>Definir processo do trabalho</Txt>
       <OptionSelectField compact label="Workflow a alocar" value={title} options={workflowTemplates.map(template => template.title)} onChange={setTitle} disabled={busy} />

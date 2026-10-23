@@ -22,7 +22,7 @@ export function EmptyState({
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}>
-        <Icon size={27} color={colors.accent} strokeWidth={1.5} />
+        <Icon size={25} color={colors.muted} strokeWidth={1.5} />
       </View>
       <Txt style={styles.emptyTitle}>{title}</Txt>
       <Txt style={styles.emptyText}>{text}</Txt>
@@ -36,12 +36,14 @@ const useStyles = createThemedStyles((colors) => ({
   emptyIcon: {
     width: 56,
     height: 56,
-    backgroundColor: colors.accentSoft,
-    borderRadius: 18,
+    backgroundColor: colors.elevated,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
   },
-  emptyTitle: { fontWeight: '600', fontSize: 17, textAlign: 'center' },
+  emptyTitle: { fontWeight: '600', fontSize: 17, lineHeight: 25, textAlign: 'center' },
   emptyText: { textAlign: 'center', color: colors.muted, maxWidth: 380, fontSize: 14, lineHeight: 22 },
 }));

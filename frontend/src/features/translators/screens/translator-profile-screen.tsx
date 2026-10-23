@@ -32,7 +32,7 @@ function Card({ title, icon: Icon, children }: { title: string; icon: typeof Use
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   return <View style={[styles.card, width < 600 && styles.cardSmall]}>
-    <View style={styles.cardHeader}><Icon size={19} color={colors.accent} /><Txt accessibilityRole="header" style={styles.sectionTitle}>{title}</Txt></View>
+    <View style={styles.cardHeader}><Icon size={19} color={colors.muted} /><Txt accessibilityRole="header" style={styles.sectionTitle}>{title}</Txt></View>
     {children}
   </View>;
 }
@@ -53,7 +53,8 @@ function ProfilePage({ translatorId }: { translatorId?: string }) {
   const styles = useStyles();
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
-  const compact = width < 950;
+  const [contentWidth, setContentWidth] = useState(width);
+  const compact = contentWidth < 900;
   const { session } = useSession();
   const own = !translatorId;
   const { atualizado } = useLocalSearchParams<{ atualizado?: string }>();
@@ -75,18 +76,17 @@ function ProfilePage({ translatorId }: { translatorId?: string }) {
   const pageAction = own && !session?.demo ? <Button icon={Pencil} onPress={() => router.push('/perfil/editar')}>Editar perfil</Button>
     : !own ? <Button variant="secondary" icon={ArrowLeft} onPress={() => router.canGoBack() ? router.back() : router.replace('/dashboard')}>Voltar</Button> : undefined;
   return <ScrollView contentContainerStyle={[styles.page, width < 700 && styles.pageSmall]} keyboardShouldPersistTaps="handled">
-    <View style={styles.container}>
-      <PageHeading title={own ? 'Meu perfil profissional' : 'Perfil do tradutor'} subtitle={own ? 'Seu trabalho, sua trajetória e suas informações em um só lugar.' : 'Conheça a experiência e as áreas de atuação deste profissional.'}
+    <View style={styles.container} onLayout={event => setContentWidth(event.nativeEvent.layout.width)}>
+      <PageHeading spacing="flush" title={own ? 'Meu perfil profissional' : 'Perfil do tradutor'} subtitle={own ? 'Seu trabalho, sua trajetória e suas informações em um só lugar.' : 'Conheça a experiência e as áreas de atuação deste profissional.'}
         action={width >= 700 ? pageAction : undefined} />
       {session?.demo && <View style={styles.notice}><Txt style={styles.noticeText}>Demonstração · dados fictícios. A edição está disponível no acesso autenticado.</Txt></View>}
       {own && atualizado === '1' && <View style={styles.notice}><Txt accessibilityLiveRegion="polite" style={styles.noticeText}>Perfil atualizado com sucesso.</Txt></View>}
       <View style={styles.hero}>
-        <View style={styles.cover} />
         <View style={[styles.heroBody, width < 600 && styles.heroSmall]}>
           <View style={styles.identity}>
             <View style={styles.avatar}><Txt style={styles.avatarText}>{initials}</Txt></View>
             <View style={styles.heroCopy}><Txt style={styles.eyebrow}>TRADUTOR ECHO RING</Txt>
-              <Txt accessibilityRole="header" style={styles.name}>{data.fullName || account.name}</Txt>
+              <Txt accessibilityRole="header" style={[styles.name, width < 600 && styles.nameSmall]}>{data.fullName || account.name}</Txt>
               <Txt style={styles.title}>{data.professionalTitle || 'Profissional de tradução'}</Txt>
               <View style={styles.row}>
                 {location ? <><MapPin size={15} color={colors.muted} /><Txt style={styles.muted}>{location}</Txt></> : null}
@@ -117,7 +117,7 @@ function ProfilePage({ translatorId }: { translatorId?: string }) {
           <Card title="Portfólio e links profissionais" icon={ExternalLink}>
             {data.portfolioLinks.length ? data.portfolioLinks.map((value, index) => {
               const url = profileLink(value);
-              return url ? <Pressable key={value} accessibilityRole="link" accessibilityLabel={`Abrir portfólio ${index + 1}: ${url.hostname}`} onPress={() => void openLink(url.href)} style={styles.link}>
+              return url ? <Pressable key={value} accessibilityRole="link" accessibilityLabel={`Abrir portfólio ${index + 1}: ${url.hostname}`} onPress={() => void openLink(url.href)} style={({ hovered, pressed }) => [styles.link, hovered && styles.linkHover, pressed && { opacity: 0.75 }]}>
                 <View style={{ flex: 1, minWidth: 0 }}><Txt style={styles.linkText}>{url.hostname}</Txt><Txt numberOfLines={1} style={styles.muted}>{value}</Txt></View><ArrowUpRight size={18} color={colors.accent} />
               </Pressable> : null;
             }) : <Txt style={styles.muted}>Nenhum trabalho ou link profissional adicionado.</Txt>}

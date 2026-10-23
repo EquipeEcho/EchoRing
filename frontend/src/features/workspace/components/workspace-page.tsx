@@ -15,7 +15,7 @@ export function WorkspacePage({ children, showProjectStatus = true }: { children
   return (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={[styles.page, width < 700 && { padding: 20, paddingTop: 26 }]}
+      contentContainerStyle={[styles.page, width < 700 && { padding: width < 360 ? 16 : 20, paddingTop: 24 }]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator
       showsHorizontalScrollIndicator={false}

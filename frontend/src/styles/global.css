@@ -1,11 +1,11 @@
 :root {
   color-scheme: dark;
-  --theme-canvas: #050506;
-  --theme-accent: #ff375f;
-  --theme-on-accent: #050506;
-  --theme-focus-ring: rgba(255, 55, 95, 0.45);
-  --theme-hover-border: #774051;
-  --theme-scrollbar: #48484f;
+  --theme-canvas: #101318;
+  --theme-accent: #ff7185;
+  --theme-on-accent: #101318;
+  --theme-focus-ring: rgba(255, 113, 133, 0.22);
+  --theme-hover-border: #ff7185;
+  --theme-scrollbar: #566374;
   background: var(--theme-canvas);
   --font-display: InterRegular, system-ui, sans-serif;
   --font-mono:
@@ -16,12 +16,12 @@
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --theme-canvas: #f7f7fa;
-  --theme-accent: #cc244b;
+  --theme-canvas: #f4f6f8;
+  --theme-accent: #b83250;
   --theme-on-accent: #fff;
-  --theme-focus-ring: rgba(204, 36, 75, 0.5);
-  --theme-hover-border: #cc244b;
-  --theme-scrollbar: #b5b5c2;
+  --theme-focus-ring: rgba(184, 50, 80, 0.18);
+  --theme-hover-border: #b83250;
+  --theme-scrollbar: #8a98a9;
 }
 
 body,
@@ -59,8 +59,8 @@ textarea:focus-visible {
   outline: 2px solid var(--theme-accent);
   outline-offset: 3px;
   box-shadow:
-    0 0 0 1px rgba(255, 55, 95, 0.2),
-    0 8px 22px rgba(255, 55, 95, 0.08);
+    0 0 0 1px var(--theme-focus-ring),
+    0 8px 22px transparent;
 }
 
 a:focus-visible {
@@ -86,8 +86,8 @@ textarea::selection {
 
 [data-testid='search-field']:focus-within {
   border-color: var(--theme-accent);
-  background-color: rgba(255, 55, 95, 0.035);
-  box-shadow: 0 10px 18px -16px rgba(255, 55, 95, 0.9);
+  background-color: var(--theme-canvas);
+  box-shadow: 0 0 0 3px var(--theme-focus-ring);
 }
 
 [data-testid='auth-input']:focus-within {
@@ -147,7 +147,7 @@ input, textarea {
 [data-testid='landing-field']:focus-within input,
 [data-testid='landing-field']:focus-within textarea {
   border-color: var(--theme-accent) !important;
-  box-shadow: 0 0 0 3px rgba(255, 55, 95, 0.1);
+  box-shadow: 0 0 0 3px var(--theme-focus-ring);
 }
 [data-testid='landing-services'] button {
   transition:
@@ -157,7 +157,7 @@ input, textarea {
 }
 [data-testid='landing-services'] button:hover {
   border-color: var(--theme-hover-border);
-  transform: translateY(-4px);
+  transform: translateY(-2px);
 }
 
 @keyframes world-breathe {

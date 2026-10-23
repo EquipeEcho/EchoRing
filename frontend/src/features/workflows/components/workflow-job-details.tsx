@@ -28,7 +28,7 @@ export function WorkflowJobDetails({ job: incoming, now, onRefresh }: { job: Wor
   const reference = assigned || workflowTemplates.find(template => template.title === referenceTitle);
   return <View style={s.stack}>
     <View style={s.row}><WorkflowStatusBadge job={job} now={now} /><Badge tone="neutral">{assigned?.shortTitle || 'Workflow não informado'}</Badge></View>
-    <View style={{ gap: 9 }}>
+    <View style={s.detailSummary}>
       <View style={s.between}><Txt style={s.muted}>Tradutor: {job.translator?.name || 'Não informado'}</Txt><Txt style={s.muted}>Idiomas: {job.languages}</Txt></View>
       <View style={s.between}><Txt style={s.muted}>Cliente: {job.client}</Txt><Txt style={s.muted}>Prazo do serviço: {formatDeadline(job.deadline)}{isOverdue(job, now) ? ' · Atrasado' : ''}</Txt></View>
       {job.serviceStatus && <Txt style={s.muted}>Status do serviço: {job.serviceStatus}</Txt>}

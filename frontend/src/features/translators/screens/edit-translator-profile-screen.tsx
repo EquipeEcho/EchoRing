@@ -70,12 +70,16 @@ function ProfileEditor({ record }: { record: TranslatorProfileRecord }) {
   return <>
     <ScrollView contentContainerStyle={[styles.page, width < 700 && styles.pageSmall]} keyboardShouldPersistTaps="handled">
       <View style={styles.editor}>
-        <PageHeading title="Editar meu perfil" subtitle="Mantenha suas informações profissionais e de contato atualizadas." />
+        <PageHeading spacing="flush" title="Editar meu perfil" subtitle="Mantenha suas informações profissionais e de contato atualizadas." />
         <View accessibilityRole="tablist" style={styles.tabs}>
           {['Contato', 'Idiomas', 'Trajetória', 'Perfil profissional'].map((label, index) => <Pressable key={label} accessibilityRole="tab" aria-selected={step === index} accessibilityState={{ selected: step === index, disabled: busy }} disabled={busy} onPress={() => setStep(index)} style={[styles.tab, step === index && styles.tabActive]}><Txt style={[styles.tabText, step === index && styles.tabTextActive]}>{label}</Txt></Pressable>)}
         </View>
         <View testID="translator-profile-editor" style={[styles.card, width < 600 && styles.cardSmall]}>
-          <Txt style={styles.muted}>Campos com * são obrigatórios. As alterações são salvas somente ao escolher Salvar alterações.</Txt>
+          <View style={styles.editorHeading}>
+            <Txt style={styles.eyebrow}>INFORMAÇÕES PROFISSIONAIS</Txt>
+            <Txt accessibilityRole="header" style={styles.editorTitle}>{['Contato e localização', 'Idiomas', 'Formação e experiência', 'Seu perfil profissional'][step]}</Txt>
+            <Txt style={styles.muted}>Campos com * são obrigatórios. As alterações são salvas somente ao escolher Salvar alterações.</Txt>
+          </View>
           <ProfileFormSection data={data} email={record.account.email} step={step} disabled={busy} errors={errors} change={change} />
           {!!error && <Txt accessibilityRole="alert" style={styles.error}>{error}</Txt>}
           <View style={styles.editorFooter}><Txt style={styles.muted}>{dirty ? 'Alterações não salvas' : 'Nenhuma alteração pendente'}</Txt>

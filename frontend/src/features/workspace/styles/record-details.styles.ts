@@ -1,7 +1,7 @@
 import { font } from '@/theme/tokens';
 import { createThemedStyles } from '@/theme/create-themed-styles';
 
-export const useStyles = createThemedStyles((colors, selectColor) => ({
+export const useStyles = createThemedStyles((colors) => ({
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -43,9 +43,9 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
     borderColor: colors.line,
   },
   detailLabel: {
-    fontSize: 9,
+    fontSize: 11,
     lineHeight: 15,
-    letterSpacing: 1.5,
+    letterSpacing: 1,
     color: colors.muted,
     fontWeight: '600',
   },
@@ -71,7 +71,9 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
     gap: 14,
     padding: 16,
     backgroundColor: colors.amberSoft,
-    borderLeftWidth: 3,
+    borderWidth: 1,
+    borderRadius: 12,
+    borderColor: colors.amberSoft,
     borderLeftColor: colors.amber,
   },
   formIntroIcon: {
@@ -81,19 +83,19 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: selectColor('#6A5126', colors.accent),
+    borderColor: colors.amber,
   },
   formFields: { gap: 20 },
   field: { gap: 9 },
   fieldHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  fieldNumber: { fontSize: 9, letterSpacing: 1.3, color: colors.accent, fontWeight: '600' },
+  fieldNumber: { fontSize: 11, letterSpacing: 1.3, color: colors.accent, fontWeight: '600' },
   label: { fontSize: 13, fontWeight: '600' },
   input: {
     minHeight: 52,
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: selectColor('#38383D', colors.controlLine),
-    borderRadius: 12,
+    borderColor: colors.controlLine,
+    borderRadius: 10,
     paddingHorizontal: 16,
     fontFamily: font,
     fontSize: 15,
