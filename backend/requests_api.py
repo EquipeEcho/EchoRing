@@ -2,7 +2,6 @@
 
 import smtplib
 from fastapi import APIRouter
-from psycopg import sql
 
 from app.core.email_service import deliver_quote
 from app.core.portal_auth import (
@@ -39,13 +38,11 @@ from app.core.workflow import (
 )
 from app.database_pg import (
      MAX_DELIVERY_BYTES,
-     DatabaseConnection,
      database,
      environment_flag,
      initialize_schema,
      json_data,
      now,
-     postgres_connection,
      postgres_schema,
 )
 from app.models.translation import (

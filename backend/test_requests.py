@@ -1,9 +1,28 @@
 """Testes de integração do fluxo completo de uma solicitação de tradução."""
 
+import base64
+import hashlib
+import os
+import smtplib
+import unittest
+import uuid
+from datetime import datetime, timezone
+from unittest.mock import patch
+
+from fastapi.testclient import TestClient
 from sqlalchemy import insert, inspect, select, text
 
+from main import app
+import requests_api
+import mongomock
+from app import mongo
 from app.database_pg import get_engine, to_datetime
 from app.db_models import AuthSession, Delivery, Service, User
+from app.repositories import client_store
+from app.core.portal_auth import staff
+from app.repositories import translator_profile_store
+from app.services.email import service as email_service
+from app.core import email_service as core_email
 
 class ClientMongoTests(unittest.TestCase):
     """Testa persistência de clientes no Mongo sem depender do PostgreSQL."""
