@@ -9,8 +9,11 @@ import time
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.database_pg import database
+from app.db_models import AuthSession, User
 
 bearer = HTTPBearer(auto_error=False)
 _lock = threading.Lock()
@@ -71,15 +74,24 @@ def configured_accounts():
     return accounts
 
 
-def sync_configured_accounts(connection, accounts):
+def sync_configured_accounts(session, accounts):
     for account in accounts:
-        existing = connection.execute('SELECT password_hash FROM users WHERE email = ?', (account['email'],)).fetchone()
+        existing = session.execute(select(User.password_hash).where(User.email == account['email'])).mappings().first()
         password_hash = existing['password_hash'] if existing and password_matches(account['password'], existing['password_hash']) else hash_password(account['password'])
-        connection.execute(
-            '''INSERT INTO users (id, email, name, role, password_hash, active) VALUES (?, ?, ?, ?, ?, TRUE)
-               ON CONFLICT(email) DO UPDATE SET name = excluded.name, role = excluded.role,
-               password_hash = excluded.password_hash, active = TRUE''',
-            (account['id'], account['email'], account['name'], account['role'], password_hash),
+        stmt = pg_insert(User).values(
+            id=account['id'], email=account['email'], name=account['name'],
+            role=account['role'], password_hash=password_hash, active=True,
+        )
+        session.execute(
+            stmt.on_conflict_do_update(
+                index_elements=['email'],
+                set_={
+                    'name': stmt.excluded.name,
+                    'role': stmt.excluded.role,
+                    'password_hash': stmt.excluded.password_hash,
+                    'active': True,
+                },
+            )
         )
 
 
@@ -87,17 +99,20 @@ def authenticated_user(credentials: HTTPAuthorizationCredentials | None = Depend
     if not credentials:
         raise HTTPException(401, 'Entre com sua conta para continuar.')
     digest = hashlib.sha256(credentials.credentials.encode()).hexdigest()
-    with database() as connection:
-        session = connection.execute(
-            '''SELECT sessions.expires, users.id, users.name, users.email, users.role, users.active,
-                      users.onboarding_required
-               FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.digest = ?''',
-            (digest,),
-        ).fetchone()
-        if not session or session['expires'] <= time.time() or not session['active']:
-            connection.execute('DELETE FROM sessions WHERE digest = ?', (digest,))
+    with database() as db:
+        row = db.execute(
+            select(
+                AuthSession.expires, User.id, User.name, User.email, User.role, User.active,
+                User.onboarding_required,
+            )
+            .select_from(AuthSession)
+            .join(User, User.id == AuthSession.user_id)
+            .where(AuthSession.digest == digest)
+        ).mappings().first()
+        if not row or row['expires'] <= time.time() or not row['active']:
+            db.execute(delete(AuthSession).where(AuthSession.digest == digest))
             raise HTTPException(401, 'Sessão expirada. Entre novamente no portal.')
-    return dict(session)
+    return dict(row)
 
 
 def staff(user: dict = Depends(authenticated_user)):
