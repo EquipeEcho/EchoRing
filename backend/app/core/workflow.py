@@ -1,82 +1,113 @@
 """Database readers, workflow event logging and record serializers."""
 
 from fastapi import HTTPException
-from psycopg.types.json import Jsonb
+from sqlalchemy import insert, or_, select, update
+from sqlalchemy.orm import aliased
 
-from app.database_pg import json_data, now
+from app.database_pg import json_data, now, to_datetime
+from app.db_models import Delivery, Service, TranslationRequest, User, WorkflowEvent
 
 
-def read_request(connection, request_id, for_update=False):
-    suffix = ' FOR UPDATE' if for_update else ''
-    row = connection.execute('SELECT data, sending FROM requests WHERE id = ?' + suffix, (request_id,)).fetchone()
+def read_request(session, request_id, for_update=False):
+    stmt = select(TranslationRequest.data, TranslationRequest.sending).where(TranslationRequest.id == request_id)
+    if for_update:
+        stmt = stmt.with_for_update()
+    row = session.execute(stmt).mappings().first()
     if not row:
         raise HTTPException(404, 'Solicitação não encontrada.')
     return json_data(row['data']), row['sending']
 
 
-def read_service(connection, service_id, for_update=False):
-    suffix = ' FOR UPDATE' if for_update else ''
-    service = connection.execute('SELECT * FROM services WHERE id = ?' + suffix, (service_id,)).fetchone()
+def request_exists(session, request_id):
+    return session.execute(select(TranslationRequest.id).where(TranslationRequest.id == request_id)).first() is not None
+
+
+def read_service(session, service_id, for_update=False):
+    stmt = select(Service.__table__).where(Service.id == service_id)
+    if for_update:
+        stmt = stmt.with_for_update()
+    service = session.execute(stmt).mappings().first()
     if not service:
         raise HTTPException(404, 'Tarefa não encontrada.')
     return service
 
 
-def read_delivery(connection, delivery_id, for_update=False):
-    suffix = ' FOR UPDATE OF deliveries' if for_update else ''
-    delivery = connection.execute(
-        '''SELECT deliveries.*, services.title AS service_title,
-                  translator_user.name AS translator_name, reviewer.name AS reviewer_name
-           FROM deliveries JOIN services ON services.id = deliveries.service_id
-           LEFT JOIN users AS translator_user ON translator_user.id = deliveries.translator_id
-           LEFT JOIN users AS reviewer ON reviewer.id = deliveries.reviewed_by
-           WHERE deliveries.id = ?''' + suffix,
-        (delivery_id,),
-    ).fetchone()
+def delivery_query():
+    """SELECT base de entregas com título da tarefa e nomes do tradutor e do avaliador."""
+    translator_user = aliased(User)
+    reviewer = aliased(User)
+    return (
+        select(
+            Delivery.__table__,
+            Service.title.label('service_title'),
+            translator_user.name.label('translator_name'),
+            reviewer.name.label('reviewer_name'),
+        )
+        .select_from(Delivery)
+        .join(Service, Service.id == Delivery.service_id)
+        .outerjoin(translator_user, translator_user.id == Delivery.translator_id)
+        .outerjoin(reviewer, reviewer.id == Delivery.reviewed_by)
+    )
+
+
+def read_delivery(session, delivery_id, for_update=False):
+    stmt = delivery_query().where(Delivery.id == delivery_id)
+    if for_update:
+        # OF deliveries: o PostgreSQL não permite bloquear o lado nulo de um outer join.
+        stmt = stmt.with_for_update(of=Delivery.__table__)
+    delivery = session.execute(stmt).mappings().first()
     if not delivery:
         raise HTTPException(404, 'Entrega não encontrada.')
     return delivery
 
 
-def add_event(connection, status, request_id=None, service_id=None, actor=None, note=None, created_at=None):
+def add_event(session, status, request_id=None, service_id=None, actor=None, note=None, created_at=None):
     actor_name = actor.get('name') if actor else ('Cliente' if status in ('Orçamento aprovado', 'Orçamento recusado') else 'Sistema')
-    connection.execute(
-        '''INSERT INTO workflow_events (request_id, service_id, status, note, actor_id, actor_name, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)''',
-        (request_id, service_id, status, note or None, actor.get('id') if actor else None,
-         actor_name, created_at or now()),
+    session.execute(
+        insert(WorkflowEvent).values(
+            request_id=request_id,
+            service_id=service_id,
+            status=status,
+            note=note or None,
+            actor_id=actor.get('id') if actor else None,
+            actor_name=actor_name,
+            created_at=to_datetime(created_at or now()),
+        )
     )
 
 
-def event_history(connection, request_id=None, service_id=None):
+def event_history(session, request_id=None, service_id=None):
+    stmt = select(WorkflowEvent.status, WorkflowEvent.note, WorkflowEvent.actor_name, WorkflowEvent.created_at)
     if service_id:
-        rows = connection.execute(
-            'SELECT status, note, actor_name, created_at FROM workflow_events WHERE service_id = ? OR request_id = (SELECT request_id FROM services WHERE id = ?) ORDER BY id',
-            (service_id, service_id),
-        ).fetchall()
+        parent_request = select(Service.request_id).where(Service.id == service_id).scalar_subquery()
+        stmt = stmt.where(or_(WorkflowEvent.service_id == service_id, WorkflowEvent.request_id == parent_request))
     else:
-        rows = connection.execute(
-            'SELECT status, note, actor_name, created_at FROM workflow_events WHERE request_id = ? ORDER BY id',
-            (request_id,),
-        ).fetchall()
+        stmt = stmt.where(WorkflowEvent.request_id == request_id)
+    rows = session.execute(stmt.order_by(WorkflowEvent.id)).mappings().all()
     return [
         {'status': row['status'], 'note': row['note'] or '', 'actorName': row['actor_name'] or 'Sistema', 'createdAt': row['created_at']}
         for row in rows
     ]
 
 
-def sanitized_request(data, connection=None, include_content=False):
+def sanitized_request(data, session=None, include_content=False):
     result = {key: value for key, value in data.items() if key not in ('quoteResponseTokenDigest', 'quoteResponseExpiresAt')}
     result['attachments'] = [file if include_content else {**file, 'content': ''} for file in data.get('attachments', [])]
-    if connection:
-        result['history'] = event_history(connection, request_id=data['id'])
-        task = connection.execute(
-            '''SELECT services.id, services.status, services.deadline, users.id AS translator_id,
-                      users.name AS translator_name, users.email AS translator_email
-               FROM services LEFT JOIN users ON users.id = services.translator_id
-               WHERE services.request_id = ?''',
-            (data['id'],),
-        ).fetchone()
+    if session is not None:
+        result['history'] = event_history(session, request_id=data['id'])
+        task = session.execute(
+            select(
+                Service.id,
+                Service.status,
+                Service.deadline,
+                User.id.label('translator_id'),
+                User.name.label('translator_name'),
+                User.email.label('translator_email'),
+            )
+            .select_from(Service)
+            .outerjoin(User, User.id == Service.translator_id)
+            .where(Service.request_id == data['id'])
+        ).mappings().first()
         if task:
             result['task'] = {
                 'id': task['id'], 'status': task['status'], 'deadline': task['deadline'],
@@ -85,14 +116,14 @@ def sanitized_request(data, connection=None, include_content=False):
     return result
 
 
-def update_request_status(connection, request_id, status, actor=None, note=None, service_id=None, timestamp_field=None):
-    data, _ = read_request(connection, request_id, for_update=True)
+def update_request_status(session, request_id, status, actor=None, note=None, service_id=None, timestamp_field=None):
+    data, _ = read_request(session, request_id, for_update=True)
     changed_at = now()
     data['status'] = status
     if timestamp_field:
         data[timestamp_field] = changed_at
-    connection.execute('UPDATE requests SET data = ? WHERE id = ?', (Jsonb(data), request_id))
-    add_event(connection, status, request_id, service_id, actor, note, changed_at)
+    session.execute(update(TranslationRequest).where(TranslationRequest.id == request_id).values(data=data))
+    add_event(session, status, request_id, service_id, actor, note, changed_at)
     return data
 
 
@@ -138,14 +169,16 @@ def delivery_record(delivery):
     return record
 
 
-def task_record(connection, service):
+def task_record(session, service):
     request_data = None
     if service['request_id']:
-        row = connection.execute('SELECT data FROM requests WHERE id = ?', (service['request_id'],)).fetchone()
+        row = session.execute(select(TranslationRequest.data).where(TranslationRequest.id == service['request_id'])).mappings().first()
         if row:
             request_data = json_data(row['data'])
-    latest = connection.execute('SELECT * FROM deliveries WHERE service_id = ? ORDER BY version DESC LIMIT 1', (service['id'],)).fetchone()
-    assigned = connection.execute('SELECT id, name, email FROM users WHERE id = ?', (service['translator_id'],)).fetchone()
+    latest = session.execute(
+        select(Delivery.__table__).where(Delivery.service_id == service['id']).order_by(Delivery.version.desc()).limit(1)
+    ).mappings().first()
+    assigned = session.execute(select(User.id, User.name, User.email).where(User.id == service['translator_id'])).mappings().first()
     record = {
         'id': service['id'], 'requestId': service['request_id'], 'title': service['title'],
         'status': service['status'], 'deadline': service['deadline'], 'createdAt': service['created_at'],
@@ -154,7 +187,7 @@ def task_record(connection, service):
         'observations': service['observations'] or '', 'source': service['source'] or '',
         'target': service['target'] or '', 'lastVersion': latest['version'] if latest else 0,
         'translator': {'id': assigned['id'], 'name': assigned['name'], 'email': assigned['email']} if assigned else None,
-        'history': event_history(connection, service_id=service['id']),
+        'history': event_history(session, service_id=service['id']),
     }
     if latest:
         record['lastDelivery'] = {
@@ -183,20 +216,22 @@ def ensure_task_access(service, user):
         raise HTTPException(403, 'Esta tarefa não está atribuída à sua conta.')
 
 
-def _request_for_quote(connection, quote_id):
-    row = connection.execute(
-        "SELECT data FROM requests WHERE data -> 'quote' ->> 'id' = ? FOR UPDATE",
-        (quote_id,),
-    ).fetchone()
+def _request_for_quote(session, quote_id):
+    # data -> 'quote' ->> 'id' = :quote_id (JSONB), com bloqueio da linha.
+    row = session.execute(
+        select(TranslationRequest.data)
+        .where(TranslationRequest.data['quote']['id'].astext == quote_id)
+        .with_for_update()
+    ).mappings().first()
     if not row:
         raise HTTPException(404, 'Orçamento não encontrado.')
     return json_data(row['data'])
 
 
-def original_attachment(connection, service, attachment_index):
+def original_attachment(session, service, attachment_index):
     if not service['request_id']:
         raise HTTPException(404, 'Documento original não encontrado.')
-    data, _ = read_request(connection, service['request_id'])
+    data, _ = read_request(session, service['request_id'])
     attachments = data.get('attachments', [])
     if attachment_index < 0 or attachment_index >= len(attachments):
         raise HTTPException(404, 'Documento original não encontrado.')
