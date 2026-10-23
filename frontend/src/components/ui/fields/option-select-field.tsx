@@ -1,6 +1,6 @@
 import { Check, ChevronDown } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, useWindowDimensions, View } from 'react-native';
 
 import { Dialog } from '@/components/ui/dialog';
 import { useStyles } from '@/components/ui/fields/selection-fields.styles';
@@ -34,6 +34,7 @@ export function OptionSelectField({
 }) {
   const { colors } = useTheme();
   const styles = useStyles();
+  const { width } = useWindowDimensions();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(40);
@@ -51,6 +52,9 @@ export function OptionSelectField({
           accessibilityRole="button"
           accessibilityLabel={label}
           accessibilityValue={{ text: value || placeholder }}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          accessibilityState={{ disabled: !!disabled, expanded: open }}
           aria-invalid={invalid}
           disabled={disabled}
           onPress={() => { setQuery(''); setLimit(40); setOpen(true); }}
@@ -101,6 +105,7 @@ export function OptionSelectField({
                 }}
                 style={({ hovered, pressed }) => [
                   styles.option,
+                  width < 600 && styles.optionMobile,
                   selected && styles.optionSelected,
                   hovered && styles.optionHover,
                   pressed && { opacity: 0.78 },

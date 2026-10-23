@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Brand } from '@/components/ui/brand';
 import { Txt } from '@/components/ui/text';
@@ -22,7 +23,7 @@ export function AuthFrame({ children }: { children: ReactNode }) {
   const { width } = useWindowDimensions();
   const small = width < 600;
   return (
-    <View style={styles.background}>
+    <SafeAreaView style={styles.background} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -77,6 +78,6 @@ export function AuthFrame({ children }: { children: ReactNode }) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }

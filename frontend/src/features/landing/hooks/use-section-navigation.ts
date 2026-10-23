@@ -10,7 +10,8 @@ export function useSectionNavigation() {
   function go(section: LandingSection) {
     const reduced =
       Platform.OS === 'web' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    scroll.current?.scrollTo({ y: sections.current[section] ?? 0, animated: !reduced });
+    const y = (sections.current[section] ?? 0) + (section === 'quote-form' ? sections.current.quote ?? 0 : 0);
+    scroll.current?.scrollTo({ y, animated: !reduced });
   }
   function registerSection(section: LandingSection) {
     return (event: LayoutChangeEvent) => {

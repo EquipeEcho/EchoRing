@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { CheckCircle2, CircleX, ShieldCheck } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ScrollView, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Brand } from '@/components/ui/brand';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,7 @@ export function QuoteResponseScreen() {
   const styles = useStyles();
   const common = useCommonStyles();
   const { width } = useWindowDimensions();
+  const mobile = width < 600;
   const params = useLocalSearchParams<{ id: string; decision?: string; '#': string }>();
   const [token] = useState(typeof params['#'] === 'string' ? params['#'] : '');
   const [choice, setChoice] = useState<'approve' | 'decline'>(
@@ -48,8 +50,9 @@ export function QuoteResponseScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-      <View style={styles.card}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top', 'bottom']}>
+    <ScrollView contentContainerStyle={[styles.page, mobile && styles.pageMobile]} keyboardShouldPersistTaps="handled">
+      <View style={[styles.card, mobile && styles.cardMobile]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Brand compact={width < 600} />
           <ThemeToggle />
@@ -75,11 +78,11 @@ export function QuoteResponseScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.heading}>
+            <View style={[styles.heading, mobile && styles.headingMobile]}>
               <View style={styles.icon}>
                 <ShieldCheck size={26} color={colors.accent} />
               </View>
-              <View style={{ flex: 1, gap: 5 }}>
+              <View style={[styles.headingCopy, mobile && styles.headingCopyMobile]}>
                 <Txt style={styles.eyebrow}>RESPOSTA DO ORÇAMENTO</Txt>
                 <Txt accessibilityRole="header" style={styles.title}>
                   Confirme sua decisão
@@ -116,7 +119,7 @@ export function QuoteResponseScreen() {
                 {error}
               </Txt>
             )}
-            <View style={styles.actions}>
+            <View style={[styles.actions, mobile && styles.actionsMobile]}>
               <Button variant="ghost" disabled={busy} onPress={() => router.replace('/')}>
                 Cancelar
               </Button>
@@ -128,5 +131,6 @@ export function QuoteResponseScreen() {
         )}
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }

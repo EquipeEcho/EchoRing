@@ -17,19 +17,20 @@ export function LandingHeader({
   const { colors } = useTheme();
   const styles = useStyles();
   const { headerHeight, mobile, narrow } = layout;
+  const compact = layout.width < 1000;
   const { session } = useSession();
   return (
-    <View style={[styles.header, { height: headerHeight }, mobile && styles.headerMobile]}>
+    <View testID="landing-header" style={[styles.header, { height: headerHeight }, mobile && styles.headerMobile]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Echo Ring, início"
         onPress={() => go('top')}
         style={styles.companyBrand}
       >
-        <Brand compact={mobile} />
+        <Brand compact={compact} />
       </Pressable>
-      <View style={[styles.headerLinks, mobile && { gap: 10 }]}>
-        {!mobile && (
+      <View style={[styles.headerLinks, compact && { gap: 10 }]}>
+        {!compact && (
           <>
             <Pressable accessibilityRole="button" onPress={() => go('services')}>
               <Txt style={styles.navLink}>Serviços</Txt>

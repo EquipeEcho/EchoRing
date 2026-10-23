@@ -116,7 +116,7 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
     borderRadius: 4,
     backgroundColor: colors.accent,
   },
-  mobileAction: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+  mobileAction: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   mobileSearch: {
     minHeight: 48,
     flexDirection: 'row',
@@ -130,8 +130,8 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
     borderColor: colors.line,
     borderRadius: 12,
   },
-  searchGlyph: { width: 34, height: 42, alignItems: 'center', justifyContent: 'center' },
-  clearSearch: { width: 34, height: 42, alignItems: 'center', justifyContent: 'center' },
+  searchGlyph: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  clearSearch: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1, minHeight: 0 },
   bottomNav: {
     flexDirection: 'row',
