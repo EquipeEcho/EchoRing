@@ -1,1 +1,1 @@
-export { DashboardScreen as default } from '@/features/workspace/screens';
+export { DashboardScreen as default } from '@/features/workspace/screens/dashboard-screen';

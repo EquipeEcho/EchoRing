@@ -1,0 +1,222 @@
+:root {
+  color-scheme: dark;
+  --theme-canvas: #101318;
+  --theme-accent: #ff7185;
+  --theme-on-accent: #101318;
+  --theme-focus-ring: rgba(255, 113, 133, 0.22);
+  --theme-hover-border: #ff7185;
+  --theme-scrollbar: #566374;
+  background: var(--theme-canvas);
+  --font-display: InterRegular, system-ui, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+  --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
+  --font-serif: Georgia, 'Times New Roman', serif;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --theme-canvas: #f4f6f8;
+  --theme-accent: #b83250;
+  --theme-on-accent: #fff;
+  --theme-focus-ring: rgba(184, 50, 80, 0.18);
+  --theme-hover-border: #b83250;
+  --theme-scrollbar: #8a98a9;
+}
+
+body,
+#root {
+  background: var(--theme-canvas);
+}
+
+/* Visible, discreet scrollbars make long lists and forms discoverable. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-scrollbar) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--theme-scrollbar);
+  border-radius: 6px;
+}
+
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--theme-accent) !important;
+  outline-offset: 2px;
+  caret-color: var(--theme-accent);
+}
+
+[role='button']:focus-visible,
+[role='checkbox']:focus-visible,
+[role='radio']:focus-visible,
+[role='tab']:focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 3px;
+  box-shadow:
+    0 0 0 1px var(--theme-focus-ring),
+    0 8px 22px transparent;
+}
+
+a:focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 3px;
+  text-decoration-color: var(--theme-accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+input::selection,
+textarea::selection {
+  background-color: var(--theme-accent);
+  color: var(--theme-on-accent);
+}
+
+[data-testid='search-field'] {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+[data-testid='search-field']:focus-within {
+  border-color: var(--theme-accent);
+  background-color: var(--theme-canvas);
+  box-shadow: 0 0 0 3px var(--theme-focus-ring);
+}
+
+[data-testid='auth-input']:focus-within {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 3px var(--theme-focus-ring);
+}
+
+[data-testid='auth-input'] input:focus-visible {
+  outline: none !important;
+}
+
+[data-testid='form-field']:focus-within {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 3px var(--theme-focus-ring);
+}
+
+[data-testid='form-field'] input:focus-visible {
+  outline: none !important;
+}
+
+[data-testid='search-field'] input:focus-visible {
+  outline: none !important;
+}
+
+button, a, [role='button'], [role='tab'] {
+  touch-action: manipulation;
+}
+
+input, textarea {
+  scroll-margin-block: 100px;
+}
+
+[data-testid='language-globe'] {
+  animation: world-breathe 9s ease-in-out infinite;
+}
+[data-testid='hero-orbit'] {
+  animation: world-turn 40s linear infinite;
+}
+[data-testid='language-chip-one'] {
+  animation: word-float 6s ease-in-out infinite;
+}
+[data-testid='language-chip-two'] {
+  animation: word-float 7s ease-in-out -2s infinite;
+}
+[data-testid='language-chip-three'] {
+  animation: word-float 8s ease-in-out -4s infinite;
+}
+[data-testid='quote-stage'] {
+  animation: word-enter 220ms ease-out both;
+}
+[data-testid='landing-field'] input,
+[data-testid='landing-field'] textarea {
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+[data-testid='landing-field']:focus-within input,
+[data-testid='landing-field']:focus-within textarea {
+  border-color: var(--theme-accent) !important;
+  box-shadow: 0 0 0 3px var(--theme-focus-ring);
+}
+[data-testid='landing-services'] button {
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease,
+    background-color 180ms ease;
+}
+[data-testid='landing-services'] button:hover {
+  border-color: var(--theme-hover-border);
+  transform: translateY(-2px);
+}
+
+@keyframes world-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes world-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes word-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+@keyframes word-enter {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (pointer: coarse), (max-width: 600px) {
+  /* Prevent browser zoom when focusing forms on iOS. */
+  input, textarea {
+    font-size: 16px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-testid='search-field'] {
+    transition: none;
+  }
+  [data-testid='language-globe'],
+  [data-testid^='language-chip-'],
+  [data-testid='hero-orbit'],
+  [data-testid='quote-stage'] {
+    animation: none;
+  }
+  [data-testid='landing-services'] button,
+  [data-testid='landing-field'] input,
+  [data-testid='landing-field'] textarea {
+    transition: none;
+  }
+  [data-testid='landing-services'] button:hover {
+    transform: none;
+  }
+}

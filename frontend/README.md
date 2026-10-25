@@ -21,17 +21,21 @@ O Metro usa dois workers para limitar a carga durante a compilacao.
 
 ## Acesso demonstrativo
 
-A landing page publica inclui solucoes de traducao, etapas do atendimento, FAQ e
-formulario de orcamento com documentos. O mapa pontilhado, as rotas orbitais e as palavras flutuantes respeitam a
-preferencia de movimento reduzido na web. O formulario centralizado usa tres etapas
+A landing page publica inclui solucoes de traducao, idiomas, etapas do atendimento,
+FAQ e formulario de orcamento com documentos. A navegacao entre secoes respeita a
+preferencia de movimento reduzido na web. O formulario usa tres etapas
 (projeto, documentos e contato), preserva os dados ao voltar e permite inverter idiomas.
 
-Por padrao, `EXPO_PUBLIC_REQUESTS_MODE=demo`: envie dados ficticios pelo site e
-entre no portal para abrir **Solicitacoes** (ou **Pedidos** na barra mobile).
-Pedidos, anexos e rascunhos ficam no `localStorage` deste navegador e sobrevivem
-ao recarregamento. O app atualiza a caixa de entrada ao receber eventos do navegador
-e a cada 30 segundos. O envio de orcamento e explicitamente simulado, sem e-mails.
-Se o armazenamento estiver cheio ou indisponivel, o formulario informa a falha.
+O Compose e o `.env.example` usam `EXPO_PUBLIC_REQUESTS_MODE=api`: os pedidos da
+landing page sao enviados ao backend e aparecem na caixa **Solicitacoes** da equipe.
+Inicie a API e os bancos conforme o guia do backend e reinicie o Expo depois de
+alterar variaveis de ambiente.
+
+Para testar sem backend, defina explicitamente `EXPO_PUBLIC_REQUESTS_MODE=demo`.
+Nesse modo, pedidos, anexos e rascunhos ficam no `localStorage` deste navegador,
+nao sao enviados a empresa e nao criam clientes no MongoDB. A caixa demonstrativa
+atualiza ao receber eventos do navegador e a cada 30 segundos. Se o armazenamento
+estiver cheio ou indisponivel, o formulario informa a falha.
 
 Use **Acessar demonstracao** na tela de login. Para testar os campos de credenciais:
 
@@ -47,25 +51,58 @@ Requisicoes e tarefas sao dados ficticios em memoria e voltam ao estado inicial 
 
 ## Estrutura
 
-| Pasta | Responsabilidade |
-| --- | --- |
-| `src/app` | Rotas publicas e grupo protegido `(workspace)` |
-| `src/features/auth` | Login por perfil, recuperacao de acesso e persistencia da sessao |
-| `src/features/workspace` | Dados demonstrativos, telas e formularios |
-| `src/features/users` | Cadastro e listagem de contas pelo administrador geral |
-| `src/features/landing` | Site publico e formulario de solicitacao |
-| `src/features/requests` | Caixa de entrada, documentos, rascunhos e envio de orcamento |
-| `src/components/layout` | Menu lateral, cabecalho e navegacao mobile |
-| `src/components/ui` | Botoes, campos visuais, textos, badges e dialogos |
-| `src/constants/design.ts` | Cores, tipografia e breakpoint de navegacao |
-| `tests` | Testes de navegacao, formularios e responsividade |
+| Pasta                     | Responsabilidade                                                 |
+| ------------------------- | ---------------------------------------------------------------- |
+| `src/app`                 | Entradas de rota e layouts do Expo Router                        |
+| `src/features/auth`       | Login por perfil, recuperacao de acesso e persistencia da sessao |
+| `src/features/workspace`  | Dashboard, projetos, tarefas, navegacao e dados demonstrativos   |
+| `src/features/users`      | Cadastro e listagem de contas pelo administrador geral           |
+| `src/features/landing`    | Site publico e formulario de solicitacao                         |
+| `src/features/requests`   | Caixa de entrada, documentos, rascunhos e envio de orcamento     |
+| `src/features/deliveries` | Envio de traducoes, avaliacao, revisao e entregas                |
+| `src/components/ui`       | Botoes, campos visuais, textos, badges e dialogos                |
+| `src/lib`                 | Cliente HTTP e download de documentos compartilhados             |
+| `src/theme`               | Cores, tipografia, breakpoints e estilos compartilhados          |
+| `src/styles`              | Estilos globais da web                                           |
+| `src/types`               | Tipos compartilhados e declaracoes do Expo                       |
+| `src/utils`               | Formatacao de valores e tamanhos de arquivos                     |
+| `assets/images`           | Imagens separadas em marca, landing page e previas               |
+| `tests/e2e`               | Testes de navegacao, formularios e responsividade                |
+| `tests/fixtures`          | Documentos ficticios usados nos testes                           |
+| `docs`                    | Guia de organizacao e convencoes do frontend                     |
+
+Cada funcionalidade separa `screens`, `components`, `hooks`, `contexts`, `services`,
+`styles`, `data` e tipos conforme sua necessidade. As rotas importam as telas;
+componentes compartilhados ficam fora das funcionalidades. Consulte o
+[guia de arquitetura](docs/architecture.md) para localizar arquivos e seguir o padrao.
 
 O visual usa fundo preto, superficies em grafite, texto claro e destaque rosa.
+O modo escuro e o padrao. O botao de sol/lua nos cabecalhos alterna para um tema claro
+com fundos suaves, cards brancos e destaque rosa, aplicado tambem aos campos e dialogos.
+A preferencia fica no `localStorage` (`echoring.theme.v1`) e sincroniza entre abas;
+no Android e iOS, fica no `expo-secure-store`. O tema nao segue automaticamente o sistema.
 Desktop usa menu lateral; abaixo de 1000 px, a navegacao passa para a barra inferior
 flutuante, com abas arredondadas. Login, listas e dialogos compartilham o mesmo tema.
 As listas de projetos passam a apresentar cada registro verticalmente abaixo de 800 px.
+O painel destaca entregas do dia e prioriza tarefas pendentes. As listas mostram
+idiomas e andamento dos projetos; filtros ativos podem ser limpos de uma vez.
+A busca tambem filtra a pagina de tarefas e pode ser acessada com Ctrl+K ou Cmd+K.
+Falhas ao carregar projetos oferecem uma nova tentativa e preservam os dados
+ja carregados. As notificacoes de contas reais usam as pendencias disponiveis;
+os exemplos ficticios aparecem somente na demonstracao.
+Dialogos mantem o foco do teclado dentro da janela, fecham com Esc e devolvem
+o foco ao controle de origem. Campos de texto possuem foco visivel e os campos
+longos do perfil mostram a quantidade de caracteres utilizada.
 O administrador geral possui a aba **Usuarios** para criar contas de funcionario,
-tradutor e RH. Cadastros, financeiro, relatorios e administracao sao areas previstas, identificadas como
+tradutor e RH. Novos tradutores entram em `/completar-cadastro` no primeiro acesso.
+O formulario exige nome, telefone, localizacao, idiomas e pares de traducao,
+formacao, experiencia e especializacoes. Biografia, servicos, ferramentas,
+certificacoes, portfolio e disponibilidade complementam o perfil opcionalmente.
+O progresso fica na API ao avancar, salvar o rascunho ou escolher **Salvar e sair**,
+permitindo continuar em outra sessao ou dispositivo. O portal e liberado somente
+apos a conclusao validada pelo servidor. Os dados ficam preparados para a futura
+pagina do tradutor. Contas anteriores continuam com o acesso habitual.
+Cadastros, financeiro, relatorios e administracao sao areas previstas, identificadas como
 em preparacao. As demais interacoes implementadas incluem busca, filtros de status,
 detalhes dos projetos, criacao de requisicao demonstrativa, tarefas e notificacoes.
 
@@ -73,6 +110,7 @@ detalhes dos projetos, criacao de requisicao demonstrativa, tarefas e notificaco
 
 ```powershell
 npm.cmd run typecheck
+npm.cmd run lint
 npm.cmd run test:e2e
 ```
 
@@ -85,9 +123,9 @@ adicional em 320x740. Screenshots e traces ficam em `test-results/`.
 
 Siga o [guia do backend](../backend/README.md) para configurar a conta do tradutor,
 o armazenamento e o provedor SMTP. O login real sempre usa `EXPO_PUBLIC_API_URL`,
-independentemente do modo demonstrativo do formulario. Ative
-`EXPO_PUBLIC_REQUESTS_MODE=api` no `.env` somente quando o formulario publico tambem
-dever enviar dados reais, e reinicie o Expo. A conta entra pelo endpoint `/auth/login`.
+independentemente do modo do formulario. Em modo `api`, a conta entra pelo endpoint
+`/auth/login`; em modo `demo`, o formulario publico fica restrito ao armazenamento
+local do navegador.
 O perfil `translator` ve somente seu espaco de projetos e tarefas; `hr` acessa as
 areas de pessoas; `employee` atua na operacao; e `admin` tambem gerencia usuarios.
 Pedidos do site ficam reservados a funcionarios e administradores. A demonstracao continua
@@ -109,7 +147,7 @@ as tarefas da API, enquanto o acesso demonstrativo mantem seus dados ficticios.
 Tipografia: Inter, incluida no bundle pelo pacote
 `@expo-google-fonts/inter` (OFL-1.1). Os pesos regular, medio, semibold e bold
 sao carregados localmente por `expo-font`, sem requisicoes a servicos de fontes externos.
-Os tamanhos compartilhados e as cores ficam em `src/constants/design.ts`.
+Os tamanhos compartilhados e as cores ficam em `src/theme/tokens.ts`.
 
 Icones: Lucide. A tela de acesso usa fundo preto e uma apresentacao tipografica
 no desktop, com listas e icones rosa. O tema escuro tambem se aplica ao foco

@@ -1,6 +1,7 @@
 import { Redirect } from 'expo-router';
-import { DeliveriesScreen } from '@/features/deliveries/deliveries-screen';
-import { useSession } from '@/features/auth/session';
+
+import { useSession } from '@/features/auth/contexts/session-context';
+import { DeliveriesScreen } from '@/features/deliveries/screens/deliveries-screen';
 
 export default function DeliveriesRoute() {
   const { session } = useSession();

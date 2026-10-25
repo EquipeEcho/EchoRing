@@ -1,1 +1,1 @@
-export { RecoveryScreen as default } from '@/features/auth/auth-screen';
+export { RecoveryScreen as default } from '@/features/auth/screens/recovery-screen';

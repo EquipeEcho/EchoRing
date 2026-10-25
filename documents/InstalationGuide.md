@@ -32,7 +32,7 @@ Este projeto utiliza **Docker** para garantir que o ambiente de desenvolvimento 
    ```bash
    docker compose up -d --build
    ```
-   > **Nota:** Na primeira vez, esse comando pode levar alguns minutos, pois o Docker fará o download das imagens do PostgreSQL, MongoDB, Node e Python. O MongoDB permanece somente para compatibilidade com trabalhos da equipe; a API principal persiste tudo no PostgreSQL.
+   > **Nota:** Na primeira vez, esse comando pode levar alguns minutos, pois o Docker fará o download das imagens do PostgreSQL, MongoDB, Node e Python. A API usa o PostgreSQL para quase tudo e o MongoDB para o perfil dos tradutores.
 
 #### 🌐 Acessando a Aplicação
 Quando o terminal indicar que todos os contêineres foram iniciados (`Started` / `Running`), abra o seu navegador nos seguintes endereços:
@@ -43,7 +43,7 @@ Quando o terminal indicar que todos os contêineres foram iniciados (`Started` /
 ## Desenvolvimento local no Windows
 
 Para editar com recarga automatica, execute Expo e FastAPI no Windows e mantenha
-somente PostgreSQL no Docker. Este modo evita precisar baixar as imagens
+somente os bancos (PostgreSQL e MongoDB) no Docker. Este modo evita precisar baixar as imagens
 Node e Python do Docker Hub. As imagens dos bancos ainda precisam estar disponiveis.
 
 Pre-requisitos: Docker Desktop iniciado, Node.js 24 e Python 3.13 ou 3.14.
@@ -59,12 +59,11 @@ python -m venv backend\.venv
 npm.cmd ci --prefix frontend
 if (-not (Test-Path backend\.env)) { Copy-Item backend\.env.example backend\.env }
 if (-not (Test-Path frontend\.env)) { Copy-Item frontend\.env.example frontend\.env }
-docker compose up -d db-postgres
+docker compose up -d db-postgres db-mongo
 ```
 
-O servico `db-mongo` e seu volume continuam definidos para compatibilidade com
-trabalhos existentes, mas nao sao dependencia da API. Inicie-o separadamente com
-`docker compose up -d db-mongo` apenas quando outra parte do projeto precisar dele.
+O servico `db-mongo` guarda o perfil dos tradutores. Ao rodar a API fora do Docker,
+inicie-o tambem com `docker compose up -d db-mongo`.
 
 ### Iniciar para trabalhar
 

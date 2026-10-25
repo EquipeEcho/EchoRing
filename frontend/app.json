@@ -4,22 +4,22 @@
     "slug": "echo-ring",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/echoring-icon.png",
+    "icon": "./assets/images/brand/echoring-icon.png",
     "scheme": "frontend",
     "userInterfaceStyle": "dark",
     "ios": {
-      "icon": "./assets/images/echoring-icon.png"
+      "icon": "./assets/images/brand/echoring-icon.png"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#000000",
-        "foregroundImage": "./assets/images/echoring-mark.png"
+        "foregroundImage": "./assets/images/brand/echoring-mark.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "single",
-      "favicon": "./assets/images/echoring-icon.png"
+      "favicon": "./assets/images/brand/echoring-icon.png"
     },
     "plugins": [
       "expo-router",
@@ -28,7 +28,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#000000",
-          "image": "./assets/images/echoring-mark.png",
+          "image": "./assets/images/brand/echoring-mark.png",
           "imageWidth": 118
         }
       ],

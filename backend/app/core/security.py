@@ -1,27 +1,46 @@
-from passlib.context import CryptContext
-from datetime import datetime, timedelta, timezone
-from jose import jwt
+"""Password hashing and in-process authentication rate limits."""
+import hashlib
+import hmac
+import secrets
+import threading
+import time
+from fastapi import HTTPException, Request
 
-SECRET_KEY = "trocar_depois_por_variavel_de_ambiente"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-def create_access_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+_lock = threading.Lock()
+_attempts: dict[tuple[str, str], list[float]] = {}
+PASSWORD_ITERATIONS = 600_000
+SESSION_SECONDS = 8 * 60 * 60
 
 
-def decode_token(token: str) -> dict:
-    return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+def throttle(request: Request, category: str, maximum: int):
+    """Limita tentativas por IP e categoria dentro de uma janela de um minuto."""
+    key = (request.client.host if request.client else 'unknown', category)
+    timestamp = time.time()
+    with _lock:
+        for old_key in list(_attempts):
+            _attempts[old_key] = [value for value in _attempts[old_key] if value > timestamp - 60]
+            if not _attempts[old_key]:
+                del _attempts[old_key]
+        values = _attempts.setdefault(key, [])
+        if len(values) >= maximum:
+            raise HTTPException(429, 'Muitas tentativas. Aguarde um minuto e tente novamente.')
+        values.append(timestamp)
+
+
+def hash_password(password: str):
+    """Gera um hash PBKDF2 com salt próprio para nunca guardar a senha original."""
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, PASSWORD_ITERATIONS)
+    return f'pbkdf2_sha256${PASSWORD_ITERATIONS}${salt.hex()}${digest.hex()}'
+
+
+def password_matches(password: str, encoded: str):
+    """Compara a senha recebida com o hash salvo sem expor diferenças de tempo."""
+    try:
+        algorithm, iterations, salt, expected = encoded.split('$', 3)
+        if algorithm != 'pbkdf2_sha256':
+            return False
+        actual = hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(salt), int(iterations))
+        return hmac.compare_digest(actual, bytes.fromhex(expected))
+    except (TypeError, ValueError):
+        return False
