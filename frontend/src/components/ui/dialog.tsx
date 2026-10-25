@@ -223,7 +223,7 @@ const useStyles = createThemedStyles((colors, selectColor) => ({
     backgroundColor: colors.elevated,
   },
   closeHover: { borderColor: colors.controlLine, backgroundColor: colors.accentSoft },
-  scroll: { flex: 1, minHeight: 0 },
+  scroll: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
   content: { paddingHorizontal: 28, paddingVertical: 26, gap: 22 },
   contentMobile: { paddingHorizontal: 20, paddingVertical: 22, gap: 20 },
   denseCompact: { maxWidth: 400, minHeight: 0 },
