@@ -307,6 +307,7 @@ export function QuoteSection({
                       value={data.source}
                       onChange={(value) => change('source', value)}
                       options={languageOptions}
+                      searchable
                       matchOption={languageMatches}
                       dialogTitle="Idioma de origem"
                       description="Selecione o idioma atual do material."
@@ -336,6 +337,7 @@ export function QuoteSection({
                       value={data.target}
                       onChange={(value) => change('target', value)}
                       options={languageOptions}
+                      searchable
                       matchOption={languageMatches}
                       dialogTitle="Idioma de destino"
                       description="Selecione o idioma em que o conteúdo será entregue."

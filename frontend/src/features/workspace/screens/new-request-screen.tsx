@@ -88,6 +88,7 @@ export function NewRequestScreen() {
               value={source}
               onChange={setSource}
               options={languageOptions}
+              searchable
               matchOption={languageMatches}
               dialogTitle="Idioma de origem"
               description="Selecione o idioma atual do material."
@@ -98,6 +99,7 @@ export function NewRequestScreen() {
               value={target}
               onChange={setTarget}
               options={languageOptions}
+              searchable
               matchOption={languageMatches}
               dialogTitle="Idioma de destino"
               description="Selecione o idioma da entrega."
