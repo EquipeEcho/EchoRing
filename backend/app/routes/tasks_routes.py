@@ -223,5 +223,6 @@ def review_delivery(delivery_id: str, review: DeliveryReview, background_tasks: 
                        for file in delivery_documents(connection, delivery)] if client_request else []
         result = delivery_record(connection, read_delivery(connection, delivery_id))
     if client_request:
-        deliver_translation(client_request, attachments, background_tasks)
+        deliver_translation({**client_request, 'target': service['target'] or client_request['target'],
+                             'orderComplete': client_request['status'] == 'Entregue'}, attachments, background_tasks)
     return result

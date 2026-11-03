@@ -4,6 +4,9 @@
   <p>Olá, {{ nome }}!</p>
   <p>A tradução de <strong>{{ titulo }}</strong> ({{ origem }} → {{ destino }}) foi concluída e revisada pela nossa equipe.</p>
   <p>O documento traduzido segue em anexo.</p>
+  {% if multilingue %}
+  <p>{% if ordem_concluida %}Todos os idiomas aprovados desta ordem foram entregues.{% else %}Esta entrega corresponde ao idioma {{ destino }}. Os demais idiomas aprovados continuam em acompanhamento.{% endif %}</p>
+  {% endif %}
   <p>Obrigado por escolher a {{ empresa }}.</p>
 {% endblock %}
 {% block rodape %}Protocolo: {{ protocolo }} · {{ empresa }}{% endblock %}

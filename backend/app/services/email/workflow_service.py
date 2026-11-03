@@ -2,6 +2,7 @@
 import logging
 import os
 from app.services.email.service import send_email
+from app.core.translation_scope import request_targets
 
 logger = logging.getLogger(__name__)
 
@@ -37,14 +38,16 @@ def notify_translator_assigned(translator, data, task_id, deadline, background_t
 
 def deliver_translation(data, attachments, background_tasks):
     """Envia ao cliente a tradução aprovada pela equipe, com os arquivos em anexo."""
+    multilingual = len(request_targets(data)) > 1
     try:
         send_email(
             to=data['email'],
-            subject=f"Sua tradução está pronta · {data['id']}",
+            subject=f"Sua tradução{' para ' + data['target'] if multilingual else ''} está pronta · {data['id']}",
             template='entrega',
             context={
                 'nome': data['name'], 'titulo': data['title'], 'origem': data['source'],
                 'destino': data['target'], 'protocolo': data['id'],
+                'multilingue': multilingual, 'ordem_concluida': data.get('orderComplete', True),
             },
             attachments=attachments,
             background_tasks=background_tasks,

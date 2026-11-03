@@ -155,6 +155,10 @@ class MultilingualTests(PortalTestCase):
             reviewed = self.client.post(f"/deliveries/{delivery.json()['id']}/review", headers=self.headers, json={'decision': 'approve'})
             self.assertEqual(reviewed.status_code, 200, reviewed.text)
             self.assertEqual(self.detail()['status'], 'Entregue' if index else 'Em andamento')
+            email = self.emails.call_args.kwargs
+            self.assertEqual(email['context']['destino'], target)
+            self.assertEqual(email['context']['ordem_concluida'], bool(index))
+            self.assertEqual(email['attachments'][0]['name'], f'translation-{index}.txt')
         self.assertEqual(len(self.client.get('/tasks', headers=first_headers).json()), 1)
         self.assertEqual(len(self.client.get('/tasks', headers=second_headers).json()), 1)
         clients = self.client.get('/clients', headers=self.headers).json()
