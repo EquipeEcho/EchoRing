@@ -25,6 +25,7 @@ export function Dialog({
   size = 'default',
   density = 'default',
   mobileSheet = false,
+  headerContent,
   children,
 }: {
   open: boolean;
@@ -35,6 +36,7 @@ export function Dialog({
   size?: 'compact' | 'default' | 'wide';
   density?: 'default' | 'compact';
   mobileSheet?: boolean;
+  headerContent?: ReactNode;
   children: ReactNode;
 }) {
   const { colors } = useTheme();
@@ -143,6 +145,7 @@ export function Dialog({
               <X size={21} color={colors.muted} strokeWidth={1.8} />
             </Pressable>
           </View>
+          {headerContent && <View style={[s.headerContent, mobile && s.headerContentMobile]}>{headerContent}</View>}
           <ScrollView
             style={s.scroll}
             contentContainerStyle={[s.content, mobile && s.contentMobile, density === 'compact' && s.denseContent,
@@ -224,6 +227,8 @@ const useStyles = createThemedStyles((colors, selectColor) => ({
   },
   closeHover: { borderColor: colors.controlLine, backgroundColor: colors.accentSoft },
   scroll: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
+  headerContent: { flexShrink: 0, paddingHorizontal: 28, paddingVertical: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: colors.line },
+  headerContentMobile: { paddingHorizontal: 20 },
   content: { paddingHorizontal: 28, paddingVertical: 26, gap: 22 },
   contentMobile: { paddingHorizontal: 20, paddingVertical: 22, gap: 20 },
   denseCompact: { maxWidth: 400, minHeight: 0 },
