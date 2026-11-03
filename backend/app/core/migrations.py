@@ -7,7 +7,7 @@ def apply_migrations(connection):
     connection.execute('''CREATE TABLE IF NOT EXISTS schema_migrations (
         version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     )''')
-    for version in ('001_job_offers', '002_translation_workflows'):
+    for version in ('001_job_offers', '002_translation_workflows', '003_multilingual'):
         if not connection.execute('SELECT 1 FROM schema_migrations WHERE version = %s', (version,)).fetchone():
             migration = Path(__file__).resolve().parents[2] / 'migrations' / (version + '.sql')
             connection.execute(migration.read_text(encoding='utf-8'))
