@@ -8,9 +8,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from psycopg.types.json import Jsonb
 from app.core.portal_auth import staff
 from app.core.security import throttle
+from app.core.languages import language
+from app.core.translation_scope import approved_amount, approved_request, request_targets, resolve_target, validate_quote_scope
 from app.database_pg import database, environment_flag, json_data, now
-from app.models.translation import Intake, QuoteDecision, TranslatorAssignment, Update
-from app.repositories.translation_store import _request_for_quote, add_event, read_request, read_service, sanitized_request, task_record
+from app.models.translation import Intake, QuoteAccess, QuoteDecision, TranslatorAssignment, Update
+from app.repositories.translation_store import _request_for_quote, add_event, read_request, read_service, sanitized_request, task_record, update_request_status
 from app.services.email.quote_service import deliver_quote
 from app.services.email.workflow_service import notify_translator_assigned
 from pymongo.errors import PyMongoError
@@ -92,8 +94,10 @@ def update_request(request_id: str, changes: Update, user: dict = Depends(staff)
             raise HTTPException(409, 'Esta solicitação não aceita mais alterações no orçamento.')
         previous_status = data['status']
         if changes.quote:
+            proposal = changes.quote.model_dump()
+            validate_quote_scope(data, proposal)
             previous_id = data.get('quote', {}).get('id')
-            data['quote'] = {**changes.quote.model_dump(), **({'id': previous_id} if previous_id else {})}
+            data['quote'] = {**proposal, **({'id': previous_id} if previous_id else {})}
             data['status'] = 'Em análise'
         if changes.status:
             data['status'] = changes.status
@@ -116,6 +120,7 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
             raise HTTPException(409, 'Este orçamento já foi enviado ou está em envio.')
         if data['status'] != 'Em análise' or not data.get('quote'):
             raise HTTPException(422, 'Salve o orçamento e inicie a análise antes de enviar.')
+        validate_quote_scope(data, data['quote'])
         quote_id = data['quote'].get('id') or 'ORC-' + secrets.token_hex(6).upper()
         data['quote']['id'] = quote_id
         data['quoteResponseTokenDigest'] = hashlib.sha256(response_token.encode()).hexdigest()
@@ -128,6 +133,7 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
         data.update(
             status='Orçamento aprovado', quoteDecision='approve',
             quoteRespondedAt=approved_at, autoApproved=True,
+            approvedTargets=request_targets(data), approvedAmount=data['quote']['amount'],
         )
         with database() as connection:
             connection.execute('UPDATE requests SET data = ?, sending = FALSE WHERE id = ?', (Jsonb(data), request_id))
@@ -152,40 +158,70 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
         return sanitized_request(data, connection, include_content=True)
 
 
+def authorized_quote(connection, quote_id, token):
+    data = _request_for_quote(connection, quote_id)
+    digest = hashlib.sha256(token.encode()).hexdigest()
+    if not data.get('quoteResponseTokenDigest') or not hmac.compare_digest(digest, data['quoteResponseTokenDigest']):
+        raise HTTPException(403, 'Este link de orçamento é inválido.')
+    try:
+        expires = datetime.fromisoformat(data['quoteResponseExpiresAt'])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(403, 'Este link de orçamento é inválido.')
+    if expires.tzinfo is None:
+        raise HTTPException(403, 'Este link de orçamento é inválido.')
+    if expires <= datetime.now(timezone.utc):
+        raise HTTPException(410, 'Este link expirou. Entre em contato com a equipe para receber uma nova proposta.')
+    if data['status'] != 'Orçamento enviado' or data.get('quoteRespondedAt'):
+        raise HTTPException(409, 'Este orçamento já foi respondido.')
+    return data
+
+
+@router.post('/quotes/{quote_id}/preview')
+def preview_quote(quote_id: str, access: QuoteAccess, request: Request):
+    throttle(request, 'quote-preview', 40)
+    with database() as connection:
+        data = authorized_quote(connection, quote_id, access.token)
+        return {key: data[key] for key in ('id', 'title', 'service', 'source', 'quote')} | {'targets': request_targets(data)}
+
+
 @router.post('/quotes/{quote_id}/decision')
 def decide_quote(quote_id: str, decision: QuoteDecision, request: Request):
-    """Valida o link pessoal e registra uma única decisão do cliente."""
+    """One atomic decision may approve a subset of the priced languages."""
     throttle(request, 'quote-decision', 20)
     with database() as connection:
-        data = _request_for_quote(connection, quote_id)
-        digest = hashlib.sha256(decision.token.encode()).hexdigest()
-        if not data.get('quoteResponseTokenDigest') or not hmac.compare_digest(digest, data['quoteResponseTokenDigest']):
-            raise HTTPException(403, 'Este link de orçamento é inválido.')
-        try:
-            expires = datetime.fromisoformat(data['quoteResponseExpiresAt'])
-        except (KeyError, ValueError):
-            raise HTTPException(403, 'Este link de orçamento é inválido.')
-        if expires <= datetime.now(timezone.utc):
-            raise HTTPException(410, 'Este link expirou. Entre em contato com a equipe para receber uma nova proposta.')
-        if data['status'] != 'Orçamento enviado' or data.get('quoteRespondedAt'):
-            raise HTTPException(409, 'Este orçamento já foi respondido.')
+        data = authorized_quote(connection, quote_id, decision.token)
+        targets = []
+        if decision.decision == 'approve':
+            if len(request_targets(data)) > 1 and not decision.targets:
+                raise HTTPException(422, 'Selecione pelo menos um idioma para aprovar.')
+            targets = [resolve_target(data, target) for target in (decision.targets if decision.targets is not None else request_targets(data))]
+            if not targets or len(set(map(language, targets))) != len(targets):
+                raise HTTPException(422, 'Selecione idiomas diferentes para aprovar.')
+        elif decision.targets:
+            raise HTTPException(422, 'A recusa não pode conter idiomas aprovados.')
+        amount = approved_amount(data['quote'], targets)
         status = 'Orçamento aprovado' if decision.decision == 'approve' else 'Orçamento recusado'
         responded_at = now()
-        data.update(status=status, quoteDecision=decision.decision, quoteRespondedAt=responded_at)
+        data.update(status=status, quoteDecision=decision.decision, quoteRespondedAt=responded_at,
+                    approvedTargets=targets, approvedAmount=str(amount))
         connection.execute('UPDATE requests SET data = ? WHERE id = ?', (Jsonb(data), data['id']))
-        add_event(connection, status, request_id=data['id'], created_at=responded_at)
-    return {'requestId': data['id'], 'quoteId': quote_id, 'title': data['title'], 'status': status, 'respondedAt': responded_at}
+        add_event(connection, status, request_id=data['id'], created_at=responded_at,
+                  note='Idiomas aprovados: ' + ', '.join(targets) if targets else 'Proposta recusada.')
+    return {'requestId': data['id'], 'quoteId': quote_id, 'title': data['title'], 'status': status,
+            'respondedAt': responded_at, 'approvedTargets': targets, 'approvedAmount': str(amount)}
 
 
 @router.post('/requests/{request_id}/assign', status_code=201)
 def assign_translator(request_id: str, assignment: TranslatorAssignment, background_tasks: BackgroundTasks, user: dict = Depends(staff)):
+    """Cria uma tarefa para uma solicitação aprovada e vincula o tradutor escolhido."""
     with database() as connection:
         data, _ = read_request(connection, request_id, for_update=True)
-        if data['status'] != 'Orçamento aprovado':
+        if not approved_request(data):
             raise HTTPException(409, 'A solicitação precisa ter um orçamento aprovado antes da atribuição.')
-        if connection.execute('SELECT 1 FROM services WHERE request_id = ?', (request_id,)).fetchone():
-            raise HTTPException(409, 'Esta solicitação já possui uma tarefa.')
-        if connection.execute('SELECT 1 FROM job_offers WHERE request_id = ?', (request_id,)).fetchone():
+        target = resolve_target(data, assignment.target, approved=True)
+        if connection.execute('SELECT 1 FROM services WHERE request_id = ? AND target = ?', (request_id, target)).fetchone():
+            raise HTTPException(409, 'Este idioma já possui uma tarefa.')
+        if connection.execute('SELECT 1 FROM job_offers WHERE request_id = ? AND target = ?', (request_id, target)).fetchone():
             raise HTTPException(409, 'Esta solicitação utiliza ofertas. O tradutor precisa aceitar uma oportunidade.')
         assigned = connection.execute("SELECT id, name, email FROM users WHERE id = ? AND role = 'translator' AND active = TRUE AND onboarding_required = FALSE", (assignment.translatorId,)).fetchone()
         if not assigned:
@@ -197,15 +233,13 @@ def assign_translator(request_id: str, assignment: TranslatorAssignment, backgro
                (id, request_id, title, translator_id, status, deadline, observations, source, target, created_at, updated_at)
                VALUES (?, ?, ?, ?, 'Tradutor atribuído', ?, ?, ?, ?, ?, ?)''',
             (task_id, request_id, data['title'], assigned['id'], assignment.deadline, assignment.observations,
-             data['source'], data['target'], created_at, created_at),
+             data['source'], target, created_at, created_at),
         )
-        data.update(status='Tradutor atribuído', assignedAt=created_at, taskId=task_id,
-                    translator={'id': assigned['id'], 'name': assigned['name'], 'email': assigned['email']})
-        connection.execute('UPDATE requests SET data = ? WHERE id = ?', (Jsonb(data), request_id))
-        add_event(connection, 'Tradutor atribuído', request_id, task_id, user, assignment.observations, created_at)
+        update_request_status(connection, request_id, 'Tradutor atribuído', user,
+                              assignment.observations, task_id, 'assignedAt')
         if assignment.workflowTemplateId:
             from app.services.translation_workflows_service import assign_workflow
             assign_workflow(connection, read_service(connection, task_id), assignment.workflowTemplateId, user)
         task = task_record(connection, read_service(connection, task_id))
-    notify_translator_assigned(assigned, data, task_id, assignment.deadline, background_tasks)
+    notify_translator_assigned(assigned, {**data, 'target': target}, task_id, assignment.deadline, background_tasks)
     return task
