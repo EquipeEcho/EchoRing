@@ -113,6 +113,7 @@ test('an assigned language does not prevent distributing another approved langua
     return route.fulfill({ json: url.pathname === '/requests' ? [record] : record });
   });
   await page.goto('/solicitacoes/SOL-MULTI');
+  await expect(page.getByText('Responsável: Tradutora de inglês', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Idioma do trabalho', exact: true }).click();
   await expect(page.getByRole('radio', { name: `Idioma do trabalho: ${targets[2]}`, exact: true })).toHaveCount(0);
   await page.getByRole('textbox', { name: 'Buscar em Idioma do trabalho', exact: true }).fill('espanhol');

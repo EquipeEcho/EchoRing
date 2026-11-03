@@ -13,7 +13,6 @@ import {
   Save,
   Search,
   Send,
-  UserCheck,
   UserPlus,
 } from 'lucide-react-native';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
@@ -29,6 +28,7 @@ import { PageHeading } from '@/components/ui/page-heading';
 import { Txt } from '@/components/ui/text';
 import { StaffOfferManager } from '@/features/offers/components/staff-offer-manager';
 import { QuoteItems } from '@/features/requests/components/quote-items';
+import { RequestJobs } from '@/features/requests/components/request-jobs';
 import { quoteTotal, requestTargets, requestTasks } from '@/features/requests/utils/quote-scope';
 import { useRequestWorkflow } from '@/features/requests/hooks/use-request-workflow';
 import { useStyles } from '@/features/requests/styles/requests.styles';
@@ -293,20 +293,9 @@ export function RequestsScreen() {
                 </Txt>
               </View>
             )}
+            {(selected.approvedTargets || requestTasks(selected).length > 0) && <RequestJobs request={selected} />}
             {token && (selected.status === 'Orçamento aprovado' || requestTasks(selected).length > 0) && (
               <StaffOfferManager key={selected.id} request={selected} token={token} onChanged={reloadDetail} />
-            )}
-            {selected.task && (
-              <View style={styles.waiting}>
-                <UserCheck size={20} color={colors.green} />
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Txt style={{ fontWeight: '600' }}>{selected.task.translator.name}</Txt>
-                  <Txt style={common.caption}>
-                    {selected.task.id} · {selected.task.status} · prazo{' '}
-                    {formatSelectedDate(selected.task.deadline)}
-                  </Txt>
-                </View>
-              </View>
             )}
             {selected.emailSentAt && (
               <Txt style={common.caption}>
