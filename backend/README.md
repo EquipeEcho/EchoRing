@@ -1,5 +1,9 @@
 # Recebimento de solicitações e orçamentos
 
+O fluxo permite [vários idiomas no mesmo pedido](../frontend/docs/multilingual.md),
+com aprovação parcial e trabalhos independentes, preservando o cadastro de clientes
+e o serviço compartilhado de e-mails.
+
 O formulário público envia pedidos para a API; a caixa de entrada privada permite
 analisar documentos, salvar a proposta e enviar o orçamento pelo SMTP da empresa.
 A persistência fica no PostgreSQL (usuários, sessões, solicitações, orçamentos,
