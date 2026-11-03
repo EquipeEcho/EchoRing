@@ -117,9 +117,13 @@ test('mobile navigation identifies project details and the compact header has no
 test('a client can read and confirm a quote at 320px in both themes', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
   const decisions: unknown[] = [];
+  await page.route('**/quotes/SOL-MOBILE/preview', route => route.fulfill({ json: {
+    id: 'SOL-MOBILE', title: 'Manual', service: 'Tradução', source: 'Português', targets: ['Inglês'],
+    quote: { amount: '350.00', delivery: '2099-01-10', message: '' },
+  } }));
   await page.route('**/quotes/SOL-MOBILE/decision', route => {
     decisions.push(route.request().postDataJSON());
-    return route.fulfill({ json: { status: 'Orçamento aprovado' } });
+    return route.fulfill({ json: { status: 'Orçamento aprovado', approvedTargets: ['Inglês'], approvedAmount: '350.00' } });
   });
   for (const theme of ['dark', 'light']) {
     await page.goto('/');
@@ -134,7 +138,7 @@ test('a client can read and confirm a quote at 320px in both themes', async ({ p
     await expect(page.getByRole('heading', { name: 'Orçamento aprovado', exact: true })).toBeVisible();
   }
   expect(decisions).toEqual([
-    { token: 'mobile-token', decision: 'approve' },
-    { token: 'mobile-token', decision: 'approve' },
+    { token: 'mobile-token', decision: 'approve', targets: ['Inglês'] },
+    { token: 'mobile-token', decision: 'approve', targets: ['Inglês'] },
   ]);
 });
