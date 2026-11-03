@@ -8,6 +8,7 @@ export type Intake = {
   service: string;
   source: string;
   target: string;
+  targets?: string[];
   deadline: string;
   message: string;
   consent: boolean;
@@ -16,7 +17,14 @@ export type Intake = {
 
 export type IntakeTextField = 'name' | 'email' | 'company' | 'title' | 'message';
 
-export type Quote = { id?: string; amount: string; delivery: string; message: string };
+export type QuoteItem = { target: string; amount: string; delivery: string };
+export type Quote = { id?: string; amount: string; delivery: string; message: string; items?: QuoteItem[] };
+export type RequestTask = {
+  id: string; status: string; deadline: string; source?: string; target?: string;
+  startedAt?: string; deliveredAt?: string;
+  translator: { id: string; name: string; email: string };
+};
+export type QuotePreview = Pick<Intake, 'title' | 'service' | 'source'> & { id: string; targets: string[]; quote: Quote };
 
 export type RequestStatus =
   | 'Recebido'
@@ -51,10 +59,8 @@ export type TranslationRequest = Intake & {
   history?: WorkflowEvent[];
   demo?: boolean;
   autoApproved?: boolean;
-  task?: {
-    id: string;
-    status: string;
-    deadline: string;
-    translator: { id: string; name: string; email: string };
-  };
+  approvedTargets?: string[];
+  approvedAmount?: string;
+  tasks?: RequestTask[];
+  task?: RequestTask;
 };

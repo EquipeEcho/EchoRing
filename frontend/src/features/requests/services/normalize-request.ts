@@ -11,6 +11,8 @@ export function normalizeRequest(request: TranslationRequest): TranslationReques
   result.attachments = Array.isArray(request.attachments) ? request.attachments.filter(file =>
     file && typeof file.name === 'string') : [];
   result.history = Array.isArray(request.history) ? request.history.filter(event => event && typeof event === 'object') : [];
+  result.targets = Array.isArray(request.targets) && request.targets.length ? request.targets.filter(target => typeof target === 'string') : [result.target];
+  if (Array.isArray(request.tasks)) result.tasks = request.tasks.filter(task => task && typeof task.id === 'string');
   if (request.quote) {
     result.quote = { ...request.quote,
       amount: typeof request.quote.amount === 'string' ? request.quote.amount : '',
