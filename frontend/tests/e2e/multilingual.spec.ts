@@ -90,3 +90,39 @@ test('staff prices every language and the client approves a subset with a recalc
   await expect(page.getByText('0 de 1 idiomas aprovados entregues', { exact: true })).toBeVisible();
   await expect(page.getByText('Não aprovado pelo cliente', { exact: true })).toHaveCount(2);
 });
+
+test('an assigned language does not prevent distributing another approved language', async ({ page }) => {
+  await staff(page);
+  const task = { id: 'TRD-EN', target: targets[0], status: 'Em andamento', deadline,
+    translator: { id: 'translator-en', name: 'Tradutora de inglês', email: 'english@example.test' } };
+  const record: TranslationRequest = { ...base, status: 'Em andamento', approvedTargets: targets.slice(0, 2),
+    approvedAmount: '300.30', tasks: [task], quote: { amount: '600.30', delivery: deadline, message: '',
+      items: targets.map((target, index) => ({ target, amount: ['100.10', '200.20', '300.00'][index], delivery: deadline })) } };
+  let sent: Record<string, unknown> | undefined;
+  const candidateTargets: string[] = [];
+  await page.route('**/requests**', route => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/compatible-translators')) {
+      candidateTargets.push(url.searchParams.get('target')!);
+      return route.fulfill({ json: [{ id: 'translator-es', name: 'Tradutor de espanhol', email: 'spanish@example.test' }] });
+    }
+    if (url.pathname.endsWith('/offers')) {
+      if (route.request().method() === 'POST') sent = route.request().postDataJSON();
+      return route.fulfill({ json: [] });
+    }
+    return route.fulfill({ json: url.pathname === '/requests' ? [record] : record });
+  });
+  await page.goto('/solicitacoes/SOL-MULTI');
+  await page.getByRole('button', { name: 'Idioma do trabalho', exact: true }).click();
+  await expect(page.getByRole('radio', { name: `Idioma do trabalho: ${targets[2]}`, exact: true })).toHaveCount(0);
+  await page.getByRole('textbox', { name: 'Buscar em Idioma do trabalho', exact: true }).fill('espanhol');
+  await page.getByRole('radio', { name: `Idioma do trabalho: ${targets[1]}`, exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Oferecer para Tradutor de espanhol', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Remuneração do tradutor (R$)', exact: true }).fill('75,50');
+  await page.getByRole('textbox', { name: 'Volume do trabalho', exact: true }).fill('10 páginas');
+  await page.getByRole('button', { name: 'Revisar ofertas', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmar envio das ofertas', exact: true }).click();
+  await expect.poll(() => sent).toMatchObject({ target: targets[1], translatorIds: ['translator-es'], compensation: '75.50' });
+  expect(candidateTargets).toContain(targets[1]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

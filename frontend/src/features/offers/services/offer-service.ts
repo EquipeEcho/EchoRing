@@ -6,8 +6,8 @@ export const getOpportunity = (id: string, token: string) => api<Offer>(`/opport
 export const decideOpportunity = (id: string, decision: 'accept' | 'decline', token: string) =>
   api<Offer>(`/opportunities/${id}/${decision}`, { method: 'POST' }, token);
 export const listRequestOffers = (id: string, token: string) => api<Offer[]>(`/requests/${id}/offers`, {}, token);
-export const compatibleTranslators = (id: string, token: string) =>
-  api<CompatibleTranslator[]>(`/requests/${id}/compatible-translators`, {}, token);
+export const compatibleTranslators = (id: string, token: string, target?: string) =>
+  api<CompatibleTranslator[]>(`/requests/${id}/compatible-translators${target ? `?target=${encodeURIComponent(target)}` : ''}`, {}, token);
 export const sendOffers = (id: string, terms: OfferTerms, token: string) =>
   api<Offer[]>(`/requests/${id}/offers`, { method: 'POST', body: JSON.stringify(terms) }, token);
 export const cancelOffer = (id: string, token: string) => api<Offer>(`/offers/${id}/cancel`, { method: 'POST' }, token);

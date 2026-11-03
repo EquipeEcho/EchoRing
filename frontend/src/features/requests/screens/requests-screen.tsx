@@ -29,7 +29,7 @@ import { PageHeading } from '@/components/ui/page-heading';
 import { Txt } from '@/components/ui/text';
 import { StaffOfferManager } from '@/features/offers/components/staff-offer-manager';
 import { QuoteItems } from '@/features/requests/components/quote-items';
-import { quoteTotal, requestTargets } from '@/features/requests/utils/quote-scope';
+import { quoteTotal, requestTargets, requestTasks } from '@/features/requests/utils/quote-scope';
 import { useRequestWorkflow } from '@/features/requests/hooks/use-request-workflow';
 import { useStyles } from '@/features/requests/styles/requests.styles';
 import { downloadDocument } from '@/lib/documents/download';
@@ -293,7 +293,7 @@ export function RequestsScreen() {
                 </Txt>
               </View>
             )}
-            {token && (selected.status === 'Orçamento aprovado' || selected.task) && (
+            {token && (selected.status === 'Orçamento aprovado' || requestTasks(selected).length > 0) && (
               <StaffOfferManager key={selected.id} request={selected} token={token} onChanged={reloadDetail} />
             )}
             {selected.task && (
