@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { currencyInputFromDecimal, currencyToDecimal } from '@/utils/input-formatters';
+import { requestTargets } from '@/features/requests/utils/quote-scope';
 
 import { useSession } from '@/features/auth/contexts/session-context';
 import { emptyQuote } from '@/features/requests/constants/quote';
@@ -50,7 +51,7 @@ export function useRequestWorkflow() {
   const visible = scopedRequests.filter(
     (item) =>
       (filter === 'Todos' || item.status === filter) &&
-      normalize(item.title + item.name + item.email + item.id).includes(normalize(search)),
+      normalize(item.title + item.name + item.email + item.id + item.source + requestTargets(item).join(' ')).includes(normalize(search)),
   );
   const statusFilters =
     view === 'completed'
@@ -75,7 +76,14 @@ export function useRequestWorkflow() {
         const detail = await getRequest(requestId, token);
         if (!active) return;
         setSelected(detail);
-        setQuote(detail.quote ? { ...detail.quote, amount: currencyInputFromDecimal(detail.quote.amount) } : { ...emptyQuote });
+        const proposal = detail.quote ? { ...detail.quote, amount: currencyInputFromDecimal(detail.quote.amount) } : { ...emptyQuote };
+        if (proposal.items?.length || (requestTargets(detail).length > 1 && ['Recebido', 'Em análise'].includes(detail.status))) {
+          proposal.items = requestTargets(detail).map(target => {
+            const item = proposal.items?.find(item => item.target === target);
+            return { target, amount: item ? currencyInputFromDecimal(item.amount) : '', delivery: item?.delivery || '' };
+          });
+        }
+        setQuote(proposal);
       } catch (failure) {
         if (active) setError((failure as Error).message);
       } finally {
@@ -99,6 +107,10 @@ export function useRequestWorkflow() {
   }
   async function save(): Promise<boolean> {
     if (!selected || busy) return false;
+    if (quote.items?.some(item => !currencyToDecimal(item.amount) || Number(currencyToDecimal(item.amount)) <= 0 || !item.delivery.trim())) {
+      setError('Informe um valor positivo e o prazo de cada idioma.');
+      return false;
+    }
     if (
       !currencyToDecimal(quote.amount) ||
       Number(currencyToDecimal(quote.amount)) <= 0 ||
@@ -120,6 +132,7 @@ export function useRequestWorkflow() {
               amount: currencyToDecimal(quote.amount),
               delivery: quote.delivery.trim(),
               message: quote.message.trim(),
+              ...(quote.items?.length ? { items: quote.items.map(item => ({ ...item, amount: currencyToDecimal(item.amount), delivery: item.delivery.trim() })) } : {}),
             },
           },
           token,
