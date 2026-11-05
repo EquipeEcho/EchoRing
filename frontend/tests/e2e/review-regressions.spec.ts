@@ -27,7 +27,10 @@ async function mockAccount(page: Page, role: 'employee' | 'admin' | 'translator'
     }));
   }, role);
   await page.route('**/tasks', async route => { await route.fulfill({ json: tasks }); });
-  await page.route('**/requests**', async route => { await route.fulfill({ json: [] }); });
+  await page.route('**/requests**', async route => {
+    const url = route.request().url();
+    await route.fulfill({ json: new URL(url).pathname === '/requests' ? requestPage([], url) : [] });
+  });
 }
 
 for (const role of ['employee', 'admin'] as const) {

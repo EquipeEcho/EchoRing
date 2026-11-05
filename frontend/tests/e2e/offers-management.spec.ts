@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { requestPage } from './support/request-page';
 
 test('employee sees translator languages and broadcasts an offer with a workflow and canonical money', async ({ page }) => {
   const deadline = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
@@ -7,7 +8,7 @@ test('employee sees translator languages and broadcasts an offer with a workflow
   await page.addInitScript(() => sessionStorage.setItem('echoring.auth-session.v2', JSON.stringify({ name: 'Equipe', email: 'employee@example.test', role: 'employee', demo: false, token: 'staff-test-token', expires: Date.now() / 1000 + 3600 })));
   await page.route('**/tasks', route => route.fulfill({ json: [] }));
   await page.route('**/offer-notifications', route => route.fulfill({ json: [] }));
-  await page.route('**/requests', route => route.fulfill({ json: [request] }));
+  await page.route('**/requests?*', route => route.fulfill({ json: requestPage([request], route.request().url()) }));
   await page.route('**/requests/SOL-BROADCAST', route => route.fulfill({ json: request }));
   await page.route('**/requests/SOL-BROADCAST/compatible-translators', route => route.fulfill({ json: [{ id: 'translator-1', name: 'Marina Costa', email: 'translator@example.test',
     languages: [{ name: 'Português', level: 'Nativo' }, { name: 'Inglês', level: 'Fluente' }] }] }));
