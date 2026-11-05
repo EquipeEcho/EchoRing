@@ -6,6 +6,7 @@ import { requestTargets } from '@/features/requests/utils/quote-scope';
 import { useSession } from '@/features/auth/contexts/session-context';
 import { emptyQuote } from '@/features/requests/constants/quote';
 import { useInbox } from '@/features/requests/contexts/inbox-context';
+import { useRequestList } from '@/features/requests/hooks/use-request-list';
 import {
   getRequest,
   sendQuote,
@@ -23,13 +24,14 @@ export function useRequestWorkflow() {
   const reloadDetail = () => setDetailRevision(current => current + 1);
   const { session } = useSession();
   const token = session?.token;
-  const { requests, loading, error: loadError, refresh } = useInbox();
-  const view = params.view === 'completed' ? 'completed' : 'active';
+  const { received } = useInbox();
+  const view: 'active' | 'completed' = params.view === 'completed' ? 'completed' : 'active';
   const setView = (view: 'active' | 'completed') => router.setParams({ view, status: 'Todos' });
-  const filter = params.status || 'Todos';
   const setFilter = (status: string) => router.setParams({ status });
   const search = params.search || '';
   const setSearch = (search: string) => router.setParams({ search });
+  const list = useRequestList({ view, filter: params.status || 'Todos', search, token, enabled: !requestId });
+  const { filter, refresh } = list;
   const [record, setSelected] = useState<TranslationRequest | null>(null);
   const selected = record?.id === requestId ? record : null;
   const [detailLoading, setDetailLoading] = useState(!!requestId);
@@ -39,30 +41,6 @@ export function useRequestWorkflow() {
   const [notice, setNotice] = useState('');
   const [confirm, setConfirm] = useState(false);
   const locked = !!selected && !['Recebido', 'Em análise'].includes(selected.status);
-  const normalize = (value: string) =>
-    value
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-  const completedStatuses = ['Pronta', 'Entregue', 'Orçamento recusado'];
-  const activeRequests = requests.filter((item) => !completedStatuses.includes(item.status));
-  const completedRequests = requests.filter((item) => completedStatuses.includes(item.status));
-  const scopedRequests = view === 'active' ? activeRequests : completedRequests;
-  const visible = scopedRequests.filter(
-    (item) =>
-      (filter === 'Todos' || item.status === filter) &&
-      normalize(item.title + item.name + item.email + item.id + item.source + requestTargets(item).join(' ')).includes(normalize(search)),
-  );
-  const statusFilters =
-    view === 'completed'
-      ? ['Todos', 'Pronta', 'Entregue', 'Orçamento recusado']
-      : [
-          'Todos',
-          'Recebido',
-          'Em análise',
-          token ? 'Orçamento enviado' : 'Orçamento simulado',
-          ...(token ? ['Orçamento aprovado', 'Tradutor atribuído', 'Aguardando avaliação'] : []),
-        ];
   const listHref = { pathname: '/solicitacoes' as const, params: { view, status: filter, search } };
   function open(request: TranslationRequest) {
     router.push({ pathname: '/solicitacoes/[id]', params: { id: request.id, view, status: filter, search } });
@@ -181,26 +159,22 @@ export function useRequestWorkflow() {
   }
   return {
     requestId, detailLoading, reloadDetail, listHref,
-    loading,
+    list,
+    received,
+    loading: list.loading,
     refresh,
-    requests,
+    loadError: list.error,
     token,
     view,
     setView,
     setFilter,
-    activeRequests,
-    completedRequests,
     search,
     setSearch,
-    statusFilters,
     filter,
-    loadError,
     error,
     selected,
-    visible,
     busy,
     open,
-    scopedRequests,
     confirm,
     setConfirm,
     close,

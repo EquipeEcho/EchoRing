@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { RecordPage } from '@/features/workspace/components/record-page';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DateSelectField } from '@/components/ui/fields/date-select-field';
+import { FilterSelect } from '@/components/ui/fields/filter-select';
 import { formatSelectedDate } from '@/components/ui/fields/date-utils';
 import { PageHeading } from '@/components/ui/page-heading';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
@@ -47,26 +48,22 @@ export function RequestsScreen() {
   const { width } = useWindowDimensions();
   const {
     requestId, detailLoading, reloadDetail, listHref,
+    list,
+    received,
     loading,
     refresh,
-    requests,
     token,
     view,
     setView,
     setFilter,
-    activeRequests,
-    completedRequests,
     search,
     setSearch,
-    statusFilters,
     filter,
     loadError,
     error,
     selected,
-    visible,
     busy,
     open,
-    scopedRequests,
     confirm,
     setConfirm,
     close,
@@ -411,7 +408,7 @@ export function RequestsScreen() {
       <View style={[styles.summary, width < 700 && styles.summarySmall]}>
         <View style={styles.summaryCount}>
           <Txt style={styles.summaryNumber}>
-            {requests.filter((item) => item.status === 'Recebido').length}
+            {received}
           </Txt>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Txt style={styles.summaryLabel}>AGUARDANDO ANÁLISE</Txt>
@@ -435,8 +432,8 @@ export function RequestsScreen() {
           setFilter('Todos');
         }}
         items={[
-          { value: 'active' as const, label: 'Em andamento', count: activeRequests.length },
-          { value: 'completed' as const, label: 'Concluídas', count: completedRequests.length },
+          { value: 'active' as const, label: 'Em andamento', count: list.viewCounts.active },
+          { value: 'completed' as const, label: 'Concluídas', count: list.viewCounts.completed },
         ]}
       />
       <View style={[styles.toolbar, width < 900 && styles.toolbarSmall]}>
@@ -451,27 +448,18 @@ export function RequestsScreen() {
             style={styles.searchInput}
           />
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.filters}
-        >
-          {statusFilters.map((value) => (
-            <Pressable
-              key={value}
-              accessibilityRole="tab"
-              aria-selected={filter === value}
-              accessibilityState={{ selected: filter === value }}
-              onPress={() => setFilter(value)}
-              style={({ hovered, pressed }) => [styles.filter, (hovered || pressed) && { backgroundColor: colors.elevated }, filter === value && styles.filterActive]}
-            >
-              <Txt style={[styles.filterText, filter === value && styles.filterTextActive]}>
-                {value}
-              </Txt>
-            </Pressable>
-          ))}
-        </ScrollView>
+        <View style={[styles.filterBar, width < 700 && styles.filterBarSmall]}>
+          <FilterSelect
+            label="Status das solicitações"
+            value={filter}
+            options={list.statusOptions}
+            onChange={setFilter}
+            style={styles.statusSelect}
+          />
+          <Txt accessibilityLiveRegion="polite" style={styles.resultCount}>
+            {list.total} {list.total === 1 ? 'resultado' : 'resultados'}
+          </Txt>
+        </View>
       </View>
       {!!loadError && (
         <View style={styles.errorBox}>
@@ -489,7 +477,7 @@ export function RequestsScreen() {
           {error}
         </Txt>
       )}
-      {!!visible.length && (
+      {!!list.items.length && (
         <View style={styles.requestList}>
           {width >= 700 && (
             <View style={styles.tableHead}>
@@ -499,7 +487,7 @@ export function RequestsScreen() {
               <View style={{ width: 18 }} />
             </View>
           )}
-          {visible.map((request) => (
+          {list.items.map((request) => (
             <Pressable
               key={request.id}
               accessibilityRole="button"
@@ -543,19 +531,25 @@ export function RequestsScreen() {
           ))}
         </View>
       )}
-      {loading && !visible.length && <SkeletonList label="Carregando solicitações" />}
-      {!visible.length && !loading && !loadError && (
+      {list.hasMore && (
+        <View style={styles.pagination}>
+          <Txt style={common.caption}>Mostrando {list.items.length} de {list.total}</Txt>
+          <Button variant="secondary" loading={loading} onPress={list.loadMore}>Carregar mais</Button>
+        </View>
+      )}
+      {loading && !list.items.length && <SkeletonList label="Carregando solicitações" />}
+      {!list.items.length && !loading && !loadError && (
         <EmptyState
           icon={view === 'completed' ? CheckCircle2 : Inbox}
           title={
-            scopedRequests.length
+            list.viewCounts[view]
               ? 'Nenhuma solicitação neste filtro'
               : view === 'completed'
                 ? 'Nenhuma solicitação concluída'
                 : 'Sua próxima conexão começa no site'
           }
           text={
-            scopedRequests.length
+            list.viewCounts[view]
               ? 'Tente outro filtro ou uma nova busca.'
               : view === 'completed'
                 ? 'Solicitações entregues ou encerradas ficam organizadas nesta aba.'
