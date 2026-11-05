@@ -1,4 +1,4 @@
-import { router, usePathname } from 'expo-router';
+import { usePathname } from 'expo-router';
 import { ChevronRight, Clock3, FileText, SearchX } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -11,10 +11,12 @@ import { statusTone } from '@/features/workspace/constants/status';
 import { useWorkspace } from '@/features/workspace/contexts/workspace-context';
 import { useStyles } from '@/features/workspace/styles/workspace.styles';
 import { type Project } from '@/features/workspace/types';
+import { openProject } from '@/features/workspace/utils/open-project';
 import { useCommonStyles } from '@/theme/common.styles';
 import { useTheme } from '@/theme/theme-context';
 
-export function ProjectList({ projects }: { projects: Project[] }) {
+/** `inset` pads the rows when the list sits directly inside a borderless card edge, as in the operation table. */
+export function ProjectList({ projects, inset = false }: { projects: Project[]; inset?: boolean }) {
   const { colors } = useTheme();
   const styles = useStyles();
   const common = useCommonStyles();
@@ -56,14 +58,11 @@ export function ProjectList({ projects }: { projects: Project[] }) {
           key={project.id}
           accessibilityRole="button"
           accessibilityLabel={`Abrir ${project.id}: ${project.title}`}
-          onPress={() =>
-            project.realTaskId
-              ? router.push(`/entregas?task=${encodeURIComponent(project.realTaskId)}`)
-              : router.push({ pathname: '/operacao/[id]', params: { id: project.id, origin: pathname === '/dashboard' ? 'dashboard' : 'operacao', ...(project.id === 'DEMO-TRAD-001' && { exemplo: 'tradutor' }) } })
-          }
+          onPress={() => openProject(project, pathname === '/dashboard' ? 'dashboard' : 'operacao')}
           style={({ hovered }) => [
             styles.projectRow,
             !wide && styles.projectMobile,
+            !wide && inset && styles.projectInset,
             hovered && { backgroundColor: colors.elevated },
           ]}
         >
@@ -92,7 +91,7 @@ export function ProjectList({ projects }: { projects: Project[] }) {
           </View>
           <View style={[styles.rowStatus, !wide && styles.mobileStatus]}>
             <View style={wide ? styles.statusColumn : undefined}>
-              <Badge tone={statusTone[project.status]}>{project.status}</Badge>
+              <Badge dot tone={statusTone[project.status]}>{project.status}</Badge>
             </View>
             <View style={[wide && styles.deadlineColumn, common.row, { gap: 5 }]}>
               {project.urgent && <Clock3 size={12} color={colors.amber} />}

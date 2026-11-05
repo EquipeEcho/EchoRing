@@ -1,19 +1,20 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Eye, Plus, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PageHeading } from '@/components/ui/page-heading';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { Txt } from '@/components/ui/text';
 import { useSession } from '@/features/auth/contexts/session-context';
-import { FilterTab } from '@/features/workspace/components/filter-tab';
 import { ProjectList } from '@/features/workspace/components/project-list';
 import { WorkspacePage } from '@/features/workspace/components/workspace-page';
 import { useWorkspace } from '@/features/workspace/contexts/workspace-context';
 import { translatorProjectPreview } from '@/features/workspace/data/demo-workspace';
 import { useStyles } from '@/features/workspace/styles/workspace.styles';
+import { isProjectGroup, matchesProjectGroup, projectGroups } from '@/features/workspace/utils/project-groups';
 import { matchesSearch } from '@/features/workspace/utils/search';
 import { useCommonStyles } from '@/theme/common.styles';
 
@@ -22,7 +23,8 @@ export function OperationsScreen() {
   const common = useCommonStyles();
   const { projects, search, setSearch } = useWorkspace();
   const { session } = useSession();
-  const params = useLocalSearchParams<{ exemplo?: string }>();
+  const params = useLocalSearchParams<{ exemplo?: string; grupo?: string }>();
+  const group = isProjectGroup(params.grupo) ? params.grupo : null;
   const translator = session?.role === 'translator';
   const showPreview = translator && params.exemplo === 'tradutor';
   const displayedProjects = showPreview
@@ -32,8 +34,15 @@ export function OperationsScreen() {
   const [status, setStatus] = useState('Todos');
   const filtered = displayedProjects.filter(
     (project) =>
-      (status === 'Todos' || project.status === status) && matchesSearch(project, search),
+      (status === 'Todos' || project.status === status) &&
+      (!group || matchesProjectGroup(project, group)) &&
+      matchesSearch(project, search),
   );
+  const statusFilters = session?.demo
+    ? employee
+      ? ['Todos', 'Nova requisição', 'Aguardando aprovação', 'Em tradução', 'Em revisão', 'Concluído']
+      : ['Todos', 'Em tradução', 'Em revisão', 'Concluído']
+    : ['Todos', 'Tradutor atribuído', 'Em andamento', 'Aguardando avaliação', 'Revisão solicitada', 'Pronta', 'Entregue'];
   return (
     <WorkspacePage>
       <PageHeading
@@ -59,44 +68,16 @@ export function OperationsScreen() {
         <Badge tone="amber">Prévia do projeto do tradutor</Badge>
         <Txt style={common.caption}>O projeto DEMO-TRAD-001 é fictício e serve para visualizar o cartão, o progresso e os detalhes. Seus projetos reais continuam na lista; este exemplo não é salvo no banco.</Txt>
       </View>}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.tabs}
-      >
-        {(session?.demo
-          ? employee
-            ? [
-                'Todos',
-                'Nova requisição',
-                'Aguardando aprovação',
-                'Em tradução',
-                'Em revisão',
-                'Concluído',
-              ]
-            : ['Todos', 'Em tradução', 'Em revisão', 'Concluído']
-          : [
-              'Todos',
-              'Tradutor atribuído',
-              'Em andamento',
-              'Aguardando avaliação',
-              'Revisão solicitada',
-              'Pronta',
-              'Entregue',
-            ]
-        ).map((value) => (
-          <FilterTab
-            key={value}
-            label={value}
-            active={status === value}
-            onPress={() => setStatus(value)}
-          />
-        ))}
-      </ScrollView>
-      {(status !== 'Todos' || !!search) && <View style={styles.toolbar}>
-        <Txt style={styles.toolbarLabel}>{filtered.length} resultados{search ? ` para “${search}”` : ''}{status !== 'Todos' ? ` · ${status}` : ''}</Txt>
-        <Button variant="ghost" onPress={() => { setStatus('Todos'); setSearch(''); }}>Limpar filtros</Button>
+      <SegmentedTabs
+        scrollable
+        label="Status dos projetos"
+        value={status}
+        onChange={setStatus}
+        items={statusFilters.map((value) => ({ value, label: value }))}
+      />
+      {(status !== 'Todos' || !!search || !!group) && <View style={styles.toolbar}>
+        <Txt style={styles.toolbarLabel}>{filtered.length} resultados{search ? ` para “${search}”` : ''}{status !== 'Todos' ? ` · ${status}` : ''}{group ? ` · ${projectGroups[group].label}` : ''}</Txt>
+        <Button variant="ghost" onPress={() => { setStatus('Todos'); setSearch(''); if (group) router.setParams({ grupo: '' }); }}>Limpar filtros</Button>
       </View>}
       <View style={styles.operationTable}>
         <View style={styles.listCaption}>
@@ -108,7 +89,7 @@ export function OperationsScreen() {
           </View>
           {session?.demo && <Badge tone="neutral">Demonstração</Badge>}
         </View>
-        <ProjectList projects={filtered} />
+        <ProjectList inset projects={filtered} />
       </View>
     </WorkspacePage>
   );
