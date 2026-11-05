@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Txt } from '@/components/ui/text';
 import { createThemedStyles } from '@/theme/create-themed-styles';
 import { useTheme } from '@/theme/theme-context';
+import { breakpoints, radius, typeScale } from '@/theme/tokens';
 
 export function Dialog({
   open,
@@ -42,7 +43,7 @@ export function Dialog({
   const { colors } = useTheme();
   const s = useStyles();
   const { width } = useWindowDimensions();
-  const mobile = width < 600;
+  const mobile = width < breakpoints.phone;
   const insets = useSafeAreaInsets();
   const [viewport, setViewport] = useState<{ height: number; top: number } | null>(null);
   const titleId = useId();
@@ -181,7 +182,7 @@ const useStyles = createThemedStyles((colors, selectColor) => ({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 16,
+    borderRadius: radius.card,
     overflow: 'hidden',
     boxShadow: selectColor('0 24px 80px rgba(0,0,0,0.40)', '0 24px 80px rgba(16,25,40,0.16)'),
   },
@@ -206,10 +207,8 @@ const useStyles = createThemedStyles((colors, selectColor) => ({
   headerMobile: { minHeight: 80, paddingHorizontal: 20, paddingVertical: 15 },
   headerCopy: { flex: 1, minWidth: 0, gap: 3 },
   eyebrow: {
-    fontSize: 11,
-    lineHeight: 16,
-    letterSpacing: 1.2,
-    color: colors.accent,
+    ...typeScale.eyebrow,
+    color: colors.muted,
     fontWeight: '600',
   },
   title: { fontSize: 24, lineHeight: 31, letterSpacing: -0.6, fontWeight: '700' },
@@ -226,7 +225,7 @@ const useStyles = createThemedStyles((colors, selectColor) => ({
     backgroundColor: colors.elevated,
   },
   closeHover: { borderColor: colors.controlLine, backgroundColor: colors.accentSoft },
-  scroll: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
+  scroll: { flex: 1, minHeight: 0 },
   headerContent: { flexShrink: 0, paddingHorizontal: 28, paddingVertical: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: colors.line },
   headerContentMobile: { paddingHorizontal: 20 },
   content: { paddingHorizontal: 28, paddingVertical: 26, gap: 22 },
