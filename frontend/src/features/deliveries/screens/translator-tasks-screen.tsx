@@ -5,13 +5,14 @@ import { useState } from 'react';
 import { ScrollView, useWindowDimensions, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
+import { SkeletonList } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeading } from '@/components/ui/page-heading';
 import { Txt } from '@/components/ui/text';
 import { Messages } from '@/features/deliveries/components/messages';
 import { TaskDetails } from '@/features/deliveries/components/task-details';
 import { TaskHeader } from '@/features/deliveries/components/task-header';
-import { WorkflowTabs } from '@/features/deliveries/components/workflow-tabs';
 import { useTasks } from '@/features/deliveries/hooks/use-tasks';
 import { startTask, uploadTranslation } from '@/features/deliveries/services/delivery-service';
 import { selectTranslationDocument } from '@/features/deliveries/services/document-picker';
@@ -115,10 +116,12 @@ export function TranslatorTasksScreen() {
           }
         />
         <Messages notice={notice} error={error} />
-        <WorkflowTabs
+        <SegmentedTabs
+          label="Etapas das tarefas"
+          style={styles.workflowTabs}
           value={effectiveView}
           onChange={(value) => setView(value)}
-          tabs={[
+          items={[
             { value: 'active', label: 'Em andamento', count: active.length },
             { value: 'finished', label: 'Finalizadas', count: finished.length },
           ]}
@@ -152,7 +155,7 @@ export function TranslatorTasksScreen() {
                         </View>
                         {files.map((file, fileIndex) => (
                           <View key={`${file.name}-${fileIndex}`} style={[styles.selectedFile, width < 600 && styles.documentSmall]}>
-                            <FileText size={20} color={colors.accent} />
+                            <FileText size={20} color={colors.muted} />
                             <View style={[styles.documentCopy, width < 600 && styles.documentCopySmall]}>
                               <Txt numberOfLines={1} style={{ fontWeight: '600' }}>
                                 {file.name}
@@ -234,6 +237,7 @@ export function TranslatorTasksScreen() {
             })}
           </View>
         )}
+        {loading && !ordered.length && <SkeletonList label="Carregando tarefas" variant="card" rows={2} />}
         {!ordered.length && !loading && !error && (
           <EmptyState
             icon={effectiveView === 'finished' ? CheckCircle2 : UploadCloud}
