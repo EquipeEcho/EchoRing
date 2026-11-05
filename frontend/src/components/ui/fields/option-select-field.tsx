@@ -9,6 +9,7 @@ import { Txt } from '@/components/ui/text';
 import { TextInput } from '@/components/ui/text-input';
 import { normalizeLanguageSearch } from '@/data/language-options';
 import { useTheme } from '@/theme/theme-context';
+import { breakpoints } from '@/theme/tokens';
 
 export function OptionSelectField({
   label,
@@ -105,7 +106,7 @@ export function OptionSelectField({
                 }}
                 style={({ hovered, pressed }) => [
                   styles.option,
-                  width < 600 && styles.optionMobile,
+                  width < breakpoints.phone && styles.optionMobile,
                   selected && styles.optionSelected,
                   hovered && styles.optionHover,
                   pressed && { opacity: 0.78 },
