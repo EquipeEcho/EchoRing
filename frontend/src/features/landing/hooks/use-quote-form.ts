@@ -6,6 +6,7 @@ import { selectDocuments } from '@/features/requests/services/document-picker';
 import { submitIntake } from '@/features/requests/services/request-service';
 import { type Intake, type TranslationRequest } from '@/features/requests/types';
 import { normalizeIntake, validateIntake } from '@/features/requests/utils/intake-validation';
+import { requestTargets } from '@/features/requests/utils/quote-scope';
 
 export function useQuoteForm(onScrollToQuote: () => void) {
   const [step, setStep] = useState(0);
@@ -27,9 +28,12 @@ export function useQuoteForm(onScrollToQuote: () => void) {
     const frame = requestAnimationFrame(() => navigate.current());
     return () => cancelAnimationFrame(frame);
   }, [step, receipt]);
-  function change(key: keyof Intake, value: string | boolean) {
-    setData((current) => ({ ...current, [key]: value }));
-    setInvalid((current) => current.filter((item) => item !== key));
+  function change<Key extends keyof Intake>(key: Key, value: Intake[Key]) {
+    setData((current) => ({ ...current, [key]: value,
+      ...(key === 'target' ? { targets: [value as string, ...requestTargets(current).slice(1)] } : {}),
+      ...(key === 'targets' ? { target: (value as string[])[0] || '' } : {}),
+    }));
+    setInvalid((current) => current.filter((item) => item !== key && !(key === 'targets' && item === 'target')));
     setError('');
   }
   async function attach() {

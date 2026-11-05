@@ -7,6 +7,7 @@ from app.core.portal_auth import staff
 from app.database_pg import database, json_data
 from app.models.client import ClientCreate
 from app.repositories import client_store
+from app.core.translation_scope import aggregate_status
 
 router = APIRouter()
 
@@ -16,9 +17,12 @@ def list_clients(user: dict = Depends(staff)):
     clients = client_store.list_clients()
     with database() as connection:
         rows = connection.execute(
-            '''SELECT requests.data, services.id AS service_id, services.status AS service_status
+            '''SELECT requests.data,
+                      COALESCE(jsonb_agg(jsonb_build_object('target', services.target, 'status', services.status))
+                          FILTER (WHERE services.id IS NOT NULL), '[]'::jsonb) AS service_states
                FROM requests
                LEFT JOIN services ON services.request_id = requests.id
+               GROUP BY requests.id
                ORDER BY requests.created_at DESC'''
         ).fetchall()
 
@@ -32,7 +36,7 @@ def list_clients(user: dict = Depends(staff)):
             'id': project['id'],
             'title': project['title'],
             'service': project['service'],
-            'status': row['service_status'] or project['status'],
+            'status': aggregate_status(project, row['service_states']),
             'requestStatus': project['status'],
             'createdAt': project['createdAt'],
         })

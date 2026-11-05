@@ -17,6 +17,7 @@ export type Offer = {
 export type CompatibleTranslator = { id: string; name: string; email: string;
   languages?: { name: string; level: string }[] };
 export type OfferTerms = {
+  target?: string;
   audience?: 'selected' | 'all';
   workflowTemplateId?: import('@/features/workflows/types').WorkflowType;
   translatorIds: string[]; compensation: string; deadline: string; expiresAt: string;

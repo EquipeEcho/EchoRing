@@ -59,6 +59,7 @@ def read_offer(connection, offer_id, user):
 
 
 def offer_record(connection, offer, request, staff=False):
+    request = {**request, 'target': offer['target'] or request['target']}
     # Explicit allowlist: never include quote, client contact or other recipients.
     record = {
         'id': offer['id'], 'requestId': offer['request_id'], 'title': request['title'],

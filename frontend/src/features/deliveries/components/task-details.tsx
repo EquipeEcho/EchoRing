@@ -33,6 +33,11 @@ export function TaskDetails({ task, token }: { task: TranslationService; token: 
           {task.lastVersion ? `Última versão: ${task.lastVersion}` : 'Nenhuma versão enviada'}
         </Txt>
       </View>
+      {!!task.requestId && <Txt style={common.caption}>Ordem de serviço: {task.requestId} · Tradução para {task.target}</Txt>}
+      {!!task.briefing && <View style={styles.note}>
+        <Txt style={styles.eyebrow}>ESCOPO DO PEDIDO</Txt>
+        <Txt style={common.caption}>{task.briefing}</Txt>
+      </View>}
       {!!task.observations && (
         <View style={styles.note}>
           <Txt style={styles.eyebrow}>OBSERVAÇÕES</Txt>

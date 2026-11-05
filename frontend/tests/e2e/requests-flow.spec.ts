@@ -320,11 +320,16 @@ test('automatic quote approval opens compatible offers without reloading the pag
 
 test('client confirms a quote decision through the personal link', async ({ page }) => {
   let payload: { token: string; decision: string } | null = null;
+  await page.route('**/quotes/ORC-TEST-001/preview', route => route.fulfill({ json: {
+    id: 'SOL-TEST-001', title: 'Manual técnico', service: 'Tradução', source: 'Português', targets: ['Inglês'],
+    quote: { amount: '350.50', delivery: '2099-01-10', message: '' },
+  } }));
   await page.route('**/quotes/ORC-TEST-001/decision', async route => {
     payload = route.request().postDataJSON();
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
       requestId: 'SOL-TEST-001', quoteId: 'ORC-TEST-001', title: 'Manual técnico',
       status: 'Orçamento aprovado', respondedAt: '2026-09-21T12:00:00Z',
+      approvedTargets: ['Inglês'], approvedAmount: '350.50',
     }) });
   });
   const token = 'secure-personal-token-with-more-than-thirty-two-characters';
@@ -332,7 +337,7 @@ test('client confirms a quote decision through the personal link', async ({ page
   await expect(page.getByRole('heading', { name: 'Confirme sua decisão' })).toBeVisible();
   await page.getByRole('button', { name: 'Confirmar aprovação' }).click();
   await expect(page.getByRole('heading', { name: 'Orçamento aprovado' })).toBeVisible();
-  expect(payload).toEqual({ token, decision: 'approve' });
+  expect(payload).toEqual({ token, decision: 'approve', targets: ['Inglês'] });
   await expect.poll(() => page.evaluate(() => location.hash)).toBe('');
 });
 

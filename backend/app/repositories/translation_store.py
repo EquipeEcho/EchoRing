@@ -3,6 +3,7 @@ import base64
 from fastapi import HTTPException
 from psycopg.types.json import Jsonb
 from app.database_pg import json_data, now
+from app.core.translation_scope import aggregate_status, request_targets
 
 def read_request(connection, request_id, for_update=False):
     """Busca a solicitação e, quando necessário, bloqueia a linha durante a alteração."""
@@ -54,7 +55,7 @@ def event_history(connection, request_id=None, service_id=None):
     """Monta a linha do tempo completa de uma solicitação ou tarefa."""
     if service_id:
         rows = connection.execute(
-            'SELECT status, note, actor_name, created_at FROM workflow_events WHERE service_id = ? OR request_id = (SELECT request_id FROM services WHERE id = ?) ORDER BY id',
+            'SELECT status, note, actor_name, created_at FROM workflow_events WHERE service_id = ? OR (service_id IS NULL AND request_id = (SELECT request_id FROM services WHERE id = ?)) ORDER BY id',
             (service_id, service_id),
         ).fetchall()
     else:
@@ -71,21 +72,32 @@ def event_history(connection, request_id=None, service_id=None):
 def sanitized_request(data, connection=None, include_content=False):
     """Prepara a solicitação para resposta sem vazar tokens ou anexos desnecessários."""
     result = {key: value for key, value in data.items() if key not in ('quoteResponseTokenDigest', 'quoteResponseExpiresAt')}
+    result['targets'] = request_targets(data)
     result['attachments'] = [file if include_content else {**file, 'content': ''} for file in data.get('attachments', [])]
     if connection:
         result['history'] = event_history(connection, request_id=data['id'])
-        task = connection.execute(
-            '''SELECT services.id, services.status, services.deadline, users.id AS translator_id,
+        tasks = connection.execute(
+            '''SELECT services.id, services.status, services.source, services.target, services.deadline,
+                      services.started_at, services.delivered_at, users.id AS translator_id,
                       users.name AS translator_name, users.email AS translator_email
                FROM services LEFT JOIN users ON users.id = services.translator_id
-               WHERE services.request_id = ?''',
+               WHERE services.request_id = ? ORDER BY services.created_at, services.id''',
             (data['id'],),
-        ).fetchone()
-        if task:
-            result['task'] = {
+        ).fetchall()
+        result['tasks'] = [
+            {
                 'id': task['id'], 'status': task['status'], 'deadline': task['deadline'],
+                'source': task['source'], 'target': task['target'],
+                'startedAt': task['started_at'], 'deliveredAt': task['delivered_at'],
                 'translator': {'id': task['translator_id'], 'name': task['translator_name'], 'email': task['translator_email']},
             }
+            for task in tasks
+        ]
+        if len(result['targets']) == 1 and result['tasks']:
+            result['task'] = result['tasks'][0]
+        elif len(result['targets']) > 1:
+            for key in ('task', 'taskId', 'translator'):
+                result.pop(key, None)
     return result
 
 
@@ -93,10 +105,19 @@ def update_request_status(connection, request_id, status, actor=None, note=None,
     """Atualiza o estado da solicitação e grava o mesmo passo no histórico."""
     data, _ = read_request(connection, request_id, for_update=True)
     changed_at = now()
-    data['status'] = status
+    services = connection.execute('SELECT status, target FROM services WHERE request_id = ?', (request_id,)).fetchall()
+    data['status'] = aggregate_status(data, services)
     if timestamp_field:
-        data[timestamp_field] = changed_at
+        if timestamp_field in ('startedAt', 'assignedAt'):
+            data.setdefault(timestamp_field, changed_at)
+        elif timestamp_field != 'deliveredAt' or data['status'] == 'Entregue':
+            data[timestamp_field] = changed_at
+    if data['status'] != 'Entregue':
+        data.pop('deliveredAt', None)
     connection.execute('UPDATE requests SET data = ? WHERE id = ?', (Jsonb(data), request_id))
+    if service_id and len(request_targets(data)) > 1:
+        service = read_service(connection, service_id)
+        note = f"{service['source']} → {service['target']}" + (f' · {note}' if note else '')
     add_event(connection, status, request_id, service_id, actor, note, changed_at)
     return data
 
@@ -181,6 +202,7 @@ def task_record(connection, service):
             record['lastFeedback'] = latest['feedback']
     if request_data:
         record.update({
+            'briefing': request_data.get('message', ''),
             'clientName': request_data['name'], 'clientEmail': request_data['email'],
             'company': request_data.get('company', ''),
             'source': service['source'] or request_data['source'], 'target': service['target'] or request_data['target'],

@@ -13,7 +13,6 @@ import {
   Save,
   Search,
   Send,
-  UserCheck,
   UserPlus,
 } from 'lucide-react-native';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
@@ -28,6 +27,9 @@ import { formatSelectedDate } from '@/components/ui/fields/date-utils';
 import { PageHeading } from '@/components/ui/page-heading';
 import { Txt } from '@/components/ui/text';
 import { StaffOfferManager } from '@/features/offers/components/staff-offer-manager';
+import { QuoteItems } from '@/features/requests/components/quote-items';
+import { RequestJobs } from '@/features/requests/components/request-jobs';
+import { quoteTotal, requestTargets, requestTasks } from '@/features/requests/utils/quote-scope';
 import { useRequestWorkflow } from '@/features/requests/hooks/use-request-workflow';
 import { useStyles } from '@/features/requests/styles/requests.styles';
 import { downloadDocument } from '@/lib/documents/download';
@@ -128,7 +130,7 @@ export function RequestsScreen() {
             <View style={styles.detailGrid}>
               {[
                 ['Serviço', selected.service],
-                ['Idiomas', `${selected.source} → ${selected.target}`],
+                ['Idiomas', `${selected.source} → ${requestTargets(selected).join(', ')}`],
                 [
                   'Prazo desejado',
                   selected.deadline ? formatSelectedDate(selected.deadline) : 'Não informado',
@@ -194,6 +196,11 @@ export function RequestsScreen() {
                   </Txt>
                 </View>
               </View>
+              {!!quote.items?.length && <QuoteItems items={quote.items} disabled={locked || busy} onChange={items => {
+                setQuote(current => ({ ...current, items, amount: currencyInputFromDecimal(quoteTotal(items)),
+                  delivery: items.map(item => item.delivery).sort().at(-1) || '' }));
+                setNotice('');
+              }} />}
               <View style={[styles.quoteFields, width < 650 && { flexDirection: 'column' }]}>
                 <View style={styles.quoteField}>
                   <Txt style={styles.label}>Valor do orçamento (R$)</Txt>
@@ -206,7 +213,7 @@ export function RequestsScreen() {
                     }}
                     placeholder="Ex.: 350,00"
                     placeholderTextColor={colors.muted}
-                    editable={!locked && !busy}
+                    editable={!locked && !busy && !quote.items?.length}
                     keyboardType="decimal-pad"
                     onBlur={() => setQuote(current => ({ ...current, amount: currencyInputFromDecimal(current.amount) }))}
                     maxLength={18}
@@ -221,7 +228,7 @@ export function RequestsScreen() {
                     setQuote((current) => ({ ...current, delivery: value }));
                     setNotice('');
                   }}
-                  disabled={locked || busy}
+                  disabled={locked || busy || !!quote.items?.length}
                 />
               </View>
               <View style={styles.quoteField}>
@@ -286,20 +293,9 @@ export function RequestsScreen() {
                 </Txt>
               </View>
             )}
-            {token && (selected.status === 'Orçamento aprovado' || selected.task) && (
+            {(selected.approvedTargets || requestTasks(selected).length > 0) && <RequestJobs request={selected} />}
+            {token && (selected.status === 'Orçamento aprovado' || requestTasks(selected).length > 0) && (
               <StaffOfferManager key={selected.id} request={selected} token={token} onChanged={reloadDetail} />
-            )}
-            {selected.task && (
-              <View style={styles.waiting}>
-                <UserCheck size={20} color={colors.green} />
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Txt style={{ fontWeight: '600' }}>{selected.task.translator.name}</Txt>
-                  <Txt style={common.caption}>
-                    {selected.task.id} · {selected.task.status} · prazo{' '}
-                    {formatSelectedDate(selected.task.deadline)}
-                  </Txt>
-                </View>
-              </View>
             )}
             {selected.emailSentAt && (
               <Txt style={common.caption}>
@@ -360,6 +356,7 @@ export function RequestsScreen() {
                 <Txt style={styles.detailValue}>{formatSelectedDate(quote.delivery)}</Txt>
               </View>
             </View>
+            {!!quote.items?.length && <QuoteItems items={quote.items} disabled onChange={() => {}} />}
             <View style={styles.sectionBlock}>
               <Txt style={styles.sectionEyebrow}>MENSAGEM AO CLIENTE</Txt>
               <Txt style={styles.projectMessage}>{quote.message}</Txt>

@@ -111,7 +111,7 @@ def initialize_schema(connection, schema):
     )''')
     connection.execute('CREATE INDEX IF NOT EXISTS sessions_user_id ON sessions (user_id)')
     connection.execute('CREATE INDEX IF NOT EXISTS services_translator_id ON services (translator_id)')
-    connection.execute('CREATE UNIQUE INDEX IF NOT EXISTS services_request_id ON services (request_id) WHERE request_id IS NOT NULL')
+    connection.execute('CREATE INDEX IF NOT EXISTS services_request_lookup ON services (request_id)')
     connection.execute('CREATE INDEX IF NOT EXISTS deliveries_service_id ON deliveries (service_id, version)')
     connection.execute('CREATE INDEX IF NOT EXISTS deliveries_status ON deliveries (status, submitted_at)')
     connection.execute('CREATE INDEX IF NOT EXISTS delivery_files_delivery_id ON delivery_files (delivery_id, position)')

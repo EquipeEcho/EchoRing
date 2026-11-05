@@ -3,6 +3,7 @@ import { localRequests, saveLocal } from '@/features/requests/services/request-s
 import {
   type Intake,
   type Quote,
+  type QuotePreview,
   type TranslationRequest,
   type TranslatorOption,
 } from '@/features/requests/types';
@@ -92,6 +93,7 @@ export function submitQuoteDecision(
   quoteId: string,
   token: string,
   decision: 'approve' | 'decline',
+  targets?: string[],
 ) {
   return api<{
     requestId: string;
@@ -99,8 +101,14 @@ export function submitQuoteDecision(
     title: string;
     status: 'Orçamento aprovado' | 'Orçamento recusado';
     respondedAt: string;
+    approvedTargets: string[];
+    approvedAmount: string;
   }>(`/quotes/${encodeURIComponent(quoteId)}/decision`, {
     method: 'POST',
-    body: JSON.stringify({ token, decision }),
+    body: JSON.stringify({ token, decision, ...(targets ? { targets } : {}) }),
   });
+}
+
+export function previewQuote(quoteId: string, token: string) {
+  return api<QuotePreview>(`/quotes/${encodeURIComponent(quoteId)}/preview`, { method: 'POST', body: JSON.stringify({ token }) });
 }
