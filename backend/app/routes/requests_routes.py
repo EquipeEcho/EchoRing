@@ -103,18 +103,25 @@ def list_requests(
     search: str = Query('', max_length=120),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    attention: bool = Query(False),
     user: dict = Depends(staff),
 ):
-    """Lista as solicitações da equipe com filtro por grupo ou status, busca e paginação."""
+    """Lista as solicitações da equipe com filtro por grupo ou status, alertas, busca e paginação."""
     statuses = resolve_statuses(status)
     with database() as session:
-        records, total, status_counts = list_requests_page(session, statuses, search, limit, offset)
+        records, total, status_counts, attention_count = list_requests_page(
+            session, statuses, search, limit, offset, attention
+        )
         return {
             'items': [sanitized_request(record, session) for record in records],
             'total': total,
             'limit': limit,
             'offset': offset,
-            'counts': {'groups': group_counts(status_counts), 'statuses': status_counts},
+            'counts': {
+                'groups': group_counts(status_counts),
+                'statuses': status_counts,
+                'attention': attention_count,
+            },
         }
 
 
