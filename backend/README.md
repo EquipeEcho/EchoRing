@@ -110,7 +110,7 @@ a aprovação. Com `EMAIL_DRY_RUN=true`, os e-mails aparecem no log em vez de se
 | GET | `/translator-profile/me` | Tradutor autenticado; lê somente seu próprio cadastro |
 | PATCH | `/translator-profile/me` | Tradutor com cadastro pendente; salva ou atualiza o rascunho |
 | PUT | `/translator-profile/me` | Tradutor autenticado; valida e persiste seu perfil completo |
-| GET | `/requests` | Bearer token; anexos sem conteúdo na listagem |
+| GET | `/requests` | Bearer token; filtros, busca e paginação; anexos sem conteúdo na listagem |
 | GET | `/requests/{id}` | Bearer token; detalhes e documentos |
 | PATCH | `/requests/{id}` | Bearer token; análise e rascunho |
 | POST | `/requests/{id}/send-quote` | Bearer token; envio da proposta salva |
@@ -124,6 +124,31 @@ a aprovação. Com `EMAIL_DRY_RUN=true`, os e-mails aparecem no log em vez de se
 | POST | `/tasks/{id}/deliveries` | Somente tradutor atribuído; envia nova versão |
 | GET | `/deliveries` | Funcionário/admin; fila e histórico de versões |
 | POST | `/deliveries/{id}/review` | Funcionário/admin; aprova ou solicita revisão |
+
+### Listagem de solicitações
+
+`GET /requests` aceita os parâmetros abaixo, aplicados na consulta ao banco:
+
+- `status`: grupos ou status exatos separados por vírgula, como `traducao` ou
+  `pendente,Entregue`. Valores desconhecidos retornam 422.
+- `search`: busca por protocolo, título, cliente, e-mail, empresa e idiomas, sem
+  diferenciar maiúsculas nem acentos.
+- `limit` (1 a 100, padrão 20) e `offset` (padrão 0).
+
+A resposta traz `items`, `total` (quantidade que atende a todos os filtros),
+`limit`, `offset` e `counts`. As contagens consideram apenas a busca, para que as
+abas e o filtro de status mostrem quantas solicitações existem em cada grupo:
+
+| Grupo | Status |
+| --- | --- |
+| `pendente` | Recebido |
+| `orcamento` | Em análise, Orçamento enviado, Orçamento simulado, Orçamento aprovado |
+| `traducao` | Tradutor atribuído, Em andamento, Aguardando avaliação, Revisão solicitada |
+| `concluido` | Pronta, Entregue |
+| `cancelado` | Orçamento recusado |
+
+Os grupos ficam em `app/core/request_groups.py` e são repetidos em
+`frontend/src/features/requests/constants/status.ts`; altere os dois juntos.
 
 ## Fluxo operacional
 

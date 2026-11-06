@@ -1,9 +1,46 @@
 """Translation records, document readers, serialization and persisted events."""
 import base64
+import unicodedata
 from fastapi import HTTPException
 from psycopg.types.json import Jsonb
 from app.database_pg import json_data, now
 from app.core.translation_scope import aggregate_status, request_targets
+
+ACCENTED = 'áàâãäéèêëíìîïóòôõöúùûüç'
+PLAIN = 'aaaaaeeeeiiiiooooouuuuc'
+SEARCHABLE_REQUEST = f'''translate(lower(concat_ws(' ', id, data->>'title', data->>'name', data->>'email',
+    data->>'company', data->>'source', data->>'target', data->>'targets')), '{ACCENTED}', '{PLAIN}')'''
+
+
+def search_pattern(search):
+    """Normaliza o termo como o SQL e escapa os curingas do LIKE."""
+    folded = ''.join(char for char in unicodedata.normalize('NFD', search.strip().lower()) if not unicodedata.combining(char))
+    return '%' + folded.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
+
+
+def list_requests_page(connection, statuses=None, search='', limit=20, offset=0):
+    """Filtra e pagina as solicitações no banco e conta os status da busca atual."""
+    search_conditions, search_parameters = [], []
+    if search.strip():
+        search_conditions.append(SEARCHABLE_REQUEST + ' LIKE ?')
+        search_parameters.append(search_pattern(search))
+    conditions, parameters = list(search_conditions), list(search_parameters)
+    if statuses:
+        conditions.append("data->>'status' = ANY(?)")
+        parameters.append(statuses)
+    where = ' WHERE ' + ' AND '.join(conditions) if conditions else ''
+    search_where = ' WHERE ' + ' AND '.join(search_conditions) if search_conditions else ''
+    total = connection.execute('SELECT COUNT(*) AS total FROM requests' + where, parameters).fetchone()['total']
+    rows = connection.execute(
+        'SELECT data FROM requests' + where + ' ORDER BY created_at DESC, id LIMIT ? OFFSET ?',
+        [*parameters, limit, offset],
+    ).fetchall()
+    status_counts = connection.execute(
+        "SELECT data->>'status' AS status, COUNT(*) AS total FROM requests" + search_where + " GROUP BY data->>'status'",
+        search_parameters,
+    ).fetchall()
+    return [json_data(row['data']) for row in rows], total, {row['status']: row['total'] for row in status_counts}
+
 
 def read_request(connection, request_id, for_update=False):
     """Busca a solicitação e, quando necessário, bloqueia a linha durante a alteração."""

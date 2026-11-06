@@ -71,10 +71,9 @@ export function WorkspaceShell() {
   const section =
     visibleModules.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.title ??
     (pathname === '/tarefas' ? 'Minhas tarefas' : pathname === '/mais' ? 'Mais' : pathname.startsWith('/tradutores/') ? 'Perfil do tradutor' : 'Meu espaço');
-  const { requests } = useInbox();
+  const { received } = useInbox();
   const offerNotifications = useOfferNotifications();
   const offerUnread = offerNotifications.items.filter(item => !item.readAt).length;
-  const received = requests.filter((item) => item.status === 'Recebido').length;
   const pending = tasks.filter((task) => !task.done).length;
   function logout() {
     setProfile(false);

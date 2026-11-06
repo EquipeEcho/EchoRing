@@ -64,3 +64,18 @@ export type TranslationRequest = Intake & {
   tasks?: RequestTask[];
   task?: RequestTask;
 };
+
+export type RequestGroup = 'pendente' | 'orcamento' | 'traducao' | 'concluido' | 'cancelado';
+export type RequestCounts = {
+  groups: Record<RequestGroup, number>;
+  statuses: Partial<Record<RequestStatus, number>>;
+};
+/** `status` takes group keys or exact statuses separated by commas, like `GET /requests`. */
+export type RequestQuery = { status?: string; search?: string; limit?: number; offset?: number };
+export type RequestPage = {
+  items: TranslationRequest[];
+  total: number;
+  limit: number;
+  offset: number;
+  counts: RequestCounts;
+};
