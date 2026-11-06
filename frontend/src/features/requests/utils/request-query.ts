@@ -8,6 +8,7 @@ import {
   type TranslationRequest,
 } from '@/features/requests/types';
 import { requestTargets } from '@/features/requests/utils/quote-scope';
+import { requestAlerts } from '@/features/requests/utils/request-alerts';
 
 export const requestPageSize = 20;
 
@@ -20,12 +21,12 @@ export function statusesFor(status = ''): RequestStatus[] | null {
   return statuses.length ? statuses : null;
 }
 
-export function countRequests(requests: TranslationRequest[]): RequestCounts {
+export function countRequests(requests: TranslationRequest[], now = Date.now()): RequestCounts {
   const statuses: RequestCounts['statuses'] = {};
   for (const request of requests) statuses[request.status] = (statuses[request.status] ?? 0) + 1;
   const groups = Object.fromEntries(Object.entries(requestGroups).map(([group, { statuses: members }]) =>
     [group, members.reduce((total, status) => total + (statuses[status] ?? 0), 0)])) as Record<RequestGroup, number>;
-  return { groups, statuses };
+  return { groups, statuses, attention: requests.filter(request => requestAlerts(request, now).length).length };
 }
 
 /** Applies the `GET /requests` filters to the requests kept in this browser. */
@@ -34,10 +35,12 @@ export function queryRequests(requests: TranslationRequest[], query: RequestQuer
   const offset = query.offset ?? 0;
   const search = fold(query.search ?? '');
   const statuses = statusesFor(query.status);
+  const now = Date.now();
   const searched = requests
     .filter(request => !search || fold([request.id, request.title, request.name, request.email, request.company,
       request.source, ...requestTargets(request)].join(' ')).includes(search))
     .sort((first, second) => (second.createdAt || '').localeCompare(first.createdAt || ''));
-  const matched = statuses ? searched.filter(request => statuses.includes(request.status)) : searched;
-  return { items: matched.slice(offset, offset + limit), total: matched.length, limit, offset, counts: countRequests(searched) };
+  const matched = searched.filter(request => (!statuses || statuses.includes(request.status))
+    && (!query.attention || requestAlerts(request, now).length > 0));
+  return { items: matched.slice(offset, offset + limit), total: matched.length, limit, offset, counts: countRequests(searched, now) };
 }
