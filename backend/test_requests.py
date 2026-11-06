@@ -158,7 +158,7 @@ class RequestsTests(unittest.TestCase):
         """Insere uma tarefa diretamente para os testes focados em entrega e revisão."""
         with requests_api.database() as connection:
             connection.execute(
-            insert(Service).values(
+            insert(Service).values(  
                 id=service_id, request_id='SOL-' + service_id, title='Test manual', translator_id=translator_id,
                 status=status, deadline='2026-10-01', created_at=to_datetime(requests_api.now()),
             )
