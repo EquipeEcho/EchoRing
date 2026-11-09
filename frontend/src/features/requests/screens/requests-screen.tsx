@@ -33,6 +33,8 @@ import { StaffOfferManager } from '@/features/offers/components/staff-offer-mana
 import { QuoteItems } from '@/features/requests/components/quote-items';
 import { requestStatusTone } from '@/features/requests/constants/status';
 import { RequestJobs } from '@/features/requests/components/request-jobs';
+import { RequestProgress } from '@/features/requests/components/request-progress';
+import { RequestDeliveries, RequestSummary } from '@/features/requests/components/request-summary';
 import { quoteTotal, requestTargets, requestTasks } from '@/features/requests/utils/quote-scope';
 import { useRequestWorkflow } from '@/features/requests/hooks/use-request-workflow';
 import { useStyles } from '@/features/requests/styles/requests.styles';
@@ -106,6 +108,8 @@ export function RequestsScreen() {
                 </Button>
               )}
             </View>
+            <RequestProgress request={selected} />
+            {locked && !!selected.quote && <RequestSummary request={selected} />}
             <View style={styles.contactStrip}>
               <View style={styles.contactAvatar}>
                 <Txt style={styles.contactInitials}>
@@ -179,6 +183,7 @@ export function RequestsScreen() {
                   Nenhum documento anexado. Solicite o material ao cliente, se necessário.
                 </Txt>
               )}
+              {(selected.approvedTargets || requestTasks(selected).length > 0) && <RequestDeliveries request={selected} />}
             </View>
             <View style={styles.quotePanel}>
               <View style={styles.quoteHeading}>
