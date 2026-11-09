@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { TextInput } from '@/components/ui/text-input';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -133,33 +134,14 @@ export function UsersScreen() {
                 style={styles.searchInput}
               />
             </View>
-            <ScrollView
-              horizontal
+            <SegmentedTabs
+              scrollable
+              label="Perfis de acesso"
+              value={roleFilter}
+              onChange={setRoleFilter}
+              items={roleFilters}
               style={{ minWidth: 0, flexShrink: 1 }}
-              accessibilityRole="tablist"
-              showsHorizontalScrollIndicator={false}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.filters}
-            >
-              {roleFilters.map((filter) => (
-                <Pressable
-                  key={filter.value}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: roleFilter === filter.value }}
-                  onPress={() => setRoleFilter(filter.value)}
-                  style={({ hovered, pressed }) => [styles.filter, hovered && styles.filterHover, roleFilter === filter.value && styles.filterActive, pressed && { opacity: 0.75 }]}
-                >
-                  <Txt
-                    style={[
-                      styles.filterText,
-                      roleFilter === filter.value && styles.filterTextActive,
-                    ]}
-                  >
-                    {filter.label}
-                  </Txt>
-                </Pressable>
-              ))}
-            </ScrollView>
+            />
           </View>
           {!loading && !error && !users.length ? (
             <EmptyState

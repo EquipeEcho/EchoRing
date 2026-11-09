@@ -20,7 +20,7 @@ export function TaskHeader({ task }: { task: TranslationService }) {
   return (
     <View style={styles.cardHeader}>
       <View style={styles.fileIcon}>
-        <FileCheck2 size={24} color={colors.accent} />
+        <FileCheck2 size={24} color={colors.ink} />
       </View>
       <View style={[{ flex: 1, minWidth: 0, gap: 5 }, width < 600 && styles.headerCopySmall]}>
         <Txt style={styles.title}>{task.title}</Txt>
@@ -38,7 +38,7 @@ export function TaskHeader({ task }: { task: TranslationService }) {
           <Txt style={{ color: colors.accent, fontSize: 12, lineHeight: 20 }}>{task.translator.name} · Ver perfil</Txt>
         </Pressable>}
       </View>
-      <Badge tone={statusTone[task.status]}>{task.status}</Badge>
+      <Badge dot tone={statusTone[task.status]}>{task.status}</Badge>
     </View>
   );
 }

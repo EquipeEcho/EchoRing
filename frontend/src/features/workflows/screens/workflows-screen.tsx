@@ -2,6 +2,8 @@ import { AlertTriangle, CheckCircle2, GitBranch, RefreshCw, UsersRound } from 'l
 import { ActivityIndicator, Pressable, useWindowDimensions, View } from 'react-native';
 
 import { Badge } from '@/components/ui/badge';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
+import { SkeletonList } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeading } from '@/components/ui/page-heading';
@@ -53,11 +55,15 @@ export function WorkflowsScreen() {
         <View style={s.row}><Badge tone={state.simulated ? 'amber' : 'blue'}>{state.simulated ? 'Dados demonstrativos' : 'Serviços reais'}</Badge><Txt style={s.detailLabel}>{state.simulated ? 'Conheça o acompanhamento com exemplos' : 'Informações disponíveis no portal'}</Txt></View>
         <Txt style={s.muted}>{state.simulated ? 'Os trabalhos, nomes, responsáveis, etapas e prazos abaixo são fictícios. Estes exemplos não alteram seus serviços.' : 'Etapas, responsáveis e bloqueios são registrados no trabalho. O percentual considera as etapas concluídas. Serviços anteriores precisam de um workflow atribuído pela equipe.'}</Txt>
       </View>
-      <View style={s.tabs} role="tablist" accessibilityLabel="Áreas de workflows">
-        {(['jobs', 'templates'] as const).map(value => <Pressable key={value} accessibilityRole="tab" aria-selected={tab === value} accessibilityState={{ selected: tab === value }} onPress={() => setTab(value)} style={({ hovered, pressed }) => [s.tab, (hovered || pressed) && { backgroundColor: colors.surface }, tab === value && s.tabActive]}>
-          <Txt style={[s.tabText, tab === value && { color: colors.ink, fontWeight: '600' }]}>{value === 'templates' ? 'Modelos de workflow' : state.staff ? 'Acompanhamento' : 'Meus trabalhos'}</Txt>
-        </Pressable>)}
-      </View>
+      <SegmentedTabs
+        label="Áreas de workflows"
+        value={tab}
+        onChange={setTab}
+        items={[
+          { value: 'jobs', label: state.staff ? 'Acompanhamento' : 'Meus trabalhos' },
+          { value: 'templates', label: 'Modelos de workflow' },
+        ]}
+      />
       {tab === 'templates' ? <WorkflowLibrary compact={compact} onOpen={template => state.openTemplate(template.id)} /> : <>
         <View style={{ gap: 9 }}>
           <Txt style={s.muted}>Resumo dos trabalhos</Txt>
@@ -67,7 +73,7 @@ export function WorkflowsScreen() {
           </View>)}</View>
         </View>
         {state.staff && <View style={{ gap: 12 }}>
-          <View style={s.row}><UsersRound size={18} color={colors.accent} /><Txt accessibilityRole="header" style={s.sectionTitle}>Tradutores com trabalhos ativos</Txt><Badge tone="neutral">{state.translators.length}</Badge></View>
+          <View style={s.row}><UsersRound size={18} color={colors.muted} /><Txt accessibilityRole="header" style={s.sectionTitle}>Tradutores com trabalhos ativos</Txt><Badge tone="neutral">{state.translators.length}</Badge></View>
           <Txt style={s.muted}>Todos os tradutores identificados nos trabalhos ativos desta fonte. Selecione um profissional para filtrar a lista.</Txt>
           <View style={s.translators}>
             {state.translators.map(translator => <Pressable key={translator.id} accessibilityRole="button" accessibilityLabel={`Filtrar trabalhos de ${translator.name}`} accessibilityState={{ selected: state.filters.translator === translator.id }} onPress={() => state.setFilters({ ...state.filters, translator: state.filters.translator === translator.id ? '' : translator.id })} style={({ hovered }) => [s.translator, compact && { flexBasis: '100%', minWidth: 0 }, state.filters.translator === translator.id && s.translatorSelected, hovered && { borderColor: colors.accent }]}>
@@ -82,7 +88,9 @@ export function WorkflowsScreen() {
           <View style={{ gap: 4 }}><Txt accessibilityRole="header" style={s.sectionTitle}>{state.staff ? 'Trabalhos e etapas' : 'Seus trabalhos e etapas'}</Txt><Txt accessibilityLiveRegion="polite" style={s.muted}>{state.filtered.length} {state.filtered.length === 1 ? 'trabalho encontrado' : 'trabalhos encontrados'}</Txt></View>
           {!state.simulated && <Button icon={RefreshCw} variant="ghost" onPress={state.refresh} disabled={state.loading}>Atualizar serviços</Button>}
         </View>
-        {state.loading && <ActivityIndicator accessibilityLabel="Carregando serviços dos workflows" color={colors.accent} />}
+        {state.loading && (state.filtered.length
+          ? <ActivityIndicator accessibilityLabel="Carregando serviços dos workflows" color={colors.accent} />
+          : <SkeletonList label="Carregando serviços dos workflows" variant="card" rows={2} />)}
         <View style={s.grid}>{state.filtered.map(job => <WorkflowJobCard key={job.id} job={job} now={state.now} compact={compact} onOpen={() => state.openJob(job.id)} />)}</View>
         {!state.filtered.length && !state.loading && <EmptyState icon={GitBranch} title={state.error ? 'Serviços indisponíveis' : state.jobs.length ? 'Nenhum trabalho para este tradutor' : 'Nenhum serviço disponível'} text={state.error ? 'Tente atualizar os serviços. A biblioteca de modelos continua disponível.' : state.jobs.length ? 'Selecione outro profissional ou volte a ver todos os trabalhos.' : 'Quando houver serviços atribuídos, eles aparecerão aqui. Você já pode consultar os modelos de workflow.'}
           action={state.jobs.length ? <Button variant="secondary" onPress={() => state.setFilters(emptyFilters)}>Ver todos os trabalhos</Button> : <Button variant="secondary" onPress={() => setTab('templates')}>Consultar modelos</Button>} />}

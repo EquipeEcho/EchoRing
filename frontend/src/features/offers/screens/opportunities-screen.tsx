@@ -1,8 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { BriefcaseBusiness, Download, RefreshCw, Search } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, ScrollView, useWindowDimensions, View } from 'react-native';
 import { TextInput } from '@/components/ui/text-input';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
+import { SkeletonList } from '@/components/ui/skeleton';
 
 import { Button } from '@/components/ui/button';
 import { RecordPage } from '@/features/workspace/components/record-page';
@@ -134,18 +136,19 @@ export function OpportunitiesScreen() {
       <TextInput accessibilityLabel="Buscar oportunidades" placeholder="Busque por projeto, idioma ou tipo de tradução"
         placeholderTextColor={colors.muted} value={search} onChangeText={setSearch} style={s.searchInput} />
     </View>
-    <View style={s.filters} role="tablist" accessibilityLabel="Status das oportunidades">
-      {(['pending', 'all', 'accepted', 'declined', 'expired', 'cancelled'] as const).map(value =>
-        <Pressable key={value} accessibilityRole="tab" aria-selected={filter === value} accessibilityState={{ selected: filter === value }}
-          onPress={() => setFilter(value)} style={({ hovered, pressed }) => [s.filter, (hovered || pressed) && { backgroundColor: colors.surface }, filter === value && s.filterSelected]}>
-          <Txt style={[s.filterText, filter === value && s.filterTextSelected]}>{value === 'all' ? 'Histórico completo' : offerLabels[value]}</Txt>
-        </Pressable>)}
-    </View>
+    <SegmentedTabs
+      label="Status das oportunidades"
+      value={filter}
+      onChange={setFilter}
+      items={(['pending', 'all', 'accepted', 'declined', 'expired', 'cancelled'] as const).map(value => ({ value, label: value === 'all' ? 'Histórico completo' : offerLabels[value] }))}
+    />
     </View>
     {!!error && !selected && <Txt accessibilityRole="alert" style={s.error}>{error}</Txt>}
     {!!notice && !selected && <Txt accessibilityLiveRegion="polite" style={s.notice}>{notice}</Txt>}
     {!token && <Txt style={s.caption}>Entre com uma conta de tradutor para receber oportunidades.</Txt>}
-    {loading && <ActivityIndicator accessibilityLabel="Carregando oportunidades" color={colors.accent} />}
+    {loading && (visible.length
+      ? <ActivityIndicator accessibilityLabel="Carregando oportunidades" color={colors.accent} />
+      : <SkeletonList label="Carregando oportunidades" variant="card" rows={2} />)}
     {!loading && !error && !visible.length && <EmptyState icon={BriefcaseBusiness} title="Nenhuma oportunidade por aqui"
       text={search || filter !== 'pending' ? 'Ajuste a busca ou os filtros para consultar seu histórico.' : 'Novos convites aparecerão aqui. A lista é atualizada automaticamente.'} />}
     <View style={s.grid}>

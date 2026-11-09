@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react-native';
 import { Badge } from '@/components/ui/badge';
 import { Txt } from '@/components/ui/text';
 import { useOfferStyles } from '@/features/offers/styles/offers.styles';
-import { type Offer, offerLabels } from '@/features/offers/types';
+import { type Offer, offerLabels, offerStatusTone } from '@/features/offers/types';
 import { money } from '@/utils/formatters';
 import { formatSelectedDate } from '@/components/ui/fields/date-utils';
 import { workflowTemplates } from '@/features/workflows/data/workflow-templates';
@@ -15,7 +15,7 @@ export function OfferSummary({ offer }: { offer: Offer }) {
   const { colors } = useTheme();
   return <View style={s.stack}>
     <View style={s.row}>
-      <Badge tone={offer.status === 'accepted' ? 'green' : offer.status === 'pending' ? 'blue' : 'neutral'}>{offerLabels[offer.status]}</Badge>
+      <Badge dot tone={offerStatusTone[offer.status]}>{offerLabels[offer.status]}</Badge>
       <Txt style={s.caption}>{offer.service}</Txt>
     </View>
     <View style={s.identity}>

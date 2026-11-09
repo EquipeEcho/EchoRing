@@ -11,7 +11,7 @@ import { OptionSelectField } from '@/components/ui/fields/option-select-field';
 import { Txt } from '@/components/ui/text';
 import { cancelOffer, compatibleTranslators, listRequestOffers, sendOffers } from '@/features/offers/services/offer-service';
 import { useOfferStyles } from '@/features/offers/styles/offers.styles';
-import { type CompatibleTranslator, type Offer, offerLabels } from '@/features/offers/types';
+import { type CompatibleTranslator, type Offer, offerLabels, offerStatusTone } from '@/features/offers/types';
 import { type TranslationRequest } from '@/features/requests/types';
 import { useTheme } from '@/theme/theme-context';
 import { money } from '@/utils/formatters';
@@ -170,7 +170,7 @@ function TargetOffers({ request, target, token, onChanged, onTargetChange }: {
     {!loading && !offers.length && <Txt style={s.caption}>Ainda não foram enviadas ofertas para este orçamento.</Txt>}
     {offers.map(offer => <View key={offer.id} style={s.card}>
       <View style={s.row}><Txt style={{ flex: 1, fontWeight: '600' }}>{offer.translator?.name}</Txt>
-        <Badge tone={offer.status === 'accepted' ? 'green' : offer.status === 'pending' ? 'blue' : 'neutral'}>{offerLabels[offer.status]}</Badge></View>
+        <Badge dot tone={offerStatusTone[offer.status]}>{offerLabels[offer.status]}</Badge></View>
       <Txt>{money(offer.compensation)} · {offer.volume}</Txt>
       {offer.audience === 'all' && <Txt style={s.caption}>Publicação para todos os tradutores</Txt>}
       {offer.workflowTemplateId && <Txt style={s.caption}>Workflow: {workflowTemplates.find(template => template.id === offer.workflowTemplateId)?.title}</Txt>}
