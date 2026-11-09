@@ -4,11 +4,14 @@ import {
   type Intake,
   type Quote,
   type QuotePreview,
+  type RequestPage,
+  type RequestQuery,
   type TranslationRequest,
   type TranslatorOption,
 } from '@/features/requests/types';
+import { queryRequests } from '@/features/requests/utils/request-query';
 import { api } from '@/lib/api/client';
-import { normalizeRequest, normalizeRequests } from './normalize-request';
+import { normalizeRequest, normalizeRequestPage } from './normalize-request';
 
 export async function submitIntake(data: Intake): Promise<TranslationRequest> {
   if (apiMode) return normalizeRequest(await api('/requests', { method: 'POST', body: JSON.stringify(data) }));
@@ -35,8 +38,11 @@ export async function submitManualIntake(
   return api('/requests/manual', { method: 'POST', body: JSON.stringify(data) }, token);
 }
 
-export async function getRequests(token?: string): Promise<TranslationRequest[]> {
-  return token ? normalizeRequests(await api('/requests', {}, token)) : localRequests();
+export async function listRequests(query: RequestQuery, token?: string): Promise<RequestPage> {
+  if (!token) return queryRequests(localRequests(), query);
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== '') params.set(key, String(value));
+  return normalizeRequestPage(await api('/requests?' + params.toString(), {}, token));
 }
 
 export async function getRequest(id: string, token?: string): Promise<TranslationRequest> {

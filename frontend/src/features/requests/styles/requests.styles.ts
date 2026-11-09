@@ -1,4 +1,4 @@
-import { font, radius, spacing, layout } from '@/theme/tokens';
+import { font, radius, spacing, layout, typeScale } from '@/theme/tokens';
 import { createThemedStyles } from '@/theme/create-themed-styles';
 
 export const useStyles = createThemedStyles((colors) => ({
@@ -68,11 +68,11 @@ export const useStyles = createThemedStyles((colors) => ({
     color: colors.ink,
     outlineWidth: 0,
   },
-  filters: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8 },
-  filter: { minHeight: 44, justifyContent: 'center', borderRadius: radius.sm, paddingHorizontal: 13 },
-  filterActive: { backgroundColor: colors.elevated },
-  filterText: { fontSize: 13, color: colors.muted },
-  filterTextActive: { color: colors.ink, fontWeight: '600' },
+  filterBar: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  filterBarSmall: { justifyContent: 'space-between' },
+  statusSelect: { minWidth: 220, minHeight: 44 },
+  resultCount: { ...typeScale.label, color: colors.muted },
+  pagination: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, marginTop: spacing.md },
   requestList: {
     backgroundColor: colors.surface,
     borderWidth: 1,

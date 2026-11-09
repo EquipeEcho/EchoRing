@@ -4,15 +4,16 @@ import hmac
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from psycopg.types.json import Jsonb
 from app.core.portal_auth import staff
 from app.core.security import throttle
 from app.core.languages import language
+from app.core.request_groups import group_counts, resolve_statuses
 from app.core.translation_scope import approved_amount, approved_request, request_targets, resolve_target, validate_quote_scope
-from app.database_pg import database, environment_flag, json_data, now
+from app.database_pg import database, environment_flag, now
 from app.models.translation import Intake, QuoteAccess, QuoteDecision, TranslatorAssignment, Update
-from app.repositories.translation_store import _request_for_quote, add_event, read_request, read_service, sanitized_request, task_record, update_request_status
+from app.repositories.translation_store import _request_for_quote, add_event, list_requests_page, read_request, read_service, sanitized_request, task_record, update_request_status
 from app.services.email.quote_service import deliver_quote
 from app.services.email.workflow_service import notify_translator_assigned
 from pymongo.errors import PyMongoError
@@ -66,11 +67,24 @@ def create_manual_request(data: Intake, user: dict = Depends(staff)):
 
 
 @router.get('/requests')
-def list_requests(user: dict = Depends(staff)):
-    """Lista as solicitações mais recentes para a equipe interna."""
+def list_requests(
+    status: str | None = Query(None, max_length=300),
+    search: str = Query('', max_length=120),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    user: dict = Depends(staff),
+):
+    """Lista as solicitações da equipe com filtro por grupo ou status, busca e paginação."""
+    statuses = resolve_statuses(status)
     with database() as connection:
-        rows = connection.execute('SELECT data FROM requests ORDER BY created_at DESC').fetchall()
-        return [sanitized_request(json_data(row['data']), connection) for row in rows]
+        records, total, status_counts = list_requests_page(connection, statuses, search, limit, offset)
+        return {
+            'items': [sanitized_request(record, connection) for record in records],
+            'total': total,
+            'limit': limit,
+            'offset': offset,
+            'counts': {'groups': group_counts(status_counts), 'statuses': status_counts},
+        }
 
 
 @router.get('/requests/{request_id}')

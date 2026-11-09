@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { requestPage } from './support/request-page';
 
 type Intake = {
   name: string;
@@ -70,7 +71,7 @@ test('landing intake is saved in its configured mode and reaches the staff inbox
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(summary ? [summary] : []),
+        body: JSON.stringify(requestPage(summary ? [summary] : [], request.url())),
       });
       return;
     }
@@ -198,7 +199,7 @@ test('authenticated employee analyzes a request and sends its quote through the 
     calls.push({ method: request.method(), path: url.pathname, authorization: request.headers().authorization ?? null });
     if (request.method() === 'GET' && url.pathname === '/requests') {
       const summary = { ...record, attachments: record.attachments.map(file => ({ ...file, content: '' })) };
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([summary]) });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(requestPage([summary], request.url())) });
       return;
     }
     if (request.method() === 'GET' && url.pathname === `/requests/${record.id}`) {
@@ -280,7 +281,7 @@ test('automatic quote approval opens compatible offers without reloading the pag
       return;
     }
     if (request.method() === 'GET' && url.pathname === '/requests') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([record]) });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(requestPage([record], request.url())) });
       return;
     }
     if (request.method() === 'GET' && url.pathname === `/requests/${record.id}`) {
@@ -347,11 +348,11 @@ test('completed requests are kept outside the active workflow', async ({ page })
     service: 'Tradução de documentos', source: 'Português', target: 'Inglês', deadline: '', message: 'Projeto de teste',
     consent: true, attachments: [],
   };
-  await page.route('**/requests', route => route.fulfill({
-    status: 200, contentType: 'application/json', body: JSON.stringify([
+  await page.route('**/requests?*', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(requestPage([
       { ...base, id: 'SOL-ATIVA', title: 'Solicitação ativa', status: 'Em análise' },
       { ...base, id: 'SOL-CONCLUIDA', title: 'Solicitação concluída', status: 'Entregue' },
-    ]),
+    ], route.request().url())),
   }));
   await page.addInitScript(() => {
     sessionStorage.setItem('echoring.auth-session.v2', JSON.stringify({

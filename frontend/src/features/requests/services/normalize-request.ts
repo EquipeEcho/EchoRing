@@ -1,4 +1,5 @@
-import { type TranslationRequest } from '@/features/requests/types';
+import { requestGroups } from '@/features/requests/constants/status';
+import { type RequestGroup, type RequestPage, type TranslationRequest } from '@/features/requests/types';
 
 export function normalizeRequest(request: TranslationRequest): TranslationRequest {
   if (!request || typeof request.id !== 'string' || typeof request.status !== 'string') {
@@ -26,4 +27,15 @@ export function normalizeRequest(request: TranslationRequest): TranslationReques
 export function normalizeRequests(requests: TranslationRequest[]): TranslationRequest[] {
   if (!Array.isArray(requests)) throw new Error('Não foi possível carregar a lista de solicitações. Tente novamente.');
   return requests.map(normalizeRequest);
+}
+
+export function normalizeRequestPage(page: RequestPage): RequestPage {
+  if (!page || typeof page !== 'object' || typeof page.total !== 'number') {
+    throw new Error('Não foi possível carregar a lista de solicitações. Tente novamente.');
+  }
+  const items = normalizeRequests(page.items);
+  const groups = Object.fromEntries(Object.keys(requestGroups).map(group =>
+    [group, Number(page.counts?.groups?.[group as RequestGroup]) || 0])) as Record<RequestGroup, number>;
+  const statuses = page.counts?.statuses && typeof page.counts.statuses === 'object' ? page.counts.statuses : {};
+  return { items, total: page.total, limit: Number(page.limit) || items.length, offset: Number(page.offset) || 0, counts: { groups, statuses } };
 }
