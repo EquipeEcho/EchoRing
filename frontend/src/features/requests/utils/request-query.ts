@@ -30,12 +30,11 @@ export function countRequests(requests: TranslationRequest[], now = Date.now()):
 }
 
 /** Applies the `GET /requests` filters to the requests kept in this browser. */
-export function queryRequests(requests: TranslationRequest[], query: RequestQuery): RequestPage {
+export function queryRequests(requests: TranslationRequest[], query: RequestQuery, now = Date.now()): RequestPage {
   const limit = query.limit ?? requestPageSize;
   const offset = query.offset ?? 0;
   const search = fold(query.search ?? '');
   const statuses = statusesFor(query.status);
-  const now = Date.now();
   const searched = requests
     .filter(request => !search || fold([request.id, request.title, request.name, request.email, request.company,
       request.source, ...requestTargets(request)].join(' ')).includes(search))

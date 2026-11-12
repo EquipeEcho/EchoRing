@@ -53,8 +53,8 @@ test('free-text dates and finished requests never raise alerts', () => {
 });
 
 test('the local listing filters and counts requests that need attention', () => {
-  const records = [request({ id: 'SOL-NOVO' }), request({ id: 'SOL-PARADO', createdAt: new Date(Date.now() - 3 * day).toISOString() })];
-  const page = queryRequests(records, { attention: true });
+  const records = [request({ id: 'SOL-NOVO' }), request({ id: 'SOL-PARADO', createdAt: iso(-3) })];
+  const page = queryRequests(records, { attention: true }, now);
   expect(page.items.map(item => item.id)).toEqual(['SOL-PARADO']);
   expect(page.counts.attention).toBe(1);
 });
