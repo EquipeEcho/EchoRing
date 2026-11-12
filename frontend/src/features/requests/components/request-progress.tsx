@@ -3,8 +3,7 @@ import { useWindowDimensions, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
 import { useStyles } from '@/features/requests/styles/requests.styles';
-import { type TranslationRequest } from '@/features/requests/types';
-import { type ProgressStep, requestProgress } from '@/features/requests/utils/request-progress';
+import { type ProgressSource, type ProgressStep, requestProgress } from '@/features/requests/utils/request-progress';
 import { useTheme } from '@/theme/theme-context';
 import { breakpoints } from '@/theme/tokens';
 
@@ -17,7 +16,7 @@ const stateLabel: Record<ProgressStep['state'], string> = {
 
 const formatAt = (value: string) => new Date(value).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 
-export function RequestProgress({ request }: { request: TranslationRequest }) {
+export function RequestProgress({ request }: { request: ProgressSource }) {
   const styles = useStyles();
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
