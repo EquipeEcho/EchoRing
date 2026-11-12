@@ -64,6 +64,9 @@ export function WorkspaceShell() {
   const [searchDismissed, setSearchDismissed] = useState(false);
   const globalSearch = useGlobalSearch(search);
   const showResults = !searchDismissed && search.trim().length >= 2;
+  // Only staff search requests; translators look for their projects and tasks.
+  const searchPlaceholder = role === 'admin' || role === 'employee' || session?.demo
+    ? 'Buscar solicitação ou projeto...' : 'Buscar projeto ou tarefa...';
   const typeSearch = (value: string) => { setSearch(value); setSearchDismissed(false); };
   const closeSearch = () => { setSearchDismissed(true); searchInput.current?.blur(); };
   const dismissOnEscape = (event: { nativeEvent: { key: string } }) => {
@@ -214,7 +217,7 @@ export function WorkspaceShell() {
                   <TextInput
                     ref={searchInput}
                     accessibilityLabel="Buscar no portal"
-                    placeholder="Buscar solicitação, projeto ou tarefa..."
+                    placeholder={searchPlaceholder}
                     placeholderTextColor={colors.muted}
                     value={search}
                     onChangeText={typeSearch}
@@ -275,7 +278,7 @@ export function WorkspaceShell() {
               <TextInput
                 ref={searchInput}
                 accessibilityLabel="Buscar no portal"
-                placeholder="Buscar solicitações, projetos..."
+                placeholder={searchPlaceholder}
                 placeholderTextColor={colors.muted}
                 value={search}
                 onChangeText={typeSearch}
