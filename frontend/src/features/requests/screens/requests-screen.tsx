@@ -36,6 +36,7 @@ import { QuoteFollowUp, RequestAlertBadges } from '@/features/requests/component
 import { RequestJobs } from '@/features/requests/components/request-jobs';
 import { RequestProgress } from '@/features/requests/components/request-progress';
 import { RequestDeliveries, RequestSummary } from '@/features/requests/components/request-summary';
+import { TrackingLink, trackableStatuses } from '@/features/requests/components/tracking-link';
 import { quoteTotal, requestTargets, requestTasks } from '@/features/requests/utils/quote-scope';
 import { useRequestWorkflow } from '@/features/requests/hooks/use-request-workflow';
 import { useStyles } from '@/features/requests/styles/requests.styles';
@@ -80,6 +81,7 @@ export function RequestsScreen() {
     prepare,
     send,
     resend,
+    sendTracking,
   } = useRequestWorkflow();
   if (requestId) return <RecordPage key={requestId}
     title={confirm ? token ? 'Revisar e enviar orçamento' : 'Revisar simulação' : 'Detalhes da solicitação'}
@@ -113,6 +115,9 @@ export function RequestsScreen() {
             </View>
             <RequestProgress request={selected} />
             {locked && !!selected.quote && <RequestSummary request={selected} />}
+            {token && trackableStatuses.includes(selected.status) && (
+              <TrackingLink request={selected} busy={busy} onSend={sendTracking} />
+            )}
             <View style={styles.contactStrip}>
               <View style={styles.contactAvatar}>
                 <Txt style={styles.contactInitials}>
