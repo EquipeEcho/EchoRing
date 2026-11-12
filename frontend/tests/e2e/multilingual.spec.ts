@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { requestPage } from './support/request-page';
 
 import { type TranslationRequest } from '../../src/features/requests/types';
 
@@ -59,7 +60,7 @@ test('staff prices every language and the client approves a subset with a recalc
     if (path.endsWith('/compatible-translators') || path.endsWith('/offers')) return route.fulfill({ json: [] });
     if (route.request().method() === 'PATCH') record = { ...record, ...route.request().postDataJSON() };
     if (path.endsWith('/send-quote')) record = { ...record, status: 'Orçamento enviado' };
-    return route.fulfill({ json: path === '/requests' ? [record] : record });
+    return route.fulfill({ json: path === '/requests' ? requestPage([record], route.request().url()) : record });
   });
   await page.route('**/quotes/ORC-MULTI/preview', route => route.fulfill({ json: record }));
   await page.route('**/quotes/ORC-MULTI/decision', route => {
@@ -110,7 +111,7 @@ test('an assigned language does not prevent distributing another approved langua
       if (route.request().method() === 'POST') sent = route.request().postDataJSON();
       return route.fulfill({ json: [] });
     }
-    return route.fulfill({ json: url.pathname === '/requests' ? [record] : record });
+    return route.fulfill({ json: url.pathname === '/requests' ? requestPage([record], url.href) : record });
   });
   await page.goto('/solicitacoes/SOL-MULTI');
   await expect(page.getByText('Responsável: Tradutora de inglês', { exact: true })).toBeVisible();

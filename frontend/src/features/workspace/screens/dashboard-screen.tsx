@@ -33,8 +33,7 @@ export function DashboardScreen() {
   const employee = session?.role === 'employee' || session?.role === 'admin';
   const { width } = useWindowDimensions();
   const [tab, setTab] = useState<'active' | 'all'>('active');
-  const { requests } = useInbox();
-  const received = requests.filter((item) => item.status === 'Recebido').length;
+  const { received } = useInbox();
   const active = projects.filter(isOpenProject);
   const inProgress = projects.filter((p) => matchesProjectGroup(p, 'andamento')).length;
   const waiting = projects.filter((p) => matchesProjectGroup(p, 'aguardando')).length;

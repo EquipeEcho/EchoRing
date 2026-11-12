@@ -34,7 +34,7 @@ class RequestsTests(PortalTestCase):
         self.assertEqual(stored_client['created_by'], 'landing-page')
         self.assertEqual(self.client.get('/requests').status_code, 401)
         self.assertEqual(self.client.get('/requests/' + request_id).status_code, 401)
-        listing = self.client.get('/requests', headers=self.headers).json()
+        listing = self.client.get('/requests', headers=self.headers).json()['items']
         self.assertEqual(listing[0]['id'], request_id)
         self.assertEqual(listing[0]['attachments'][0]['content'], '')
         detail = self.client.get('/requests/' + request_id, headers=self.headers).json()
@@ -52,7 +52,7 @@ class RequestsTests(PortalTestCase):
         )
         self.assertEqual(updated_client['projects'][0]['status'], 'Em análise')
         with TestClient(app) as second_client:
-            self.assertEqual(second_client.get('/requests', headers=self.headers).json()[0]['id'], request_id)
+            self.assertEqual(second_client.get('/requests', headers=self.headers).json()['items'][0]['id'], request_id)
 
     def test_intake_accepts_document_variants_and_rejects_languages_outside_the_list(self):
         for field in ('source', 'target'):
