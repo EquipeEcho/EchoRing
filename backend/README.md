@@ -97,6 +97,30 @@ ele, e o cliente recebe a tradução em anexo quando a equipe aprova a entrega.
 Falhas nesses envios ficam registradas no log e não bloqueiam a atribuição nem
 a aprovação. Com `EMAIL_DRY_RUN=true`, os e-mails aparecem no log em vez de serem enviados.
 
+## Agente de estatística
+
+O administrador pergunta em linguagem natural (ex.: "como está o lucro?") e o
+agente responde usando o Gemini (Google AI Studio). Os números são calculados
+em Python a partir do banco; o Gemini só escolhe qual cálculo usar e explica o
+resultado, sem inventar valores. Cálculos disponíveis:
+
+- Estatística descritiva do lucro: total, média, mediana e margem ponderada pela receita
+- Tendência do lucro mensal por regressão linear e previsão do próximo mês
+- Probabilidade de aprovação de um orçamento e valor esperado por orçamento enviado
+- Gasto com cada tradutor
+
+Receita é o valor aprovado do orçamento e custo é a soma de
+`translator_compensation` das tarefas do pedido.
+
+Configure no `backend/.env` a `GEMINI_API_KEY` (gerada em
+https://aistudio.google.com/app/api-keys) e, opcionalmente, `GEMINI_MODEL`
+(`gemini-3.1-flash-lite` por padrão). Nunca commite a chave. Sem chave, ou se o
+Gemini não responder em 30 segundos, a rota retorna 503 com uma mensagem clara.
+
+Para outros módulos (ex.: o orquestrador), a função de entrada é
+`responder(pergunta)` em `app/services/statistics_agent.py`, que devolve o texto
+da resposta.
+
 ## Endpoints
 
 | Método | Rota | Acesso |
@@ -124,6 +148,7 @@ a aprovação. Com `EMAIL_DRY_RUN=true`, os e-mails aparecem no log em vez de se
 | POST | `/tasks/{id}/deliveries` | Somente tradutor atribuído; envia nova versão |
 | GET | `/deliveries` | Funcionário/admin; fila e histórico de versões |
 | POST | `/deliveries/{id}/review` | Funcionário/admin; aprova ou solicita revisão |
+| POST | `/statistics/agent` | Somente administrador geral; pergunta ao agente de estatística |
 
 ### Listagem de solicitações
 
