@@ -1,5 +1,6 @@
 """Gemini agent that answers company statistics questions using calculated tools."""
 
+import logging
 import os
 
 from google import genai
@@ -16,10 +17,16 @@ INSTRUCTIONS = (
     'Valores em reais devem aparecer como R$ 1.234,56. Se a pergunta não for sobre '
     'finanças ou estatística da empresa, diga que só responde sobre esse assunto.'
 )
+TIMEOUT_MS = 30_000
+logger = logging.getLogger(__name__)
 
 
 class AgentNotConfiguredError(Exception):
     """GEMINI_API_KEY não configurada no .env."""
+
+
+class AgentUnavailableError(Exception):
+    """O Gemini não respondeu: fora do ar, sobrecarregado ou demorou demais."""
 
 
 def _projects():
@@ -57,10 +64,14 @@ def responder(pergunta):
     api_key = os.getenv('GEMINI_API_KEY', '')
     if not api_key:
         raise AgentNotConfiguredError('O agente de estatística não foi configurado.')
-    client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model=os.getenv('GEMINI_MODEL', 'gemini-3.1-flash-lite'),
-        contents=pergunta,
-        config=types.GenerateContentConfig(system_instruction=INSTRUCTIONS, tools=TOOLS),
-    )
+    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=TIMEOUT_MS))
+    try:
+        chat = client.chats.create(
+            model=os.getenv('GEMINI_MODEL', 'gemini-3.1-flash-lite'),
+            config=types.GenerateContentConfig(system_instruction=INSTRUCTIONS, tools=TOOLS),
+        )
+        response = chat.send_message(pergunta)
+    except Exception as error:
+        logger.exception('Falha ao consultar o agente de estatística')
+        raise AgentUnavailableError('O agente de estatística está indisponível no momento.') from error
     return response.text or 'Não consegui gerar uma resposta agora.'

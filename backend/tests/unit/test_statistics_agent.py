@@ -4,7 +4,7 @@ import os
 import unittest
 from datetime import datetime
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 from app.services import statistics_agent as agent
 
@@ -31,14 +31,24 @@ class StatisticsAgentTests(unittest.TestCase):
     def test_responder_sends_question_with_tools(self):
         """A pergunta vai para o Gemini junto com as instruções e as ferramentas."""
         client = MagicMock()
-        client.models.generate_content.return_value.text = 'O lucro foi R$ 300,00.'
+        client.chats.create.return_value.send_message.return_value.text = 'O lucro foi R$ 300,00.'
         with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}), \
                 patch.object(agent.genai, 'Client', return_value=client) as factory:
             answer = agent.responder('Qual o lucro?')
 
         self.assertEqual(answer, 'O lucro foi R$ 300,00.')
-        factory.assert_called_once_with(api_key='test-key')
-        call = client.models.generate_content.call_args.kwargs
-        self.assertEqual(call['contents'], 'Qual o lucro?')
-        self.assertEqual(call['config'].tools, agent.TOOLS)
-        self.assertIn('nunca invente', call['config'].system_instruction)
+        factory.assert_called_once_with(api_key='test-key', http_options=ANY)
+        config = client.chats.create.call_args.kwargs['config']
+        self.assertEqual(config.tools, agent.TOOLS)
+        self.assertIn('nunca invente', config.system_instruction)
+        client.chats.create.return_value.send_message.assert_called_once_with('Qual o lucro?')
+
+    def test_gemini_failure_becomes_unavailable_error(self):
+        """Se o Gemini cair ou demorar demais, o agente devolve um erro tratado."""
+        client = MagicMock()
+        client.chats.create.return_value.send_message.side_effect = TimeoutError()
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}), \
+                patch.object(agent.genai, 'Client', return_value=client), \
+                self.assertLogs(agent.logger, 'ERROR'):
+            with self.assertRaises(agent.AgentUnavailableError):
+                agent.responder('Qual o lucro?')
