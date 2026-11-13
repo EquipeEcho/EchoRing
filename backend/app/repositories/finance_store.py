@@ -43,6 +43,7 @@ def translator_costs(session):
     total = func.sum(Service.translator_compensation).label('total')
     rows = session.execute(
         select(User.id, User.name, total, func.count().label('tasks'))
+        .select_from(Service)
         .join(User, User.id == Service.translator_id)
         .where(Service.translator_compensation.is_not(None))
         .group_by(User.id, User.name)
