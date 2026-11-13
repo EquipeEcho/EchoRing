@@ -1,10 +1,12 @@
 """Workflow snapshots and transitions, independent from document delivery status."""
+from sqlalchemy import and_, insert, select, update
+from app.db_models import ServiceWorkflow, User
+from app.database_pg import to_datetime
 
 import json
 from pathlib import Path
 
 from fastapi import HTTPException
-from psycopg.types.json import Jsonb
 
 from app.database_pg import now
 from app.repositories.translation_store import add_event
@@ -13,8 +15,8 @@ TEMPLATES = {item['id']: item for item in json.loads(
     (Path(__file__).resolve().parents[1] / 'data' / 'workflow-templates.json').read_text(encoding='utf-8'))}
 
 
-def workflow_record(connection, service_id):
-    row = connection.execute('SELECT * FROM service_workflows WHERE service_id = ?', (service_id,)).fetchone()
+def workflow_record(session, service_id):
+    row = session.execute(select(ServiceWorkflow.__table__).where(ServiceWorkflow.service_id == service_id)).mappings().first()
     if not row:
         return None
     stages = row['stages']
@@ -26,17 +28,16 @@ def workflow_record(connection, service_id):
     }
 
 
-def assign_workflow(connection, service, template_id, actor, reviewer_id=None):
+def assign_workflow(session, service, template_id, actor, reviewer_id=None):
     # Caller holds the service lock (or has just inserted it inside this transaction).
     if service['status'] == 'Entregue':
         raise HTTPException(409, 'Não é possível iniciar um workflow em um serviço já entregue.')
-    if connection.execute('SELECT 1 FROM service_workflows WHERE service_id = ?', (service['id'],)).fetchone():
+    if session.execute(select(1).select_from(ServiceWorkflow).where(ServiceWorkflow.service_id == service['id'])).mappings().first():
         raise HTTPException(409, 'Este serviço já possui um workflow. Atualize a lista para acompanhar as etapas.')
-    reviewer = connection.execute("SELECT id, name FROM users WHERE id = ? AND active = TRUE AND role IN ('employee', 'admin')",
-                                  (reviewer_id or actor['id'],)).fetchone()
+    reviewer = session.execute(select(User.id, User.name).where(User.id == (reviewer_id or actor['id']), User.active.is_(True), User.role.in_(['employee', 'admin']))).mappings().first()
     if not reviewer:
         raise HTTPException(422, 'Selecione um funcionário ativo para a revisão e o QA.')
-    translator = connection.execute('SELECT id, name FROM users WHERE id = ?', (service['translator_id'],)).fetchone()
+    translator = session.execute(select(User.id, User.name).where(User.id == service['translator_id'])).mappings().first()
     if not translator:
         raise HTTPException(422, 'O serviço precisa de um tradutor cadastrado antes da alocação do workflow.')
     template = TEMPLATES[template_id]
@@ -45,14 +46,13 @@ def assign_workflow(connection, service, template_id, actor, reviewer_id=None):
         responsible = translator if definition['role'] == 'translator' else reviewer if definition['role'] == 'reviewer' else actor
         stages.append({'stageId': definition['id'], 'status': 'current' if index == 0 else 'pending',
                        'assigneeId': responsible['id'], 'assignee': responsible['name']})
-    connection.execute('''INSERT INTO service_workflows (service_id, template_id, definition, stages, assigned_by)
-        VALUES (?, ?, ?, ?, ?)''', (service['id'], template_id, Jsonb(template), Jsonb(stages), actor['id']))
-    add_event(connection, 'Workflow atribuído', service_id=service['id'], actor=actor, note=template['title'])
-    return workflow_record(connection, service['id'])
+    session.execute(insert(ServiceWorkflow).values(service_id=service['id'], template_id=template_id, definition=template, stages=stages, assigned_by=actor['id']))
+    add_event(session, 'Workflow atribuído', service_id=service['id'], actor=actor, note=template['title'])
+    return workflow_record(session, service['id'])
 
 
-def update_stage(connection, service, stage_id, command, actor):
-    row = connection.execute('SELECT * FROM service_workflows WHERE service_id = ? FOR UPDATE', (service['id'],)).fetchone()
+def update_stage(session, service, stage_id, command, actor):
+    row = session.execute(select(ServiceWorkflow.__table__).where(ServiceWorkflow.service_id == service['id']).with_for_update()).mappings().first()
     if not row:
         raise HTTPException(404, 'Este serviço ainda não possui um workflow.')
     if row['revision'] != command.expectedRevision:
@@ -79,15 +79,14 @@ def update_stage(connection, service, stage_id, command, actor):
             stages[index + 1]['status'] = 'current'
     else:
         stage['status'] = 'blocked' if command.action == 'block' else 'current'
-    connection.execute('UPDATE service_workflows SET stages = ?, revision = revision + 1, updated_at = ? WHERE service_id = ?',
-                       (Jsonb(stages), timestamp, service['id']))
+    session.execute(update(ServiceWorkflow).values(stages=stages, revision=(ServiceWorkflow.revision + 1), updated_at=to_datetime(timestamp)).where(ServiceWorkflow.service_id == service['id']))
     labels = {'complete': 'Etapa concluída', 'block': 'Etapa bloqueada', 'resume': 'Etapa retomada'}
-    add_event(connection, labels[command.action], service_id=service['id'], actor=actor,
+    add_event(session, labels[command.action], service_id=service['id'], actor=actor,
                      note=definition['title'] + (': ' + command.note if command.note else ''))
-    return workflow_record(connection, service['id'])
+    return workflow_record(session, service['id'])
 
 
-def synchronize_delivery(connection, service, actor, decision, note):
+def synchronize_delivery(session, service, actor, decision, note):
     """Advance only the contiguous work declared by a file submission or its review.
 
     The service row is locked by the caller. A submission confirms the translator's
@@ -95,7 +94,7 @@ def synchronize_delivery(connection, service, actor, decision, note):
     another translator stage (e.g. documentary formalization). Rework reopens the
     latest translator package while retaining the audit trail.
     """
-    row = connection.execute('SELECT * FROM service_workflows WHERE service_id = ? FOR UPDATE', (service['id'],)).fetchone()
+    row = session.execute(select(ServiceWorkflow.__table__).where(ServiceWorkflow.service_id == service['id']).with_for_update()).mappings().first()
     if not row:
         return None
     stages, definitions = row['stages'], row['definition']['stages']
@@ -107,7 +106,7 @@ def synchronize_delivery(connection, service, actor, decision, note):
     def complete(index):
         stages[index].update(status='completed', completedAt=timestamp, completedBy=actor['name'],
                              updatedAt=timestamp, updatedBy=actor['name'], note=note, completionSource='delivery' if decision == 'submit' else 'review')
-        add_event(connection, 'Etapa concluída', service_id=service['id'], actor=actor,
+        add_event(session, 'Etapa concluída', service_id=service['id'], actor=actor,
                          note=definitions[index]['title'] + ': ' + note)
 
     if decision == 'request_revision':
@@ -121,7 +120,7 @@ def synchronize_delivery(connection, service, actor, decision, note):
                              if key in ('stageId', 'assigneeId', 'assignee', 'deadline')}
             stages[index]['status'] = 'current' if index == previous else 'pending'
         stages[previous].update(note=note, updatedAt=timestamp, updatedBy=actor['name'])
-        add_event(connection, 'Etapas reabertas', service_id=service['id'], actor=actor,
+        add_event(session, 'Etapas reabertas', service_id=service['id'], actor=actor,
                          note=definitions[previous]['title'] + ': ' + note)
     elif decision == 'submit':
         if active == len(stages):
@@ -130,7 +129,7 @@ def synchronize_delivery(connection, service, actor, decision, note):
             # Manual completion may already have handed the package to the team.
             if not any(definitions[index]['role'] == 'translator' and stages[index]['status'] == 'completed' for index in range(active)):
                 raise HTTPException(409, 'A equipe precisa concluir a preparação do workflow antes do envio.')
-            return workflow_record(connection, service['id'])
+            return workflow_record(session, service['id'])
         while active < len(stages) and definitions[active]['role'] == 'translator':
             if stages[active].get('assigneeId') != actor['id']:
                 raise HTTPException(403, 'Esta etapa pertence a outro tradutor.')
@@ -142,12 +141,11 @@ def synchronize_delivery(connection, service, actor, decision, note):
         if active < len(stages) and definitions[active]['role'] == 'translator':
             raise HTTPException(409, 'O tradutor precisa concluir a etapa atual antes da aprovação.')
         if active == len(stages):
-            return workflow_record(connection, service['id'])
+            return workflow_record(session, service['id'])
         while active < len(stages) and definitions[active]['role'] != 'translator':
             complete(active)
             active += 1
         if active < len(stages):
             stages[active]['status'] = 'current'
-    connection.execute('UPDATE service_workflows SET stages = ?, revision = revision + 1, updated_at = ? WHERE service_id = ?',
-                       (Jsonb(stages), timestamp, service['id']))
-    return workflow_record(connection, service['id'])
+    session.execute(update(ServiceWorkflow).values(stages=stages, revision=(ServiceWorkflow.revision + 1), updated_at=to_datetime(timestamp)).where(ServiceWorkflow.service_id == service['id']))
+    return workflow_record(session, service['id'])

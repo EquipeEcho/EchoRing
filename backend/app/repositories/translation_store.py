@@ -1,15 +1,22 @@
 """Translation records, document readers, serialization and persisted events."""
+from sqlalchemy import and_, func, insert, or_, select, update
+from app.db_models import Delivery, DeliveryFile, Service, TranslationRequest, User, WorkflowEvent
+from app.database_pg import to_datetime
 import base64
 import unicodedata
 from fastapi import HTTPException
-from psycopg.types.json import Jsonb
 from app.database_pg import json_data, now
 from app.core.translation_scope import aggregate_status, request_targets
 
 ACCENTED = 'áàâãäéèêëíìîïóòôõöúùûüç'
 PLAIN = 'aaaaaeeeeiiiiooooouuuuc'
-SEARCHABLE_REQUEST = f'''translate(lower(concat_ws(' ', id, data->>'title', data->>'name', data->>'email',
-    data->>'company', data->>'source', data->>'target', data->>'targets')), '{ACCENTED}', '{PLAIN}')'''
+SEARCHABLE_REQUEST = func.translate(
+    func.lower(func.concat_ws(
+        ' ', TranslationRequest.id,
+        *(TranslationRequest.data[field].astext for field in
+          ('title', 'name', 'email', 'company', 'source', 'target', 'targets')),
+    )), ACCENTED, PLAIN,
+)
 
 
 def search_pattern(search):
@@ -18,109 +25,114 @@ def search_pattern(search):
     return '%' + folded.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
 
 
-def list_requests_page(connection, statuses=None, search='', limit=20, offset=0):
+def list_requests_page(session, statuses=None, search='', limit=20, offset=0):
     """Filtra e pagina as solicitações no banco e conta os status da busca atual."""
-    search_conditions, search_parameters = [], []
+    search_conditions = []
     if search.strip():
-        search_conditions.append(SEARCHABLE_REQUEST + ' LIKE ?')
-        search_parameters.append(search_pattern(search))
-    conditions, parameters = list(search_conditions), list(search_parameters)
+        search_conditions.append(SEARCHABLE_REQUEST.ilike(search_pattern(search), escape='\\'))
+    conditions = list(search_conditions)
+    request_status = TranslationRequest.data['status'].astext
     if statuses:
-        conditions.append("data->>'status' = ANY(?)")
-        parameters.append(statuses)
-    where = ' WHERE ' + ' AND '.join(conditions) if conditions else ''
-    search_where = ' WHERE ' + ' AND '.join(search_conditions) if search_conditions else ''
-    total = connection.execute('SELECT COUNT(*) AS total FROM requests' + where, parameters).fetchone()['total']
-    rows = connection.execute(
-        'SELECT data FROM requests' + where + ' ORDER BY created_at DESC, id LIMIT ? OFFSET ?',
-        [*parameters, limit, offset],
-    ).fetchall()
-    status_counts = connection.execute(
-        "SELECT data->>'status' AS status, COUNT(*) AS total FROM requests" + search_where + " GROUP BY data->>'status'",
-        search_parameters,
-    ).fetchall()
+        conditions.append(request_status.in_(statuses))
+    total = session.execute(
+        select(func.count()).select_from(TranslationRequest).where(*conditions)
+    ).scalar_one()
+    rows = session.execute(
+        select(TranslationRequest.data).where(*conditions)
+        .order_by(TranslationRequest.created_at.desc(), TranslationRequest.id)
+        .limit(limit).offset(offset)
+    ).mappings().all()
+    status_counts = session.execute(
+        select(request_status.label('status'), func.count().label('total'))
+        .where(*search_conditions).group_by(request_status)
+    ).mappings().all()
     return [json_data(row['data']) for row in rows], total, {row['status']: row['total'] for row in status_counts}
 
 
-def read_request(connection, request_id, for_update=False):
+def read_request(session, request_id, for_update=False):
     """Busca a solicitação e, quando necessário, bloqueia a linha durante a alteração."""
-    suffix = ' FOR UPDATE' if for_update else ''
-    row = connection.execute('SELECT data, sending FROM requests WHERE id = ?' + suffix, (request_id,)).fetchone()
+    statement = select(TranslationRequest.data, TranslationRequest.sending).where(TranslationRequest.id == request_id)
+    if for_update:
+        statement = statement.with_for_update()
+    row = session.execute(statement).mappings().first()
     if not row:
         raise HTTPException(404, 'Solicitação não encontrada.')
     return json_data(row['data']), row['sending']
 
 
-def read_service(connection, service_id, for_update=False):
+def read_service(session, service_id, for_update=False):
     """Busca uma tarefa e permite bloquear a linha em mudanças de estado."""
-    suffix = ' FOR UPDATE' if for_update else ''
-    service = connection.execute('SELECT * FROM services WHERE id = ?' + suffix, (service_id,)).fetchone()
+    statement = select(Service.__table__).where(Service.id == service_id)
+    if for_update:
+        statement = statement.with_for_update()
+    service = session.execute(statement).mappings().first()
     if not service:
         raise HTTPException(404, 'Tarefa não encontrada.')
     return service
 
 
-def read_delivery(connection, delivery_id, for_update=False):
+def delivery_query():
+    """Consulta comum das versões e dos responsáveis, incluindo contas ausentes."""
+    translator_user = User.__table__.alias('translator_user')
+    reviewer = User.__table__.alias('reviewer')
+    return (
+        select(Delivery.__table__, Service.title.label('service_title'),
+               translator_user.c.name.label('translator_name'), reviewer.c.name.label('reviewer_name'))
+        .select_from(Delivery.__table__.join(Service.__table__, Service.id == Delivery.service_id)
+                     .outerjoin(translator_user, translator_user.c.id == Delivery.translator_id)
+                     .outerjoin(reviewer, reviewer.c.id == Delivery.reviewed_by))
+    )
+
+
+def read_delivery(session, delivery_id, for_update=False):
     """Busca uma entrega junto com os nomes do tradutor e de quem revisou."""
-    suffix = ' FOR UPDATE OF deliveries' if for_update else ''
-    delivery = connection.execute(
-        '''SELECT deliveries.*, services.title AS service_title,
-                  translator_user.name AS translator_name, reviewer.name AS reviewer_name
-           FROM deliveries JOIN services ON services.id = deliveries.service_id
-           LEFT JOIN users AS translator_user ON translator_user.id = deliveries.translator_id
-           LEFT JOIN users AS reviewer ON reviewer.id = deliveries.reviewed_by
-           WHERE deliveries.id = ?''' + suffix,
-        (delivery_id,),
-    ).fetchone()
+    statement = delivery_query().where(Delivery.id == delivery_id)
+    if for_update:
+        statement = statement.with_for_update(of=Delivery.__table__)
+    delivery = session.execute(statement).mappings().first()
     if not delivery:
         raise HTTPException(404, 'Entrega não encontrada.')
     return delivery
 
 
-def add_event(connection, status, request_id=None, service_id=None, actor=None, note=None, created_at=None):
+def add_event(session, status, request_id=None, service_id=None, actor=None, note=None, created_at=None):
     """Registra uma mudança no histórico com responsável, data e observação."""
     actor_name = actor.get('name') if actor else ('Cliente' if status in ('Orçamento aprovado', 'Orçamento recusado') else 'Sistema')
-    connection.execute(
-        '''INSERT INTO workflow_events (request_id, service_id, status, note, actor_id, actor_name, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)''',
-        (request_id, service_id, status, note or None, actor.get('id') if actor else None,
-         actor_name, created_at or now()),
-    )
+    session.execute(insert(WorkflowEvent).values(request_id=request_id, service_id=service_id, status=status, note=note or None, actor_id=actor.get('id') if actor else None, actor_name=actor_name, created_at=to_datetime(created_at or now())))
 
 
-def event_history(connection, request_id=None, service_id=None):
+def event_history(session, request_id=None, service_id=None):
     """Monta a linha do tempo completa de uma solicitação ou tarefa."""
     if service_id:
-        rows = connection.execute(
-            'SELECT status, note, actor_name, created_at FROM workflow_events WHERE service_id = ? OR (service_id IS NULL AND request_id = (SELECT request_id FROM services WHERE id = ?)) ORDER BY id',
-            (service_id, service_id),
-        ).fetchall()
+        rows = session.execute(
+            select(WorkflowEvent.status, WorkflowEvent.note, WorkflowEvent.actor_name, WorkflowEvent.created_at)
+            .where(or_(WorkflowEvent.service_id == service_id, and_(
+                WorkflowEvent.service_id.is_(None),
+                WorkflowEvent.request_id == select(Service.request_id).where(Service.id == service_id).scalar_subquery(),
+            ))).order_by(WorkflowEvent.id)
+        ).mappings().all()
     else:
-        rows = connection.execute(
-            'SELECT status, note, actor_name, created_at FROM workflow_events WHERE request_id = ? ORDER BY id',
-            (request_id,),
-        ).fetchall()
+        rows = session.execute(select(WorkflowEvent.status, WorkflowEvent.note, WorkflowEvent.actor_name, WorkflowEvent.created_at).where(WorkflowEvent.request_id == request_id).order_by(WorkflowEvent.id)).mappings().all()
     return [
         {'status': row['status'], 'note': row['note'] or '', 'actorName': row['actor_name'] or 'Sistema', 'createdAt': row['created_at']}
         for row in rows
     ]
 
 
-def sanitized_request(data, connection=None, include_content=False):
+def sanitized_request(data, session=None, include_content=False):
     """Prepara a solicitação para resposta sem vazar tokens ou anexos desnecessários."""
     result = {key: value for key, value in data.items() if key not in ('quoteResponseTokenDigest', 'quoteResponseExpiresAt')}
     result['targets'] = request_targets(data)
     result['attachments'] = [file if include_content else {**file, 'content': ''} for file in data.get('attachments', [])]
-    if connection:
-        result['history'] = event_history(connection, request_id=data['id'])
-        tasks = connection.execute(
-            '''SELECT services.id, services.status, services.source, services.target, services.deadline,
-                      services.started_at, services.delivered_at, users.id AS translator_id,
-                      users.name AS translator_name, users.email AS translator_email
-               FROM services LEFT JOIN users ON users.id = services.translator_id
-               WHERE services.request_id = ? ORDER BY services.created_at, services.id''',
-            (data['id'],),
-        ).fetchall()
+    if session is not None:
+        result['history'] = event_history(session, request_id=data['id'])
+        tasks = session.execute(
+            select(Service.id, Service.status, Service.source, Service.target, Service.deadline,
+                   Service.started_at, Service.delivered_at, User.id.label('translator_id'),
+                   User.name.label('translator_name'), User.email.label('translator_email'))
+            .select_from(Service.__table__.outerjoin(User.__table__, User.id == Service.translator_id))
+            .where(Service.request_id == data['id']).order_by(Service.created_at, Service.id)
+        ).mappings().all()
         result['tasks'] = [
             {
                 'id': task['id'], 'status': task['status'], 'deadline': task['deadline'],
@@ -138,11 +150,11 @@ def sanitized_request(data, connection=None, include_content=False):
     return result
 
 
-def update_request_status(connection, request_id, status, actor=None, note=None, service_id=None, timestamp_field=None):
+def update_request_status(session, request_id, status, actor=None, note=None, service_id=None, timestamp_field=None):
     """Atualiza o estado da solicitação e grava o mesmo passo no histórico."""
-    data, _ = read_request(connection, request_id, for_update=True)
+    data, _ = read_request(session, request_id, for_update=True)
     changed_at = now()
-    services = connection.execute('SELECT status, target FROM services WHERE request_id = ?', (request_id,)).fetchall()
+    services = session.execute(select(Service.status, Service.target).where(Service.request_id == request_id)).mappings().all()
     data['status'] = aggregate_status(data, services)
     if timestamp_field:
         if timestamp_field in ('startedAt', 'assignedAt'):
@@ -151,20 +163,17 @@ def update_request_status(connection, request_id, status, actor=None, note=None,
             data[timestamp_field] = changed_at
     if data['status'] != 'Entregue':
         data.pop('deliveredAt', None)
-    connection.execute('UPDATE requests SET data = ? WHERE id = ?', (Jsonb(data), request_id))
+    session.execute(update(TranslationRequest).values(data=data).where(TranslationRequest.id == request_id))
     if service_id and len(request_targets(data)) > 1:
-        service = read_service(connection, service_id)
+        service = read_service(session, service_id)
         note = f"{service['source']} → {service['target']}" + (f' · {note}' if note else '')
-    add_event(connection, status, request_id, service_id, actor, note, changed_at)
+    add_event(session, status, request_id, service_id, actor, note, changed_at)
     return data
 
 
-def delivery_documents(connection, delivery):
+def delivery_documents(session, delivery):
     """Lista todos os arquivos de uma versão e mantém compatibilidade com versões antigas."""
-    files = connection.execute(
-        'SELECT position, name, media_type, size, content FROM delivery_files WHERE delivery_id = ? ORDER BY position',
-        (delivery['id'],),
-    ).fetchall()
+    files = session.execute(select(DeliveryFile.position, DeliveryFile.name, DeliveryFile.media_type, DeliveryFile.size, DeliveryFile.content).where(DeliveryFile.delivery_id == delivery['id']).order_by(DeliveryFile.position)).mappings().all()
     if files:
         return files
     legacy = delivery.get('files') or []
@@ -181,7 +190,7 @@ def delivery_documents(connection, delivery):
     }]
 
 
-def delivery_record(connection, delivery):
+def delivery_record(session, delivery):
     """Formata os metadados da entrega sem devolver o conteúdo binário do arquivo."""
     record = {
         'id': delivery['id'], 'serviceId': delivery['service_id'],
@@ -191,7 +200,7 @@ def delivery_record(connection, delivery):
         'status': delivery['status'], 'submittedAt': delivery['submitted_at'],
         'files': [
             {'index': file['position'], 'name': file['name'], 'mediaType': file['media_type'], 'size': file['size']}
-            for file in delivery_documents(connection, delivery)
+            for file in delivery_documents(session, delivery)
         ],
     }
     if delivery['feedback']:
@@ -203,18 +212,18 @@ def delivery_record(connection, delivery):
     return record
 
 
-def task_record(connection, service):
+def task_record(session, service):
     """Reúne tarefa, cliente, tradutor, última versão e histórico em uma resposta."""
     from app.services.translation_workflows_service import workflow_record
     request_data = None
     if service['request_id']:
-        row = connection.execute('SELECT data FROM requests WHERE id = ?', (service['request_id'],)).fetchone()
+        row = session.execute(select(TranslationRequest.data).where(TranslationRequest.id == service['request_id'])).mappings().first()
         if row:
             request_data = json_data(row['data'])
-    latest = connection.execute('SELECT * FROM deliveries WHERE service_id = ? ORDER BY version DESC LIMIT 1', (service['id'],)).fetchone()
-    assigned = connection.execute('SELECT id, name, email FROM users WHERE id = ?', (service['translator_id'],)).fetchone()
+    latest = session.execute(select(Delivery.__table__).where(Delivery.service_id == service['id']).order_by(Delivery.version.desc()).limit(1)).mappings().first()
+    assigned = session.execute(select(User.id, User.name, User.email).where(User.id == service['translator_id'])).mappings().first()
     record = {
-        'workflow': workflow_record(connection, service['id']),
+        'workflow': workflow_record(session, service['id']),
         'compensation': str(service['translator_compensation']) if service.get('translator_compensation') is not None else None,
         'id': service['id'], 'requestId': service['request_id'], 'title': service['title'],
         'status': service['status'], 'deadline': service['deadline'], 'createdAt': service['created_at'],
@@ -223,10 +232,10 @@ def task_record(connection, service):
         'observations': service['observations'] or '', 'source': service['source'] or '',
         'target': service['target'] or '', 'lastVersion': latest['version'] if latest else 0,
         'translator': {'id': assigned['id'], 'name': assigned['name'], 'email': assigned['email']} if assigned else None,
-        'history': event_history(connection, service_id=service['id']),
+        'history': event_history(session, service_id=service['id']),
     }
     if latest:
-        latest_files = delivery_documents(connection, latest)
+        latest_files = delivery_documents(session, latest)
         record['lastDelivery'] = {
             'id': latest['id'], 'name': latest['name'], 'size': latest['size'], 'status': latest['status'],
             'version': latest['version'], 'submittedAt': latest['submitted_at'], 'feedback': latest['feedback'] or '',
@@ -250,22 +259,22 @@ def task_record(connection, service):
     return record
 
 
-def _request_for_quote(connection, quote_id):
+def _request_for_quote(session, quote_id):
     """Localiza e bloqueia a solicitação ligada ao orçamento respondido pelo cliente."""
-    row = connection.execute(
-        "SELECT data FROM requests WHERE data -> 'quote' ->> 'id' = ? FOR UPDATE",
-        (quote_id,),
-    ).fetchone()
+    row = session.execute(
+        select(TranslationRequest.data)
+        .where(TranslationRequest.data['quote']['id'].astext == quote_id).with_for_update()
+    ).mappings().first()
     if not row:
         raise HTTPException(404, 'Orçamento não encontrado.')
     return json_data(row['data'])
 
 
-def original_attachment(connection, service, attachment_index):
+def original_attachment(session, service, attachment_index):
     """Recupera um anexo original pelo índice dentro da solicitação."""
     if not service['request_id']:
         raise HTTPException(404, 'Documento original não encontrado.')
-    data, _ = read_request(connection, service['request_id'])
+    data, _ = read_request(session, service['request_id'])
     attachments = data.get('attachments', [])
     if attachment_index < 0 or attachment_index >= len(attachments):
         raise HTTPException(404, 'Documento original não encontrado.')

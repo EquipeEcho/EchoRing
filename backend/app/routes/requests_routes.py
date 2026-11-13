@@ -1,11 +1,13 @@
 """Translation intake, quotes, client decisions and initial assignment."""
+from sqlalchemy import and_, insert, select, update
+from app.db_models import JobOffer, Service, TranslationRequest, User
+from app.database_pg import to_datetime
 import hashlib
 import hmac
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
-from psycopg.types.json import Jsonb
 from app.core.portal_auth import staff
 from app.core.security import throttle
 from app.core.languages import language
@@ -28,10 +30,10 @@ def create_request(data: Intake, request: Request):
     throttle(request, 'intake', 10)
     created_at = now()
     record = {**data.model_dump(), 'id': 'SOL-' + secrets.token_hex(6).upper(), 'createdAt': created_at, 'status': 'Recebido', 'demo': False}
-    with database() as connection:
-        connection.execute('INSERT INTO requests (id, data) VALUES (?, ?)', (record['id'], Jsonb(record)))
-        add_event(connection, 'Recebido', request_id=record['id'], created_at=created_at)
-        response = sanitized_request(record, connection)
+    with database() as session:
+        session.execute(insert(TranslationRequest).values(id=record['id'], data=record))
+        add_event(session, 'Recebido', request_id=record['id'], created_at=created_at)
+        response = sanitized_request(record, session)
     try:
         client_store.upsert_quote_client(data, datetime.fromisoformat(created_at))
     except PyMongoError as error:
@@ -53,17 +55,17 @@ def create_manual_request(data: Intake, user: dict = Depends(staff)):
         'status': 'Recebido',
         'demo': False,
     }
-    with database() as connection:
-        connection.execute('INSERT INTO requests (id, data) VALUES (?, ?)', (record['id'], Jsonb(record)))
+    with database() as session:
+        session.execute(insert(TranslationRequest).values(id=record['id'], data=record))
         add_event(
-            connection,
+            session,
             'Recebido',
             request_id=record['id'],
             actor=user,
             note='Cadastro manual do cliente.',
             created_at=created_at,
         )
-        return sanitized_request(record, connection)
+        return sanitized_request(record, session)
 
 
 @router.get('/requests')
@@ -76,10 +78,10 @@ def list_requests(
 ):
     """Lista as solicitações da equipe com filtro por grupo ou status, busca e paginação."""
     statuses = resolve_statuses(status)
-    with database() as connection:
-        records, total, status_counts = list_requests_page(connection, statuses, search, limit, offset)
+    with database() as session:
+        records, total, status_counts = list_requests_page(session, statuses, search, limit, offset)
         return {
-            'items': [sanitized_request(record, connection) for record in records],
+            'items': [sanitized_request(record, session) for record in records],
             'total': total,
             'limit': limit,
             'offset': offset,
@@ -90,9 +92,9 @@ def list_requests(
 @router.get('/requests/{request_id}')
 def request_detail(request_id: str, user: dict = Depends(staff)):
     """Entrega à equipe todos os dados da solicitação, incluindo os anexos."""
-    with database() as connection:
-        data, _ = read_request(connection, request_id)
-        return sanitized_request(data, connection, include_content=True)
+    with database() as session:
+        data, _ = read_request(session, request_id)
+        return sanitized_request(data, session, include_content=True)
 
 
 @router.patch('/requests/{request_id}')
@@ -102,8 +104,8 @@ def update_request(request_id: str, changes: Update, user: dict = Depends(staff)
         raise HTTPException(422, 'Status inválido.')
     if changes.status is None and changes.quote is None:
         raise HTTPException(422, 'Nenhuma alteração informada.')
-    with database() as connection:
-        data, sending = read_request(connection, request_id, for_update=True)
+    with database() as session:
+        data, sending = read_request(session, request_id, for_update=True)
         if sending or data['status'] not in ('Recebido', 'Em análise'):
             raise HTTPException(409, 'Esta solicitação não aceita mais alterações no orçamento.')
         previous_status = data['status']
@@ -117,10 +119,10 @@ def update_request(request_id: str, changes: Update, user: dict = Depends(staff)
             data['status'] = changes.status
         if data['status'] == 'Em análise' and not data.get('analysisStartedAt'):
             data['analysisStartedAt'] = now()
-        connection.execute('UPDATE requests SET data = ? WHERE id = ?', (Jsonb(data), request_id))
+        session.execute(update(TranslationRequest).values(data=data).where(TranslationRequest.id == request_id))
         if previous_status != data['status']:
-            add_event(connection, data['status'], request_id=request_id, actor=user, created_at=data.get('analysisStartedAt'))
-        return sanitized_request(data, connection, include_content=True)
+            add_event(session, data['status'], request_id=request_id, actor=user, created_at=data.get('analysisStartedAt'))
+        return sanitized_request(data, session, include_content=True)
 
 
 @router.post('/requests/{request_id}/send-quote')
@@ -128,8 +130,8 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
     """Protege contra envio duplicado e confirma o estado somente após enviar o e-mail."""
     auto_approve = environment_flag('AUTO_APPROVE_QUOTES')
     response_token = '' if auto_approve else secrets.token_urlsafe(48)
-    with database() as connection:
-        data, sending = read_request(connection, request_id, for_update=True)
+    with database() as session:
+        data, sending = read_request(session, request_id, for_update=True)
         if sending or data['status'] == 'Orçamento enviado':
             raise HTTPException(409, 'Este orçamento já foi enviado ou está em envio.')
         if data['status'] != 'Em análise' or not data.get('quote'):
@@ -140,7 +142,7 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
         data['quoteResponseTokenDigest'] = hashlib.sha256(response_token.encode()).hexdigest()
         days = max(1, min(int(os.getenv('QUOTE_RESPONSE_DAYS', '30')), 365))
         data['quoteResponseExpiresAt'] = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
-        connection.execute('UPDATE requests SET data = ?, sending = TRUE WHERE id = ?', (Jsonb(data), request_id))
+        session.execute(update(TranslationRequest).values(data=data, sending=True).where(TranslationRequest.id == request_id))
     # O envio fica fora da transação para não segurar o bloqueio do banco enquanto o SMTP responde.
     if auto_approve:
         approved_at = now()
@@ -149,31 +151,31 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
             quoteRespondedAt=approved_at, autoApproved=True,
             approvedTargets=request_targets(data), approvedAmount=data['quote']['amount'],
         )
-        with database() as connection:
-            connection.execute('UPDATE requests SET data = ?, sending = FALSE WHERE id = ?', (Jsonb(data), request_id))
+        with database() as session:
+            session.execute(update(TranslationRequest).values(data=data, sending=False).where(TranslationRequest.id == request_id))
             add_event(
-                connection, 'Orçamento aprovado', request_id=request_id, actor=user,
+                session, 'Orçamento aprovado', request_id=request_id, actor=user,
                 note='Aprovação automática habilitada para testes.', created_at=approved_at,
             )
-            return sanitized_request(data, connection, include_content=True)
+            return sanitized_request(data, session, include_content=True)
     try:
         deliver_quote(data, response_token)
     except Exception as error:
-        with database() as connection:
-            connection.execute('UPDATE requests SET sending = FALSE WHERE id = ?', (request_id,))
+        with database() as session:
+            session.execute(update(TranslationRequest).values(sending=False).where(TranslationRequest.id == request_id))
         if isinstance(error, HTTPException):
             raise
         raise HTTPException(502, 'Não foi possível confirmar o envio pelo provedor. O rascunho foi preservado; confira a caixa de saída antes de tentar novamente.') from error
     sent_at = now()
     data.update(status='Orçamento enviado', emailSentAt=sent_at, quoteSentAt=sent_at)
-    with database() as connection:
-        connection.execute('UPDATE requests SET data = ?, sending = FALSE WHERE id = ?', (Jsonb(data), request_id))
-        add_event(connection, 'Orçamento enviado', request_id=request_id, actor=user, created_at=sent_at)
-        return sanitized_request(data, connection, include_content=True)
+    with database() as session:
+        session.execute(update(TranslationRequest).values(data=data, sending=False).where(TranslationRequest.id == request_id))
+        add_event(session, 'Orçamento enviado', request_id=request_id, actor=user, created_at=sent_at)
+        return sanitized_request(data, session, include_content=True)
 
 
-def authorized_quote(connection, quote_id, token):
-    data = _request_for_quote(connection, quote_id)
+def authorized_quote(session, quote_id, token):
+    data = _request_for_quote(session, quote_id)
     digest = hashlib.sha256(token.encode()).hexdigest()
     if not data.get('quoteResponseTokenDigest') or not hmac.compare_digest(digest, data['quoteResponseTokenDigest']):
         raise HTTPException(403, 'Este link de orçamento é inválido.')
@@ -193,8 +195,8 @@ def authorized_quote(connection, quote_id, token):
 @router.post('/quotes/{quote_id}/preview')
 def preview_quote(quote_id: str, access: QuoteAccess, request: Request):
     throttle(request, 'quote-preview', 40)
-    with database() as connection:
-        data = authorized_quote(connection, quote_id, access.token)
+    with database() as session:
+        data = authorized_quote(session, quote_id, access.token)
         return {key: data[key] for key in ('id', 'title', 'service', 'source', 'quote')} | {'targets': request_targets(data)}
 
 
@@ -202,8 +204,8 @@ def preview_quote(quote_id: str, access: QuoteAccess, request: Request):
 def decide_quote(quote_id: str, decision: QuoteDecision, request: Request):
     """One atomic decision may approve a subset of the priced languages."""
     throttle(request, 'quote-decision', 20)
-    with database() as connection:
-        data = authorized_quote(connection, quote_id, decision.token)
+    with database() as session:
+        data = authorized_quote(session, quote_id, decision.token)
         targets = []
         if decision.decision == 'approve':
             if len(request_targets(data)) > 1 and not decision.targets:
@@ -218,8 +220,8 @@ def decide_quote(quote_id: str, decision: QuoteDecision, request: Request):
         responded_at = now()
         data.update(status=status, quoteDecision=decision.decision, quoteRespondedAt=responded_at,
                     approvedTargets=targets, approvedAmount=str(amount))
-        connection.execute('UPDATE requests SET data = ? WHERE id = ?', (Jsonb(data), data['id']))
-        add_event(connection, status, request_id=data['id'], created_at=responded_at,
+        session.execute(update(TranslationRequest).values(data=data).where(TranslationRequest.id == data['id']))
+        add_event(session, status, request_id=data['id'], created_at=responded_at,
                   note='Idiomas aprovados: ' + ', '.join(targets) if targets else 'Proposta recusada.')
     return {'requestId': data['id'], 'quoteId': quote_id, 'title': data['title'], 'status': status,
             'respondedAt': responded_at, 'approvedTargets': targets, 'approvedAmount': str(amount)}
@@ -228,32 +230,26 @@ def decide_quote(quote_id: str, decision: QuoteDecision, request: Request):
 @router.post('/requests/{request_id}/assign', status_code=201)
 def assign_translator(request_id: str, assignment: TranslatorAssignment, background_tasks: BackgroundTasks, user: dict = Depends(staff)):
     """Cria uma tarefa para uma solicitação aprovada e vincula o tradutor escolhido."""
-    with database() as connection:
-        data, _ = read_request(connection, request_id, for_update=True)
+    with database() as session:
+        data, _ = read_request(session, request_id, for_update=True)
         if not approved_request(data):
             raise HTTPException(409, 'A solicitação precisa ter um orçamento aprovado antes da atribuição.')
         target = resolve_target(data, assignment.target, approved=True)
-        if connection.execute('SELECT 1 FROM services WHERE request_id = ? AND target = ?', (request_id, target)).fetchone():
+        if session.execute(select(1).select_from(Service).where(and_(Service.request_id == request_id, Service.target == target))).mappings().first():
             raise HTTPException(409, 'Este idioma já possui uma tarefa.')
-        if connection.execute('SELECT 1 FROM job_offers WHERE request_id = ? AND target = ?', (request_id, target)).fetchone():
+        if session.execute(select(1).select_from(JobOffer).where(and_(JobOffer.request_id == request_id, JobOffer.target == target))).mappings().first():
             raise HTTPException(409, 'Esta solicitação utiliza ofertas. O tradutor precisa aceitar uma oportunidade.')
-        assigned = connection.execute("SELECT id, name, email FROM users WHERE id = ? AND role = 'translator' AND active = TRUE AND onboarding_required = FALSE", (assignment.translatorId,)).fetchone()
+        assigned = session.execute(select(User.id, User.name, User.email).where(and_(User.id == assignment.translatorId, User.role == 'translator', User.active == True, User.onboarding_required == False))).mappings().first()
         if not assigned:
             raise HTTPException(422, 'Selecione um tradutor ativo.')
         task_id = 'TRD-' + secrets.token_hex(6).upper()
         created_at = now()
-        connection.execute(
-            '''INSERT INTO services
-               (id, request_id, title, translator_id, status, deadline, observations, source, target, created_at, updated_at)
-               VALUES (?, ?, ?, ?, 'Tradutor atribuído', ?, ?, ?, ?, ?, ?)''',
-            (task_id, request_id, data['title'], assigned['id'], assignment.deadline, assignment.observations,
-             data['source'], target, created_at, created_at),
-        )
-        update_request_status(connection, request_id, 'Tradutor atribuído', user,
+        session.execute(insert(Service).values(id=task_id, request_id=request_id, title=data['title'], translator_id=assigned['id'], status='Tradutor atribuído', deadline=assignment.deadline, observations=assignment.observations, source=data['source'], target=target, created_at=to_datetime(created_at), updated_at=to_datetime(created_at)))
+        update_request_status(session, request_id, 'Tradutor atribuído', user,
                               assignment.observations, task_id, 'assignedAt')
         if assignment.workflowTemplateId:
             from app.services.translation_workflows_service import assign_workflow
-            assign_workflow(connection, read_service(connection, task_id), assignment.workflowTemplateId, user)
-        task = task_record(connection, read_service(connection, task_id))
+            assign_workflow(session, read_service(session, task_id), assignment.workflowTemplateId, user)
+        task = task_record(session, read_service(session, task_id))
     notify_translator_assigned(assigned, {**data, 'target': target}, task_id, assignment.deadline, background_tasks)
     return task
