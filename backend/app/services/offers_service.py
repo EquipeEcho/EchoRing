@@ -3,6 +3,9 @@
 All offer mutations acquire the request row before offer rows. This also
 serializes with the legacy assignment endpoint and the unique service index.
 """
+from sqlalchemy import and_, func, insert, select, update
+from app.db_models import JobOffer, JobOfferEvent, OfferNotification, TranslatorProfile, User
+from app.database_pg import to_datetime
 
 from fastapi import HTTPException
 
@@ -20,45 +23,42 @@ def compatible(account, request):
                 source and target and source != target and {source, target} <= languages)
 
 
-def translator_accounts(connection):
-    return connection.execute('''SELECT users.id, users.name, users.email, users.active,
-        users.onboarding_required, translator_profiles.data AS profile FROM users
-        LEFT JOIN translator_profiles ON translator_profiles.user_id = users.id
-        WHERE users.role = 'translator' ORDER BY LOWER(users.name)''').fetchall()
+def translator_accounts(session):
+    return session.execute(
+        select(User.id, User.name, User.email, User.active, User.onboarding_required,
+               TranslatorProfile.data.label('profile'))
+        .outerjoin(TranslatorProfile, TranslatorProfile.user_id == User.id)
+        .where(User.role == 'translator').order_by(func.lower(User.name))
+    ).mappings().all()
 
 
-def notify(connection, offer, user_id, message, href):
-    connection.execute('''INSERT INTO offer_notifications (user_id, offer_id, message, href)
-        VALUES (?, ?, ?, ?)''', (user_id, offer['id'], message, href))
+def notify(session, offer, user_id, message, href):
+    session.execute(insert(OfferNotification).values(user_id=user_id, offer_id=offer['id'], message=message, href=href))
 
 
-def transition(connection, offer, status, actor=None, note=''):
-    connection.execute('UPDATE job_offers SET status = ?, decided_at = ? WHERE id = ?',
-                       (status, now(), offer['id']))
-    connection.execute('''INSERT INTO job_offer_events (offer_id, status, actor_id, note)
-        VALUES (?, ?, ?, ?)''', (offer['id'], status, actor['id'] if actor else None, note))
+def transition(session, offer, status, actor=None, note=''):
+    session.execute(update(JobOffer).values(status=status, decided_at=to_datetime(now())).where(JobOffer.id == offer['id']))
+    session.execute(insert(JobOfferEvent).values(offer_id=offer['id'], status=status, actor_id=(actor['id'] if actor else None), note=note))
     labels = {'accepted': 'aceita', 'declined': 'recusada', 'expired': 'expirada', 'cancelled': 'cancelada'}
-    notify(connection, offer, offer['translator_id'], f"Oferta {labels[status]}. {note}", '/oportunidades')
-    notify(connection, offer, offer['created_by'], f"Oferta {labels[status]}. {note}", '/solicitacoes')
+    notify(session, offer, offer['translator_id'], f"Oferta {labels[status]}. {note}", '/oportunidades')
+    notify(session, offer, offer['created_by'], f"Oferta {labels[status]}. {note}", '/solicitacoes')
 
 
-def expire_request(connection, request_id):
+def expire_request(session, request_id):
     # Caller holds the request lock; expirations and decisions use the same order.
-    expired = connection.execute('''SELECT * FROM job_offers WHERE request_id = ?
-        AND status = 'pending' AND expires_at <= clock_timestamp() ORDER BY id FOR UPDATE''',
-        (request_id,)).fetchall()
+    expired = session.execute(select(JobOffer.__table__).where(and_(JobOffer.request_id == request_id, JobOffer.status == 'pending', JobOffer.expires_at <= func.clock_timestamp())).order_by(JobOffer.id).with_for_update()).mappings().all()
     for offer in expired:
-        transition(connection, offer, 'expired', note='Prazo para resposta encerrado.')
+        transition(session, offer, 'expired', note='Prazo para resposta encerrado.')
 
 
-def read_offer(connection, offer_id, user):
-    row = connection.execute('SELECT * FROM job_offers WHERE id = ?', (offer_id,)).fetchone()
+def read_offer(session, offer_id, user):
+    row = session.execute(select(JobOffer.__table__).where(JobOffer.id == offer_id)).mappings().first()
     if not row or (user['role'] == 'translator' and row['translator_id'] != user['id']):
         raise HTTPException(404, 'Oportunidade não encontrada.')
     return row
 
 
-def offer_record(connection, offer, request, staff=False):
+def offer_record(session, offer, request, staff=False):
     request = {**request, 'target': offer['target'] or request['target']}
     # Explicit allowlist: never include quote, client contact or other recipients.
     record = {
@@ -72,25 +72,25 @@ def offer_record(connection, offer, request, staff=False):
         'decidedAt': offer['decided_at'], 'serviceId': offer['service_id'],
         'attachments': [{'name': file['name'], 'size': file['size']}
                         for file in request.get('attachments', [])],
-        'history': connection.execute('''SELECT status, note, created_at AS "createdAt"
-            FROM job_offer_events WHERE offer_id = ? ORDER BY id''', (offer['id'],)).fetchall(),
+        'history': session.execute(select(JobOfferEvent.status, JobOfferEvent.note, JobOfferEvent.created_at.label('createdAt')).where(JobOfferEvent.offer_id == offer['id']).order_by(JobOfferEvent.id)).mappings().all(),
     }
     if staff:
-        record['translator'] = connection.execute('SELECT id, name, email FROM users WHERE id = ?',
-                                                  (offer['translator_id'],)).fetchone()
+        record['translator'] = session.execute(select(User.id, User.name, User.email).where(User.id == offer['translator_id'])).mappings().first()
     else:
-        account = connection.execute('''SELECT users.active, users.onboarding_required,
-            translator_profiles.data AS profile FROM users LEFT JOIN translator_profiles
-            ON translator_profiles.user_id = users.id WHERE users.id = ?''', (offer['translator_id'],)).fetchone()
+        account = session.execute(
+            select(User.active, User.onboarding_required, TranslatorProfile.data.label('profile'))
+            .outerjoin(TranslatorProfile, TranslatorProfile.user_id == User.id)
+            .where(User.id == offer['translator_id'])
+        ).mappings().first()
         record['eligible'] = compatible(account, request) if account else False
     return record
 
 
 def expire_pending_offers():
     """Periodic sweep; concurrent API workers safely share the request locks."""
-    with database() as connection:
-        requests = connection.execute("SELECT DISTINCT request_id FROM job_offers WHERE status = 'pending' AND expires_at <= clock_timestamp() ORDER BY request_id").fetchall()
+    with database() as session:
+        requests = session.execute(select(JobOffer.request_id).distinct().where(and_(JobOffer.status == 'pending', JobOffer.expires_at <= func.clock_timestamp())).order_by(JobOffer.request_id)).mappings().all()
     for item in requests:
-        with database() as connection:
-            read_request(connection, item['request_id'], for_update=True)
-            expire_request(connection, item['request_id'])
+        with database() as session:
+            read_request(session, item['request_id'], for_update=True)
+            expire_request(session, item['request_id'])
