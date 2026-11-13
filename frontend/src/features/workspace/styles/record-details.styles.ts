@@ -20,7 +20,7 @@ export const useStyles = createThemedStyles((colors) => ({
     width: 52,
     height: 52,
     borderRadius: 16,
-    backgroundColor: colors.accentSoft,
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -52,7 +52,7 @@ export const useStyles = createThemedStyles((colors) => ({
   detailValue: { fontSize: 14, lineHeight: 21, fontWeight: '600' },
   progressSection: { gap: 14, paddingVertical: 4 },
   progressCaption: { marginTop: 3, fontSize: 13, color: colors.muted },
-  progressValue: { fontSize: 28, lineHeight: 34, fontWeight: '700', color: colors.accent },
+  progressValue: { fontSize: 28, lineHeight: 34, fontWeight: '700', color: colors.ink },
   track: { height: 7, backgroundColor: colors.line, borderRadius: 4, overflow: 'hidden' },
   progress: { height: 7, backgroundColor: colors.accent, borderRadius: 4 },
   demoNote: {
@@ -88,7 +88,7 @@ export const useStyles = createThemedStyles((colors) => ({
   formFields: { gap: 20 },
   field: { gap: 9 },
   fieldHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  fieldNumber: { fontSize: 11, letterSpacing: 1.3, color: colors.accent, fontWeight: '600' },
+  fieldNumber: { fontSize: 11, letterSpacing: 1.3, color: colors.muted, fontWeight: '600' },
   label: { fontSize: 13, fontWeight: '600' },
   input: {
     minHeight: 52,

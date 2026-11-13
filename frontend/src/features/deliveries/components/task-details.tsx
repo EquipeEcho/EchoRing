@@ -49,7 +49,7 @@ export function TaskDetails({ task, token }: { task: TranslationService; token: 
           <Txt style={styles.eyebrow}>DOCUMENTOS ORIGINAIS</Txt>
           {task.attachments.map((file, index) => (
             <View key={`${file.name}-${index}`} style={[styles.document, width < 600 && styles.documentSmall]}>
-              <FileText size={18} color={colors.accent} />
+              <FileText size={18} color={colors.muted} />
               <View style={[styles.documentCopy, width < 600 && styles.documentCopySmall]}>
                 <Txt numberOfLines={1}>{file.name}</Txt>
                 <Txt style={common.caption}>{formatBytes(file.size)}</Txt>

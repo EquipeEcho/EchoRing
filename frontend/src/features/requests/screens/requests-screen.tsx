@@ -23,12 +23,18 @@ import { Button } from '@/components/ui/button';
 import { RecordPage } from '@/features/workspace/components/record-page';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DateSelectField } from '@/components/ui/fields/date-select-field';
+import { FilterSelect } from '@/components/ui/fields/filter-select';
 import { formatSelectedDate } from '@/components/ui/fields/date-utils';
 import { PageHeading } from '@/components/ui/page-heading';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
+import { SkeletonList } from '@/components/ui/skeleton';
 import { Txt } from '@/components/ui/text';
 import { StaffOfferManager } from '@/features/offers/components/staff-offer-manager';
 import { QuoteItems } from '@/features/requests/components/quote-items';
+import { requestStatusTone } from '@/features/requests/constants/status';
 import { RequestJobs } from '@/features/requests/components/request-jobs';
+import { RequestProgress } from '@/features/requests/components/request-progress';
+import { RequestDeliveries, RequestSummary } from '@/features/requests/components/request-summary';
 import { quoteTotal, requestTargets, requestTasks } from '@/features/requests/utils/quote-scope';
 import { useRequestWorkflow } from '@/features/requests/hooks/use-request-workflow';
 import { useStyles } from '@/features/requests/styles/requests.styles';
@@ -44,26 +50,22 @@ export function RequestsScreen() {
   const { width } = useWindowDimensions();
   const {
     requestId, detailLoading, reloadDetail, listHref,
+    list,
+    received,
     loading,
     refresh,
-    requests,
     token,
     view,
     setView,
     setFilter,
-    activeRequests,
-    completedRequests,
     search,
     setSearch,
-    statusFilters,
     filter,
     loadError,
     error,
     selected,
-    visible,
     busy,
     open,
-    scopedRequests,
     confirm,
     setConfirm,
     close,
@@ -87,9 +89,7 @@ export function RequestsScreen() {
           <>
             <View style={[styles.requestHero, width < 600 && styles.requestHeroSmall]}>
               <View style={[styles.requestHeroCopy, width < 600 && styles.requestHeroCopySmall]}>
-                <Badge
-                  tone={locked ? 'blue' : selected.status === 'Em análise' ? 'amber' : 'green'}
-                >
+                <Badge dot tone={requestStatusTone[selected.status]}>
                   {selected.status}
                 </Badge>
                 <Txt style={[styles.detailTitle, width < 600 && styles.detailTitleSmall]}>
@@ -108,6 +108,8 @@ export function RequestsScreen() {
                 </Button>
               )}
             </View>
+            <RequestProgress request={selected} />
+            {locked && !!selected.quote && <RequestSummary request={selected} />}
             <View style={styles.contactStrip}>
               <View style={styles.contactAvatar}>
                 <Txt style={styles.contactInitials}>
@@ -168,7 +170,7 @@ export function RequestsScreen() {
                   style={({ hovered, pressed }) => [styles.documentRow, (hovered || pressed) && { backgroundColor: colors.elevated }]}
                 >
                   <View style={styles.documentIcon}>
-                    <Download size={17} color={colors.accent} />
+                    <Download size={17} color={colors.ink} />
                   </View>
                   <Txt numberOfLines={1} style={{ flex: 1, fontSize: 13, fontWeight: '600' }}>
                     {file.name}
@@ -181,11 +183,12 @@ export function RequestsScreen() {
                   Nenhum documento anexado. Solicite o material ao cliente, se necessário.
                 </Txt>
               )}
+              {(selected.approvedTargets || requestTasks(selected).length > 0) && <RequestDeliveries request={selected} />}
             </View>
             <View style={styles.quotePanel}>
               <View style={styles.quoteHeading}>
                 <View style={styles.quoteIcon}>
-                  <Mail size={20} color={colors.accent} />
+                  <Mail size={20} color={colors.ink} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Txt style={styles.sectionEyebrow}>
@@ -306,7 +309,7 @@ export function RequestsScreen() {
             {!!selected.history?.length && (
               <View style={styles.history}>
                 <View style={common.row}>
-                  <History size={18} color={colors.accent} />
+                  <History size={18} color={colors.muted} />
                   <Txt style={styles.sectionEyebrow}>HISTÓRICO</Txt>
                 </View>
                 {selected.history.map((event, index) => (
@@ -410,7 +413,7 @@ export function RequestsScreen() {
       <View style={[styles.summary, width < 700 && styles.summarySmall]}>
         <View style={styles.summaryCount}>
           <Txt style={styles.summaryNumber}>
-            {requests.filter((item) => item.status === 'Recebido').length}
+            {received}
           </Txt>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Txt style={styles.summaryLabel}>AGUARDANDO ANÁLISE</Txt>
@@ -426,36 +429,18 @@ export function RequestsScreen() {
           </Txt>
         </View>
       </View>
-      <View style={styles.flowTabs} role="tablist" accessibilityLabel="Andamento das solicitações">
-        <Pressable
-          accessibilityRole="tab"
-          aria-selected={view === 'active'}
-          accessibilityState={{ selected: view === 'active' }}
-          onPress={() => {
-            setView('active');
-            setFilter('Todos');
-          }}
-          style={({ hovered, pressed }) => [styles.flowTab, (hovered || pressed) && { backgroundColor: colors.surface }, view === 'active' && styles.flowTabActive]}
-        >
-          <Txt style={[styles.flowTabText, view === 'active' && styles.flowTabTextActive]}>
-            Em andamento ({activeRequests.length})
-          </Txt>
-        </Pressable>
-        <Pressable
-          accessibilityRole="tab"
-          aria-selected={view === 'completed'}
-          accessibilityState={{ selected: view === 'completed' }}
-          onPress={() => {
-            setView('completed');
-            setFilter('Todos');
-          }}
-          style={({ hovered, pressed }) => [styles.flowTab, (hovered || pressed) && { backgroundColor: colors.surface }, view === 'completed' && styles.flowTabActive]}
-        >
-          <Txt style={[styles.flowTabText, view === 'completed' && styles.flowTabTextActive]}>
-            Concluídas ({completedRequests.length})
-          </Txt>
-        </Pressable>
-      </View>
+      <SegmentedTabs
+        label="Andamento das solicitações"
+        value={view === 'completed' ? 'completed' : 'active'}
+        onChange={(value) => {
+          setView(value);
+          setFilter('Todos');
+        }}
+        items={[
+          { value: 'active' as const, label: 'Em andamento', count: list.viewCounts.active },
+          { value: 'completed' as const, label: 'Concluídas', count: list.viewCounts.completed },
+        ]}
+      />
       <View style={[styles.toolbar, width < 900 && styles.toolbarSmall]}>
         <View testID="search-field" style={[styles.search, width < 700 && { width: '100%' }]}>
           <Search size={18} color={colors.muted} />
@@ -468,27 +453,18 @@ export function RequestsScreen() {
             style={styles.searchInput}
           />
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.filters}
-        >
-          {statusFilters.map((value) => (
-            <Pressable
-              key={value}
-              accessibilityRole="tab"
-              aria-selected={filter === value}
-              accessibilityState={{ selected: filter === value }}
-              onPress={() => setFilter(value)}
-              style={({ hovered, pressed }) => [styles.filter, (hovered || pressed) && { backgroundColor: colors.elevated }, filter === value && styles.filterActive]}
-            >
-              <Txt style={[styles.filterText, filter === value && styles.filterTextActive]}>
-                {value}
-              </Txt>
-            </Pressable>
-          ))}
-        </ScrollView>
+        <View style={[styles.filterBar, width < 700 && styles.filterBarSmall]}>
+          <FilterSelect
+            label="Status das solicitações"
+            value={filter}
+            options={list.statusOptions}
+            onChange={setFilter}
+            style={styles.statusSelect}
+          />
+          <Txt accessibilityLiveRegion="polite" style={styles.resultCount}>
+            {list.total} {list.total === 1 ? 'resultado' : 'resultados'}
+          </Txt>
+        </View>
       </View>
       {!!loadError && (
         <View style={styles.errorBox}>
@@ -506,7 +482,7 @@ export function RequestsScreen() {
           {error}
         </Txt>
       )}
-      {!!visible.length && (
+      {!!list.items.length && (
         <View style={styles.requestList}>
           {width >= 700 && (
             <View style={styles.tableHead}>
@@ -516,7 +492,7 @@ export function RequestsScreen() {
               <View style={{ width: 18 }} />
             </View>
           )}
-          {visible.map((request) => (
+          {list.items.map((request) => (
             <Pressable
               key={request.id}
               accessibilityRole="button"
@@ -531,7 +507,7 @@ export function RequestsScreen() {
             >
               <View style={styles.requestMain}>
                 <View style={styles.fileGlyph}>
-                  <FileText size={20} color={colors.accent} />
+                  <FileText size={20} color={colors.ink} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
                   <Txt style={styles.requestTitle}>{request.title}</Txt>
@@ -547,15 +523,7 @@ export function RequestsScreen() {
               </View>
               <View style={[styles.requestInfo, width < 700 && styles.requestInfoSmall]}>
                 <View style={width >= 700 ? styles.statusColumn : undefined}>
-                  <Badge
-                    tone={
-                      request.status === 'Recebido'
-                        ? 'green'
-                        : request.status === 'Em análise'
-                          ? 'amber'
-                          : 'blue'
-                    }
-                  >
+                  <Badge dot tone={requestStatusTone[request.status]}>
                     {request.status}
                   </Badge>
                 </View>
@@ -568,18 +536,25 @@ export function RequestsScreen() {
           ))}
         </View>
       )}
-      {!visible.length && !loading && !loadError && (
+      {list.hasMore && (
+        <View style={styles.pagination}>
+          <Txt style={common.caption}>Mostrando {list.items.length} de {list.total}</Txt>
+          <Button variant="secondary" loading={loading} onPress={list.loadMore}>Carregar mais</Button>
+        </View>
+      )}
+      {loading && !list.items.length && <SkeletonList label="Carregando solicitações" />}
+      {!list.items.length && !loading && !loadError && (
         <EmptyState
           icon={view === 'completed' ? CheckCircle2 : Inbox}
           title={
-            scopedRequests.length
+            list.viewCounts[view]
               ? 'Nenhuma solicitação neste filtro'
               : view === 'completed'
                 ? 'Nenhuma solicitação concluída'
                 : 'Sua próxima conexão começa no site'
           }
           text={
-            scopedRequests.length
+            list.viewCounts[view]
               ? 'Tente outro filtro ou uma nova busca.'
               : view === 'completed'
                 ? 'Solicitações entregues ou encerradas ficam organizadas nesta aba.'

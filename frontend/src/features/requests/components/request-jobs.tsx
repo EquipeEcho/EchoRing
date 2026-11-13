@@ -29,7 +29,7 @@ export function RequestJobs({ request }: { request: TranslationRequest }) {
       const item = request.quote?.items?.find(item => languageCode(item.target) === languageCode(target));
       return <View key={target} style={[styles.waiting, { flexDirection: 'column', alignItems: 'stretch' }]}>
         <Txt style={styles.sectionTitle}>{request.source} → {target}</Txt>
-        <Badge tone={!accepted ? 'neutral' : task?.status === 'Entregue' ? 'green' : 'blue'}>
+        <Badge dot tone={!accepted ? 'neutral' : task?.status === 'Entregue' ? 'green' : 'blue'}>
           {!accepted ? 'Não aprovado pelo cliente' : task?.status || 'Aguardando atribuição'}
         </Badge>
         {item && <Txt style={common.caption}>{money(item.amount)} · Prazo comercial: {formatSelectedDate(item.delivery)}</Txt>}

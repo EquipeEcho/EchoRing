@@ -89,7 +89,7 @@ class ClientTests(PortalTestCase):
         self.assertEqual(employee_request['history'][-1]['note'], 'Cadastro manual do cliente.')
         self.assertTrue(any(
             item['id'] == employee_request['id']
-            for item in self.client.get('/requests', headers=self.headers).json()
+            for item in self.client.get('/requests', headers=self.headers).json()['items']
         ))
 
         admin_login = self.client.post('/auth/login', json={
@@ -138,7 +138,7 @@ class ClientTests(PortalTestCase):
         )
         self.assertTrue(stored_client['created_by'])
         self.assertIsInstance(stored_client['created_at'], datetime)
-        self.assertEqual(self.client.get('/requests', headers=self.headers).json(), [])
+        self.assertEqual(self.client.get('/requests', headers=self.headers).json()['items'], [])
 
         duplicate = self.client.post(
             '/clients',

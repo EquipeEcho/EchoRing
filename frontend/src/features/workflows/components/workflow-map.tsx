@@ -31,7 +31,7 @@ export function WorkflowMap({ template, records = [], mini = false, details = tr
   const selected = template.stages.find(stage => stage.id === (inspected || current?.stageId)) || template.stages[completed === template.stages.length ? template.stages.length - 1 : 0];
   const selectedRecord = records.find(record => record.stageId === selected.id);
   const presentation = workflowPresentation[template.id];
-  const colorFor = (status?: StageStatus) => status === 'completed' ? colors.green : status === 'current' ? colors.accent : status === 'blocked' ? colors.amber : colors.muted;
+  const colorFor = (status?: StageStatus) => status === 'completed' ? colors.green : status === 'current' ? colors.accent : status === 'blocked' ? colors.red : colors.muted;
   const labelFor = (record?: StageRecord) => record ? statuses[record.status] : 'Modelo de referência';
   if (mini) return <View style={s.mini} testID={`workflow-map-${template.id}`} accessibilityLabel={`Fluxo ${template.title}`}>
     {template.stages.map((stage, index) => {
@@ -47,7 +47,7 @@ export function WorkflowMap({ template, records = [], mini = false, details = tr
     })}
   </View>;
   return <View style={s.root} onLayout={event => setWidth(event.nativeEvent.layout.width)} testID={`workflow-map-${template.id}`}>
-    <View style={s.heading}><presentation.icon size={20} color={colors.accent} /><Txt style={[s.title, { flex: 1 }]}>{template.title}</Txt>{!!records.length && <Badge tone="blue">{completed}/{template.stages.length} etapas</Badge>}</View>
+    <View style={s.heading}><presentation.icon size={20} color={colors.muted} /><Txt style={[s.title, { flex: 1 }]}>{template.title}</Txt>{!!records.length && <Badge tone="blue">{completed}/{template.stages.length} etapas</Badge>}</View>
     <View style={s.actors}>
       <View style={s.actor}><UsersRound size={14} color={colors.muted} /><Txt style={s.label}>Quem participa</Txt></View>
       <View style={s.people}>{(['translator', 'reviewer', 'employee'] as const).map(role => <View key={role} style={s.actor}>
@@ -72,7 +72,7 @@ export function WorkflowMap({ template, records = [], mini = false, details = tr
               <View style={[s.circle, { borderColor: color, backgroundColor: active ? record?.status === 'blocked' ? colors.amberSoft : colors.accentSoft : colors.surface }]}><Icon size={19} color={color} strokeWidth={1.8} /></View>
               <View style={[s.nodeText, vertical && s.verticalText]}>
                 <Txt style={[s.stageName, vertical && s.verticalName, { color: record?.status === 'pending' ? colors.muted : colors.ink }]}>{stage.title}</Txt>
-                {active ? <Txt style={[s.current, record?.status === 'blocked' && { color: colors.amber }]}>{record?.status === 'blocked' ? 'Etapa bloqueada' : 'Etapa atual'}</Txt> : <Txt style={[s.status, { color }]}>{record ? statuses[record.status] : roleLabels[stage.role]}</Txt>}
+                {active ? <Txt style={[s.current, record?.status === 'blocked' && { color: colors.red }]}>{record?.status === 'blocked' ? 'Etapa bloqueada' : 'Etapa atual'}</Txt> : <Txt style={[s.status, { color }]}>{record ? statuses[record.status] : roleLabels[stage.role]}</Txt>}
               </View>
             </Pressable>
           </Fragment>;
@@ -80,7 +80,7 @@ export function WorkflowMap({ template, records = [], mini = false, details = tr
         <View style={[s.arrow, vertical && s.verticalArrow]}>{vertical ? <ArrowDown size={17} color={colors.muted} /> : <ArrowRight size={17} color={colors.muted} />}</View>
         <View style={[s.terminal, vertical && s.terminalVertical]}><CircleCheck size={40} strokeWidth={1.5} color={completed === template.stages.length ? colors.green : colors.muted} /><Txt style={s.label}>Resultado</Txt></View>
       </View>
-      {!!records.length && <View style={s.legend}>{(['completed', 'current', 'pending'] as const).map(status => <View key={status} style={s.legendItem}><View style={[s.dot, { backgroundColor: colorFor(status) }]} /><Txt style={s.caption}>{statuses[status]}</Txt></View>)}</View>}
+      {!!records.length && <View style={s.legend}>{(['completed', 'current', 'blocked', 'pending'] as const).map(status => <View key={status} style={s.legendItem}><View style={[s.dot, { backgroundColor: colorFor(status) }]} /><Txt style={s.caption}>{statuses[status]}</Txt></View>)}</View>}
     </View>
     <View style={s.information}><ArrowUp size={20} color={colors.muted} /><Txt style={s.label}>Materiais e informações</Txt><Txt style={[s.caption, { textAlign: 'center' }]}>{presentation.input}</Txt></View>
     {completed === template.stages.length && <Txt accessibilityLiveRegion="polite" style={[s.label, { color: colors.green }]}>Processo concluído · {presentation.output}</Txt>}

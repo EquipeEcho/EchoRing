@@ -3,6 +3,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ScrollView, useWindowDimensions, View } from 'react-native';
 import { TextInput } from '@/components/ui/text-input';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
+import { SkeletonList } from '@/components/ui/skeleton';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,7 +15,6 @@ import { Messages } from '@/features/deliveries/components/messages';
 import { TaskDetails } from '@/features/deliveries/components/task-details';
 import { TaskFeedback } from '@/features/deliveries/components/task-feedback';
 import { TaskHeader } from '@/features/deliveries/components/task-header';
-import { WorkflowTabs } from '@/features/deliveries/components/workflow-tabs';
 import { useTasks } from '@/features/deliveries/hooks/use-tasks';
 import { downloadDelivery, reviewDelivery } from '@/features/deliveries/services/delivery-service';
 import { downloadDemoDocument } from '@/features/deliveries/services/demo-documents';
@@ -144,10 +145,12 @@ export function StaffReviewsScreen() {
           </View>
         )}
         <Messages notice={notice} error={error} />
-        <WorkflowTabs
+        <SegmentedTabs
+          label="Etapas das avaliações"
+          style={styles.workflowTabs}
           value={effectiveView}
           onChange={setView}
-          tabs={[
+          items={[
             { value: 'active', label: 'Em andamento', count: inProgress.length },
             { value: 'review', label: 'Para avaliar', count: awaitingReview.length },
             { value: 'approved', label: 'Finalizadas', count: approved.length },
@@ -198,7 +201,7 @@ export function StaffReviewsScreen() {
                           key={`${task.lastDelivery!.id}-${file.index}`}
                           style={[styles.document, width < 600 && styles.documentSmall]}
                         >
-                          <FileCheck2 size={20} color={colors.accent} />
+                          <FileCheck2 size={20} color={colors.muted} />
                           <View style={[styles.documentCopy, width < 600 && styles.documentCopySmall]}>
                             <Txt>{file.name}</Txt>
                             <Txt style={common.caption}>{formatBytes(file.size)}</Txt>
@@ -281,6 +284,7 @@ export function StaffReviewsScreen() {
             ))}
           </View>
         )}
+        {loading && !ordered.length && <SkeletonList label="Carregando avaliações" variant="card" rows={2} />}
         {!ordered.length && !loading && !error && (
           <EmptyState
             icon={FileCheck2}

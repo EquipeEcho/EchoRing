@@ -90,7 +90,7 @@ function ProfilePage({ translatorId }: { translatorId?: string }) {
               <Txt style={styles.title}>{data.professionalTitle || 'Profissional de tradução'}</Txt>
               <View style={styles.row}>
                 {location ? <><MapPin size={15} color={colors.muted} /><Txt style={styles.muted}>{location}</Txt></> : null}
-                <Badge tone={account.onboardingRequired ? 'amber' : record.completedAt ? 'green' : 'neutral'}>{account.onboardingRequired ? 'Cadastro pendente' : record.completedAt ? 'Cadastro concluído' : 'Perfil em construção'}</Badge>
+                <Badge dot tone={account.onboardingRequired ? 'amber' : record.completedAt ? 'green' : 'neutral'}>{account.onboardingRequired ? 'Cadastro pendente' : record.completedAt ? 'Cadastro concluído' : 'Perfil em construção'}</Badge>
               </View>
             </View>
           </View>
