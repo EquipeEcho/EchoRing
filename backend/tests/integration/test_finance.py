@@ -4,7 +4,10 @@ import os
 from decimal import Decimal
 from unittest.mock import patch
 
+from sqlalchemy import insert
+
 from app import database_pg as db
+from app.db_models import Service
 from app.repositories import finance_store
 from tests.support.portal_test_case import PortalTestCase
 
@@ -22,14 +25,13 @@ class FinanceStoreTests(PortalTestCase):
         translator, _ = self.translator_session()
         approved_id = self.approved_request()
         pending_id = self.create()
-        with db.database() as connection:
-            connection.execute(
-                '''INSERT INTO services (id, request_id, title, translator_id, status, created_at, translator_compensation)
-                   VALUES (?, ?, ?, ?, 'Entregue', ?, ?)''',
-                ('TRD-FIN-1', approved_id, 'Test manual', translator['id'], db.now(), Decimal('120.00')),
-            )
-            projects = {item['id']: item for item in finance_store.project_finances(connection)}
-            costs = finance_store.translator_costs(connection)
+        with db.database() as session:
+            session.execute(insert(Service).values(
+                id='TRD-FIN-1', request_id=approved_id, title='Test manual', translator_id=translator['id'],
+                status='Entregue', created_at=db.to_datetime(db.now()), translator_compensation=Decimal('120.00'),
+            ))
+            projects = {item['id']: item for item in finance_store.project_finances(session)}
+            costs = finance_store.translator_costs(session)
 
         self.assertEqual(projects[approved_id]['revenue'], Decimal('350.50'))
         self.assertEqual(projects[approved_id]['cost'], Decimal('120.00'))

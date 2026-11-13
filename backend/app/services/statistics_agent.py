@@ -30,8 +30,8 @@ class AgentUnavailableError(Exception):
 
 
 def _projects():
-    with database() as connection:
-        return finance_store.project_finances(connection)
+    with database() as session:
+        return finance_store.project_finances(session)
 
 
 def resumo_lucro() -> dict:
@@ -51,8 +51,8 @@ def valor_esperado_orcamento() -> dict:
 
 def gastos_tradutores() -> list[dict]:
     """Quanto a empresa pagou a cada tradutor, do maior para o menor valor, com o número de tarefas."""
-    with database() as connection:
-        rows = finance_store.translator_costs(connection)
+    with database() as session:
+        rows = finance_store.translator_costs(session)
     return [{'name': row['name'], 'total': float(row['total']), 'tasks': row['tasks']} for row in rows]
 
 
