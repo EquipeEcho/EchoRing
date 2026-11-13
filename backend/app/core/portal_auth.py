@@ -1,4 +1,7 @@
 """Portal sessions, configured accounts and role/access dependencies."""
+from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from app.db_models import AuthSession, User
 import hashlib
 import os
 import time
@@ -32,16 +35,20 @@ def configured_accounts():
     return accounts
 
 
-def sync_configured_accounts(connection, accounts):
+def sync_configured_accounts(session, accounts):
     """Cria ou atualiza as contas do ambiente sem recalcular hashes sem necessidade."""
     for account in accounts:
-        existing = connection.execute('SELECT password_hash FROM users WHERE email = ?', (account['email'],)).fetchone()
+        existing = session.execute(select(User.password_hash).where(User.email == account['email'])).mappings().first()
         password_hash = existing['password_hash'] if existing and password_matches(account['password'], existing['password_hash']) else hash_password(account['password'])
-        connection.execute(
-            '''INSERT INTO users (id, email, name, role, password_hash, active) VALUES (?, ?, ?, ?, ?, TRUE)
-               ON CONFLICT(email) DO UPDATE SET name = excluded.name, role = excluded.role,
-               password_hash = excluded.password_hash, active = TRUE''',
-            (account['id'], account['email'], account['name'], account['role'], password_hash),
+        statement = pg_insert(User).values(
+            id=account['id'], email=account['email'], name=account['name'],
+            role=account['role'], password_hash=password_hash, active=True,
+        )
+        session.execute(
+            statement.on_conflict_do_update(
+                index_elements=[User.email],
+                set_={key: statement.excluded[key] for key in ('name', 'role', 'password_hash', 'active')},
+            )
         )
 
 
@@ -50,17 +57,17 @@ def authenticated_user(credentials: HTTPAuthorizationCredentials | None = Depend
     if not credentials:
         raise HTTPException(401, 'Entre com sua conta para continuar.')
     digest = hashlib.sha256(credentials.credentials.encode()).hexdigest()
-    with database() as connection:
-        session = connection.execute(
-            '''SELECT sessions.expires, users.id, users.name, users.email, users.role, users.active,
-                      users.onboarding_required
-               FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.digest = ?''',
-            (digest,),
-        ).fetchone()
-        if not session or session['expires'] <= time.time() or not session['active']:
-            connection.execute('DELETE FROM sessions WHERE digest = ?', (digest,))
+    with database() as session:
+        account = session.execute(
+            select(AuthSession.expires, User.id, User.name, User.email, User.role,
+                   User.active, User.onboarding_required)
+            .join(User, User.id == AuthSession.user_id)
+            .where(AuthSession.digest == digest)
+        ).mappings().first()
+        if not account or account['expires'] <= time.time() or not account['active']:
+            session.execute(delete(AuthSession).where(AuthSession.digest == digest))
             raise HTTPException(401, 'Sessão expirada. Entre novamente no portal.')
-    return dict(session)
+    return dict(account)
 
 
 def staff(user: dict = Depends(authenticated_user)):
