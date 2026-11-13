@@ -1,6 +1,9 @@
 """HTTP integration coverage for request listing filters, search and pagination."""
 
+from sqlalchemy import select, update
+
 from app import database_pg as db
+from app.db_models import TranslationRequest
 from tests.support.portal_test_case import PortalTestCase
 
 
@@ -17,10 +20,14 @@ class RequestListingTests(PortalTestCase):
         response = self.client.post('/requests', json={**self.intake, 'title': title, 'name': name})
         self.assertEqual(response.status_code, 201, response.text)
         request_id = response.json()['id']
-        with db.database() as connection:
-            connection.execute(
-                "UPDATE requests SET data = jsonb_set(data, '{status}', to_jsonb(?::text)) WHERE id = ?",
-                (status, request_id),
+        with db.database() as session:
+            data = session.execute(
+                select(TranslationRequest.data).where(TranslationRequest.id == request_id)
+            ).scalar_one()
+            session.execute(
+                update(TranslationRequest)
+                .where(TranslationRequest.id == request_id)
+                .values(data={**data, 'status': status})
             )
         return request_id
 
@@ -38,7 +45,9 @@ class RequestListingTests(PortalTestCase):
         self.assertEqual(self.ids(body), [self.report, self.contract, self.manual])
         self.assertEqual((body['total'], body['limit'], body['offset']), (3, 20, 0))
         self.assertEqual(body['counts']['statuses'], {'Recebido': 1, 'Em andamento': 1, 'Entregue': 1})
-        self.assertEqual(body['counts']['groups'], {'pendente': 1, 'orcamento': 0, 'traducao': 1, 'concluido': 1, 'cancelado': 0})
+        self.assertEqual(
+            body['counts']['groups'], {'pendente': 1, 'orcamento': 0, 'traducao': 1, 'concluido': 1, 'cancelado': 0}
+        )
         self.assertEqual(body['items'][0]['attachments'][0]['content'], '')
 
     def test_filters_by_group_exact_status_and_combinations(self):
@@ -67,3 +76,10 @@ class RequestListingTests(PortalTestCase):
         for params in ({'limit': 0}, {'limit': 101}, {'offset': -1}):
             response = self.client.get('/requests', headers=self.headers, params=params)
             self.assertEqual(response.status_code, 422, params)
+
+    def test_search_treats_wildcards_and_backslashes_as_literal_text(self):
+        literal = self.create_with(title=r'Manual 100%_final\rev', name='Client', status='Recebido')
+        self.create_with(title='Manual 100XXfinal/rev', name='Client', status='Recebido')
+        for term in ('100%', '_final', r'\rev'):
+            with self.subTest(search=term):
+                self.assertEqual(self.ids(self.listing(search=term)), [literal])
