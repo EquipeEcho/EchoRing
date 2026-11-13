@@ -1,14 +1,17 @@
 """Client persistence, access control and manual intake integration."""
+
 import os
 import unittest
 from datetime import datetime, timezone
 from unittest.mock import patch
+
 import mongomock
 from fastapi.testclient import TestClient
-from main import app
+
 from app import mongo
 from app.core.portal_auth import staff
 from app.repositories import client_store
+from main import app
 from tests.support.portal_test_case import PortalTestCase
 
 
@@ -41,16 +44,19 @@ class ClientMongoTests(unittest.TestCase):
         self.assertEqual(created.json()['email'], 'client@example.test')
         self.assertEqual(created.json()['company'], 'Example Co')
         with patch('app.routes.clients_routes.database') as database:
-            database.return_value.__enter__.return_value.execute.return_value.fetchall.return_value = []
+            database.return_value.__enter__.return_value.execute.return_value.mappings.return_value.all.return_value = []
             self.assertEqual(self.client.get('/clients').json(), [created.json()])
 
         stored = mongo.get_db()['clients'].find_one({'_id': created.json()['id']})
         self.assertEqual(stored['created_by'], 'employee-test')
         self.assertEqual(stored['email'], 'client@example.test')
-        self.assertEqual(self.client.post(
-            '/clients',
-            json={'name': 'Duplicate Client', 'email': 'client@example.test'},
-        ).status_code, 409)
+        self.assertEqual(
+            self.client.post(
+                '/clients',
+                json={'name': 'Duplicate Client', 'email': 'client@example.test'},
+            ).status_code,
+            409,
+        )
 
     def test_public_quote_upsert_keeps_one_client_per_email(self):
         from app.models.client import ClientCreate
@@ -70,7 +76,6 @@ class ClientMongoTests(unittest.TestCase):
         self.assertEqual(mongo.get_db()['clients'].count_documents({}), 1)
 
 
-
 class ClientTests(PortalTestCase):
     def test_manual_client_intake_is_restricted_to_staff_and_persisted_as_request(self):
         """Garante acesso para funcionários e administradores usando o mesmo contrato Intake."""
@@ -87,15 +92,20 @@ class ClientTests(PortalTestCase):
         self.assertEqual(employee_request['email'], self.intake['email'])
         self.assertEqual(employee_request['status'], 'Recebido')
         self.assertEqual(employee_request['history'][-1]['note'], 'Cadastro manual do cliente.')
-        self.assertTrue(any(
-            item['id'] == employee_request['id']
-            for item in self.client.get('/requests', headers=self.headers).json()['items']
-        ))
+        self.assertTrue(
+            any(
+                item['id'] == employee_request['id']
+                for item in self.client.get('/requests', headers=self.headers).json()['items']
+            )
+        )
 
-        admin_login = self.client.post('/auth/login', json={
-            'email': 'admin@example.test',
-            'password': 'admin-password-long-enough',
-        })
+        admin_login = self.client.post(
+            '/auth/login',
+            json={
+                'email': 'admin@example.test',
+                'password': 'admin-password-long-enough',
+            },
+        )
         admin_headers = {'Authorization': 'Bearer ' + admin_login.json()['token']}
         admin_created = self.client.post(
             '/requests/manual',
@@ -111,7 +121,6 @@ class ClientTests(PortalTestCase):
             json={**self.intake, 'source': self.intake['target']},
         )
         self.assertEqual(invalid.status_code, 422)
-
 
     def test_client_registration_stores_only_contact_data(self):
         """Salva os dados do cliente sem criar uma solicitação de tradução."""
