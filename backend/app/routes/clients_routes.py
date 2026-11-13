@@ -1,16 +1,19 @@
 """Staff-only client registration and project overview."""
+
 import secrets
 from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from pymongo.errors import DuplicateKeyError
 from sqlalchemy import func, literal, select
 from sqlalchemy.dialects.postgresql import JSONB
-from app.db_models import Service, TranslationRequest
+
 from app.core.portal_auth import staff
+from app.core.translation_scope import aggregate_status
 from app.database_pg import database, json_data
+from app.db_models import Service, TranslationRequest
 from app.models.client import ClientCreate
 from app.repositories import client_store
-from app.core.translation_scope import aggregate_status
 
 router = APIRouter()
 
@@ -20,15 +23,25 @@ def list_clients(user: dict = Depends(staff)):
     clients = client_store.list_clients()
     with database() as session:
         service_states = func.coalesce(
-            func.jsonb_agg(func.jsonb_build_object('target', Service.target, 'status', Service.status))
-            .filter(Service.id.is_not(None)),
+            func.jsonb_agg(func.jsonb_build_object('target', Service.target, 'status', Service.status)).filter(
+                Service.id.is_not(None)
+            ),
             literal([], type_=JSONB),
         ).label('service_states')
-        rows = session.execute(
-            select(TranslationRequest.data, service_states)
-            .select_from(TranslationRequest.__table__.outerjoin(Service.__table__, Service.request_id == TranslationRequest.id))
-            .group_by(TranslationRequest.id).order_by(TranslationRequest.created_at.desc())
-        ).mappings().all()
+        rows = (
+            session.execute(
+                select(TranslationRequest.data, service_states)
+                .select_from(
+                    TranslationRequest.__table__.outerjoin(
+                        Service.__table__, Service.request_id == TranslationRequest.id
+                    )
+                )
+                .group_by(TranslationRequest.id)
+                .order_by(TranslationRequest.created_at.desc())
+            )
+            .mappings()
+            .all()
+        )
 
     projects_by_email = {}
     for row in rows:
@@ -36,14 +49,16 @@ def list_clients(user: dict = Depends(staff)):
         email = project.get('email', '').strip().lower()
         if not email:
             continue
-        projects_by_email.setdefault(email, []).append({
-            'id': project['id'],
-            'title': project['title'],
-            'service': project['service'],
-            'status': aggregate_status(project, row['service_states']),
-            'requestStatus': project['status'],
-            'createdAt': project['createdAt'],
-        })
+        projects_by_email.setdefault(email, []).append(
+            {
+                'id': project['id'],
+                'title': project['title'],
+                'service': project['service'],
+                'status': aggregate_status(project, row['service_states']),
+                'requestStatus': project['status'],
+                'createdAt': project['createdAt'],
+            }
+        )
 
     for client in clients:
         client['projects'] = projects_by_email.get(client['email'].lower(), [])

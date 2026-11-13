@@ -1,14 +1,18 @@
 """Authenticated assignment and stage updates for existing translation services."""
-from sqlalchemy import and_, func, select
-from app.db_models import User
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import and_, func, select
 
 from app.core.portal_auth import ensure_task_access, staff, workspace_user
 from app.database_pg import database
+from app.db_models import User
 from app.models.translation_workflow import StageUpdate, WorkflowAssignment
 from app.repositories.translation_store import read_service
-from app.services.translation_workflows_service import assign_workflow, update_stage, workflow_record
+from app.services.translation_workflows_service import (
+    assign_workflow,
+    update_stage,
+    workflow_record,
+)
 
 router = APIRouter()
 
@@ -16,7 +20,15 @@ router = APIRouter()
 @router.get('/workflow-reviewers')
 def reviewers(user: dict = Depends(staff)):
     with database() as session:
-        return session.execute(select(User.id, User.name, User.email).where(and_(User.active == True, User.role.in_(['employee', 'admin']))).order_by(func.lower(User.name), User.id)).mappings().all()
+        return (
+            session.execute(
+                select(User.id, User.name, User.email)
+                .where(and_(User.active.is_(True), User.role.in_(['employee', 'admin'])))
+                .order_by(func.lower(User.name), User.id)
+            )
+            .mappings()
+            .all()
+        )
 
 
 @router.get('/tasks/{task_id}/workflow')
