@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block conteudo %}
   <h2>Orçamento para {{ titulo }}</h2>
-  <p>Olá, {{ nome }}! Segue nossa proposta.</p>
+  <p>Olá, {{ nome }}! {% if lembrete %}Ainda aguardamos sua resposta sobre a proposta abaixo. Os links anteriores deixaram de valer; use os desta mensagem.{% else %}Segue nossa proposta.{% endif %}</p>
   <p>
     <strong>Serviço:</strong> {{ servico }}<br>
     <strong>Idiomas:</strong> {{ origem }} → {{ destino }}<br>

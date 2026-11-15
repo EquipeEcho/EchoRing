@@ -71,7 +71,8 @@ export function WorkspaceShell() {
   const section =
     visibleModules.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.title ??
     (pathname === '/tarefas' ? 'Minhas tarefas' : pathname === '/mais' ? 'Mais' : pathname.startsWith('/tradutores/') ? 'Perfil do tradutor' : 'Meu espaço');
-  const { received } = useInbox();
+  const { received, counts: requestCounts } = useInbox();
+  const needsAttention = requestCounts.attention;
   const offerNotifications = useOfferNotifications();
   const offerUnread = offerNotifications.items.filter(item => !item.readAt).length;
   const pending = tasks.filter((task) => !task.done).length;
@@ -225,7 +226,7 @@ export function WorkspaceShell() {
                     <Bell size={24} color={colors.ink} strokeWidth={1.8} />
                   </Pressable>
                 )}
-                {((!read && (session?.demo || pending > 0 || received > 0)) || offerUnread > 0) && <View pointerEvents="none" style={styles.notificationDot} />}
+                {((!read && (session?.demo || pending > 0 || received > 0 || needsAttention > 0)) || offerUnread > 0) && <View pointerEvents="none" style={styles.notificationDot} />}
               </View>
               {!desktop && profileButton}
             </View>
@@ -344,6 +345,7 @@ export function WorkspaceShell() {
           ],
         ] : [
           ...(received > 0 && (role === 'admin' || role === 'employee') ? [[`${received} solicitações aguardando análise`, 'Abra Solicitações para analisar os documentos e preparar propostas.', 'Situação atual']] : []),
+          ...(needsAttention > 0 && (role === 'admin' || role === 'employee') ? [[`${needsAttention} ${needsAttention === 1 ? 'solicitação precisa' : 'solicitações precisam'} de atenção`, 'Há orçamentos sem resposta, links perto de expirar ou prazos próximos. Use o filtro “Precisa de atenção” em Solicitações.', 'Situação atual']] : []),
           ...tasks.filter(task => !task.done).slice(0, 5).map(task => [task.title, `${task.project} · ${task.due}`, 'Tarefa pendente']),
         ]).map(([title, text, time]) => (
           <View
@@ -360,7 +362,7 @@ export function WorkspaceShell() {
             <Txt style={{ fontSize: 12, color: colors.muted }}>{time}</Txt>
           </View>
         ))}
-        {!session?.demo && pending === 0 && received === 0 && offerNotifications.items.length === 0 && !offerNotifications.error && <EmptyState icon={Bell} title="Tudo em dia" text="Não há novas pendências nos dados carregados. Consulte Projetos e Tarefas para acompanhar sua rotina." />}
+        {!session?.demo && pending === 0 && received === 0 && needsAttention === 0 && offerNotifications.items.length === 0 && !offerNotifications.error && <EmptyState icon={Bell} title="Tudo em dia" text="Não há novas pendências nos dados carregados. Consulte Projetos e Tarefas para acompanhar sua rotina." />}
         <Button variant="secondary" onPress={() => { setRead(true); void Promise.all(offerNotifications.items.filter(item => !item.readAt).map(item => offerNotifications.markRead(item.id))); }} disabled={read && offerUnread === 0}>
           {read && offerUnread === 0 ? 'Todas as notificações lidas' : 'Marcar todas como lidas'}
         </Button>

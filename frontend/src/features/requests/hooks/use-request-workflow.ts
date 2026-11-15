@@ -9,6 +9,7 @@ import { useInbox } from '@/features/requests/contexts/inbox-context';
 import { useRequestList } from '@/features/requests/hooks/use-request-list';
 import {
   getRequest,
+  resendQuote,
   sendQuote,
   updateRequest,
 } from '@/features/requests/services/request-service';
@@ -154,6 +155,21 @@ export function useRequestWorkflow() {
       setBusy(false);
     }
   }
+  async function resend() {
+    if (!selected || busy || !token) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      setSelected(await resendQuote(selected.id, token));
+      setNotice('Orçamento reenviado com um novo link. O link anterior deixou de valer.');
+      await refresh();
+    } catch (failure) {
+      setError((failure as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   function close() {
     if (!busy) router.replace(listHref);
   }
@@ -187,5 +203,6 @@ export function useRequestWorkflow() {
     save,
     prepare,
     send,
+    resend,
   };
 }

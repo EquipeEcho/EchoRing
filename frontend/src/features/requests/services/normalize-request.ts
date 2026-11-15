@@ -37,5 +37,6 @@ export function normalizeRequestPage(page: RequestPage): RequestPage {
   const groups = Object.fromEntries(Object.keys(requestGroups).map(group =>
     [group, Number(page.counts?.groups?.[group as RequestGroup]) || 0])) as Record<RequestGroup, number>;
   const statuses = page.counts?.statuses && typeof page.counts.statuses === 'object' ? page.counts.statuses : {};
-  return { items, total: page.total, limit: Number(page.limit) || items.length, offset: Number(page.offset) || 0, counts: { groups, statuses } };
+  const attention = Number(page.counts?.attention) || 0;
+  return { items, total: page.total, limit: Number(page.limit) || items.length, offset: Number(page.offset) || 0, counts: { groups, statuses, attention } };
 }
