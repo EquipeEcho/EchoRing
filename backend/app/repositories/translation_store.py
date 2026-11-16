@@ -6,6 +6,7 @@ import unicodedata
 from fastapi import HTTPException
 from sqlalchemy import and_, func, insert, or_, select, update
 
+from app.core.request_alerts import NEEDS_ATTENTION
 from app.core.translation_scope import aggregate_status, request_targets
 from app.database_pg import json_data, now, to_datetime
 from app.db_models import (
@@ -43,8 +44,8 @@ def search_pattern(search):
     return '%' + folded.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
 
 
-def list_requests_page(session, statuses=None, search='', limit=20, offset=0):
-    """Filtra e pagina as solicitações no banco e conta os status da busca atual."""
+def list_requests_page(session, statuses=None, search='', limit=20, offset=0, attention=False):
+    """Filtra e pagina as solicitações no banco e conta os status e alertas da busca atual."""
     search_conditions = []
     if search.strip():
         search_conditions.append(SEARCHABLE_REQUEST.ilike(search_pattern(search), escape='\\'))
@@ -52,6 +53,8 @@ def list_requests_page(session, statuses=None, search='', limit=20, offset=0):
     request_status = TranslationRequest.data['status'].astext
     if statuses:
         conditions.append(request_status.in_(statuses))
+    if attention:
+        conditions.append(NEEDS_ATTENTION)
     total = session.execute(select(func.count()).select_from(TranslationRequest).where(*conditions)).scalar_one()
     rows = (
         session.execute(
@@ -66,14 +69,23 @@ def list_requests_page(session, statuses=None, search='', limit=20, offset=0):
     )
     status_counts = (
         session.execute(
-            select(request_status.label('status'), func.count().label('total'))
+            select(
+                request_status.label('status'),
+                func.count().label('total'),
+                func.count().filter(NEEDS_ATTENTION).label('attention'),
+            )
             .where(*search_conditions)
             .group_by(request_status)
         )
         .mappings()
         .all()
     )
-    return [json_data(row['data']) for row in rows], total, {row['status']: row['total'] for row in status_counts}
+    return (
+        [json_data(row['data']) for row in rows],
+        total,
+        {row['status']: row['total'] for row in status_counts},
+        sum(row['attention'] for row in status_counts),
+    )
 
 
 def read_request(session, request_id, for_update=False):
@@ -192,6 +204,8 @@ def sanitized_request(data, session=None, include_content=False):
     result = {
         key: value for key, value in data.items() if key not in ('quoteResponseTokenDigest', 'quoteResponseExpiresAt')
     }
+    if data.get('quoteResponseExpiresAt'):
+        result['quoteExpiresAt'] = data['quoteResponseExpiresAt']
     result['targets'] = request_targets(data)
     result['attachments'] = [
         file if include_content else {**file, 'content': ''} for file in data.get('attachments', [])

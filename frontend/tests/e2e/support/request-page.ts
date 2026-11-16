@@ -9,5 +9,6 @@ export function requestPage(records: object[], url: string) {
     search: params.get('search') ?? undefined,
     limit: Number(params.get('limit')) || undefined,
     offset: Number(params.get('offset')) || undefined,
+    attention: params.get('attention') === 'true',
   });
 }

@@ -13,7 +13,7 @@ from app.core.translation_scope import request_targets
 def money(value):
     return f"{Decimal(value.replace(',', '.')):,.2f}".replace(',', '_').replace('.', ',').replace('_', '.')
 
-def deliver_quote(data, response_token=None):
+def deliver_quote(data, response_token=None, reminder=False):
     """Envia o orçamento ao cliente com links pessoais de aprovação e recusa."""
     quote_data = data['quote']
     amount = money(quote_data['amount'])
@@ -25,7 +25,7 @@ def deliver_quote(data, response_token=None):
     try:
         send_email(
             to=data['email'],
-            subject=f"Orçamento Aliança Traduções · {data['id']}",
+            subject=f"{'Lembrete: ' if reminder else ''}Orçamento Aliança Traduções · {data['id']}",
             template='orcamento',
             context={
                 'nome': data['name'], 'titulo': data['title'], 'servico': data['service'],
@@ -33,7 +33,7 @@ def deliver_quote(data, response_token=None):
                 'itens': [{'destino': item['target'], 'valor': money(item['amount']), 'prazo': item['delivery']}
                           for item in quote_data.get('items', [])],
                 'prazo': quote_data['delivery'], 'mensagem': quote_data.get('message', ''),
-                'aprovar_url': approve_url, 'recusar_url': decline_url, 'protocolo': data['id'],
+                'aprovar_url': approve_url, 'recusar_url': decline_url, 'protocolo': data['id'], 'lembrete': reminder,
             },
         )
     except EmailNotConfiguredError as error:

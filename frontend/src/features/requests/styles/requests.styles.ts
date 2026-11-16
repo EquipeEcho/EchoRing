@@ -398,6 +398,11 @@ export const useStyles = createThemedStyles((colors) => ({
   summaryIcon: { width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.elevated },
   summaryValue: { fontSize: 16, lineHeight: 23, fontWeight: '600' },
   deliveryBlock: { gap: 10, paddingTop: 6 },
+  alertBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
+  followUp: { flexDirection: 'column', alignItems: 'stretch' },
+  followUpAlert: { borderColor: colors.amber },
+  followUpHeading: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  followUpActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: spacing.sm },
   deliveryRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',

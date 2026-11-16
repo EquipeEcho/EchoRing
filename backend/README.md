@@ -138,6 +138,7 @@ da resposta.
 | GET | `/requests/{id}` | Bearer token; detalhes e documentos |
 | PATCH | `/requests/{id}` | Bearer token; análise e rascunho |
 | POST | `/requests/{id}/send-quote` | Bearer token; envio da proposta salva |
+| POST | `/requests/{id}/resend-quote` | Bearer token; reenvia orçamento sem resposta com link novo |
 | POST | `/quotes/{quote_id}/decision` | Público; exige token pessoal válido e decisão única |
 | GET | `/translators` | Funcionário/admin; lista tradutores ativos |
 | POST | `/requests/{id}/assign` | Funcionário/admin; cria tarefa após aprovação |
@@ -159,6 +160,7 @@ da resposta.
 - `search`: busca por protocolo, título, cliente, e-mail, empresa e idiomas, sem
   diferenciar maiúsculas nem acentos.
 - `limit` (1 a 100, padrão 20) e `offset` (padrão 0).
+- `attention=true`: somente solicitações que precisam de atenção (veja abaixo).
 
 A resposta traz `items`, `total` (quantidade que atende a todos os filtros),
 `limit`, `offset` e `counts`. As contagens consideram apenas a busca, para que as
@@ -174,6 +176,31 @@ abas e o filtro de status mostrem quantas solicitações existem em cada grupo:
 
 Os grupos ficam em `app/core/request_groups.py` e são repetidos em
 `frontend/src/features/requests/constants/status.ts`; altere os dois juntos.
+
+`counts.attention` traz quantas solicitações da busca atual precisam de atenção.
+Cada item inclui `quoteExpiresAt` quando há link de orçamento ativo; o hash do
+token nunca é retornado.
+
+### Solicitações que precisam de atenção
+
+Uma solicitação entra no filtro `attention` quando:
+
+- está em `Recebido` há 2 dias ou mais;
+- está em `Orçamento enviado` sem resposta há 3 dias ou mais, ou com o link do
+  cliente vencido ou vencendo em até 3 dias;
+- não está concluída nem recusada e o prazo mais urgente vence até amanhã
+  (horário de São Paulo) ou já passou. O prazo considerado é o da tarefa aberta
+  mais próxima; sem tarefas, o prazo prometido no orçamento; antes do orçamento,
+  o prazo pedido pelo cliente. Datas em texto livre, como "5 dias úteis", não
+  geram alerta.
+
+As regras ficam em `app/core/request_alerts.py` e são repetidas em
+`frontend/src/features/requests/utils/request-alerts.ts`; altere os dois juntos.
+
+`POST /requests/{id}/resend-quote` envia o mesmo orçamento como lembrete, com um
+link pessoal novo e validade renovada (`QUOTE_RESPONSE_DAYS`). O link anterior
+só deixa de valer depois que o provedor confirma o envio; se o envio falhar, ele
+continua válido. O reenvio fica registrado no histórico como `Orçamento reenviado`.
 
 ## Fluxo operacional
 

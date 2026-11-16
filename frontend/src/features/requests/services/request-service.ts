@@ -41,7 +41,7 @@ export async function submitManualIntake(
 export async function listRequests(query: RequestQuery, token?: string): Promise<RequestPage> {
   if (!token) return queryRequests(localRequests(), query);
   const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== '') params.set(key, String(value));
+  for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== '' && value !== false) params.set(key, String(value));
   return normalizeRequestPage(await api('/requests?' + params.toString(), {}, token));
 }
 
@@ -74,6 +74,11 @@ export async function updateRequest(
 
 export async function sendQuote(id: string, token: string): Promise<TranslationRequest> {
   return normalizeRequest(await api('/requests/' + encodeURIComponent(id) + '/send-quote', { method: 'POST' }, token));
+}
+
+/** Sends the unanswered quote again with a new personal link; the previous link stops working. */
+export async function resendQuote(id: string, token: string): Promise<TranslationRequest> {
+  return normalizeRequest(await api('/requests/' + encodeURIComponent(id) + '/resend-quote', { method: 'POST' }, token));
 }
 
 export function getTranslators(token: string) {

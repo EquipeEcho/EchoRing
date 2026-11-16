@@ -32,6 +32,7 @@ import { Txt } from '@/components/ui/text';
 import { StaffOfferManager } from '@/features/offers/components/staff-offer-manager';
 import { QuoteItems } from '@/features/requests/components/quote-items';
 import { requestStatusTone } from '@/features/requests/constants/status';
+import { QuoteFollowUp, RequestAlertBadges } from '@/features/requests/components/request-alerts';
 import { RequestJobs } from '@/features/requests/components/request-jobs';
 import { RequestProgress } from '@/features/requests/components/request-progress';
 import { RequestDeliveries, RequestSummary } from '@/features/requests/components/request-summary';
@@ -78,6 +79,7 @@ export function RequestsScreen() {
     save,
     prepare,
     send,
+    resend,
   } = useRequestWorkflow();
   if (requestId) return <RecordPage key={requestId}
     title={confirm ? token ? 'Revisar e enviar orçamento' : 'Revisar simulação' : 'Detalhes da solicitação'}
@@ -95,6 +97,7 @@ export function RequestsScreen() {
                 <Txt style={[styles.detailTitle, width < 600 && styles.detailTitleSmall]}>
                   {selected.title}
                 </Txt>
+                <RequestAlertBadges request={selected} />
               </View>
               {selected.status === 'Recebido' && (
                 <Button
@@ -278,16 +281,7 @@ export function RequestsScreen() {
               )}
             </View>
             {selected.status === 'Orçamento enviado' && (
-              <View style={styles.waiting}>
-                <Mail size={20} color={colors.blue} />
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Txt style={{ fontWeight: '600' }}>Aguardando a resposta do cliente</Txt>
-                  <Txt style={common.caption}>
-                    O e-mail contém links pessoais para aprovar ou recusar. Atualize a lista para
-                    consultar a decisão.
-                  </Txt>
-                </View>
-              </View>
+              <QuoteFollowUp request={selected} busy={busy} onResend={token ? resend : undefined} />
             )}
             {selected.status === 'Orçamento recusado' && (
               <View style={styles.waiting}>
@@ -519,6 +513,7 @@ export function RequestsScreen() {
                     {request.source} → {request.target} · {request.attachments.length}{' '}
                     {request.attachments.length === 1 ? 'documento' : 'documentos'}
                   </Txt>
+                  <RequestAlertBadges request={request} />
                 </View>
               </View>
               <View style={[styles.requestInfo, width < 700 && styles.requestInfoSmall]}>

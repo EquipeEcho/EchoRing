@@ -103,18 +103,25 @@ def list_requests(
     search: str = Query('', max_length=120),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    attention: bool = Query(False),
     user: dict = Depends(staff),
 ):
-    """Lista as solicitações da equipe com filtro por grupo ou status, busca e paginação."""
+    """Lista as solicitações da equipe com filtro por grupo ou status, alertas, busca e paginação."""
     statuses = resolve_statuses(status)
     with database() as session:
-        records, total, status_counts = list_requests_page(session, statuses, search, limit, offset)
+        records, total, status_counts, attention_count = list_requests_page(
+            session, statuses, search, limit, offset, attention
+        )
         return {
             'items': [sanitized_request(record, session) for record in records],
             'total': total,
             'limit': limit,
             'offset': offset,
-            'counts': {'groups': group_counts(status_counts), 'statuses': status_counts},
+            'counts': {
+                'groups': group_counts(status_counts),
+                'statuses': status_counts,
+                'attention': attention_count,
+            },
         }
 
 
@@ -171,8 +178,7 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
         quote_id = data['quote'].get('id') or 'ORC-' + secrets.token_hex(6).upper()
         data['quote']['id'] = quote_id
         data['quoteResponseTokenDigest'] = hashlib.sha256(response_token.encode()).hexdigest()
-        days = max(1, min(int(os.getenv('QUOTE_RESPONSE_DAYS', '30')), 365))
-        data['quoteResponseExpiresAt'] = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+        data['quoteResponseExpiresAt'] = quote_link_expiry()
         session.execute(
             update(TranslationRequest).values(data=data, sending=True).where(TranslationRequest.id == request_id)
         )
@@ -220,6 +226,59 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
         add_event(session, 'Orçamento enviado', request_id=request_id, actor=user, created_at=sent_at)
         return sanitized_request(data, session, include_content=True)
 
+
+
+def quote_link_expiry():
+    days = max(1, min(int(os.getenv('QUOTE_RESPONSE_DAYS', '30')), 365))
+    return (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+
+
+@router.post('/requests/{request_id}/resend-quote')
+def resend_quote(request_id: str, user: dict = Depends(staff)):
+    """Reenvia o orçamento sem resposta com um link novo; o anterior deixa de valer só após o envio."""
+    response_token = secrets.token_urlsafe(48)
+    with database() as session:
+        data, sending = read_request(session, request_id, for_update=True)
+        if sending:
+            raise HTTPException(409, 'Este orçamento está em envio. Aguarde e atualize a página.')
+        if data['status'] != 'Orçamento enviado' or data.get('quoteRespondedAt'):
+            raise HTTPException(409, 'Somente orçamentos enviados e ainda sem resposta podem ser reenviados.')
+        session.execute(update(TranslationRequest).values(sending=True).where(TranslationRequest.id == request_id))
+    try:
+        deliver_quote(data, response_token, reminder=True)
+    except Exception as error:
+        with database() as session:
+            session.execute(update(TranslationRequest).values(sending=False).where(TranslationRequest.id == request_id))
+        if isinstance(error, HTTPException):
+            raise
+        raise HTTPException(
+            502, 'Não foi possível confirmar o reenvio pelo provedor. O link anterior continua válido.'
+        ) from error
+    sent_at = now()
+    with database() as session:
+        data, _ = read_request(session, request_id, for_update=True)
+        if data['status'] != 'Orçamento enviado' or data.get('quoteRespondedAt'):
+            # O cliente respondeu pelo link anterior durante o envio; a resposta prevalece.
+            session.execute(update(TranslationRequest).values(sending=False).where(TranslationRequest.id == request_id))
+            return sanitized_request(data, session, include_content=True)
+        data.update(
+            quoteResponseTokenDigest=hashlib.sha256(response_token.encode()).hexdigest(),
+            quoteResponseExpiresAt=quote_link_expiry(),
+            emailSentAt=sent_at,
+            quoteResentAt=sent_at,
+        )
+        session.execute(
+            update(TranslationRequest).values(data=data, sending=False).where(TranslationRequest.id == request_id)
+        )
+        add_event(
+            session,
+            'Orçamento reenviado',
+            request_id=request_id,
+            actor=user,
+            note='Novo link enviado ao cliente; o anterior deixou de valer.',
+            created_at=sent_at,
+        )
+        return sanitized_request(data, session, include_content=True)
 
 def authorized_quote(session, quote_id, token):
     data = _request_for_quote(session, quote_id)

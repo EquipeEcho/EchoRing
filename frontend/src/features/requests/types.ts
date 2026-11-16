@@ -54,6 +54,9 @@ export type TranslationRequest = Intake & {
   status: RequestStatus;
   quote?: Quote;
   emailSentAt?: string;
+  quoteResentAt?: string;
+  /** When the client's personal quote link stops working. */
+  quoteExpiresAt?: string;
   quoteRespondedAt?: string;
   assignedAt?: string;
   history?: WorkflowEvent[];
@@ -69,9 +72,10 @@ export type RequestGroup = 'pendente' | 'orcamento' | 'traducao' | 'concluido' |
 export type RequestCounts = {
   groups: Record<RequestGroup, number>;
   statuses: Partial<Record<RequestStatus, number>>;
+  attention: number;
 };
 /** `status` takes group keys or exact statuses separated by commas, like `GET /requests`. */
-export type RequestQuery = { status?: string; search?: string; limit?: number; offset?: number };
+export type RequestQuery = { status?: string; search?: string; limit?: number; offset?: number; attention?: boolean };
 export type RequestPage = {
   items: TranslationRequest[];
   total: number;
