@@ -70,9 +70,9 @@ export const modules: WorkspaceModule[] = [
   },
   {
     title: 'Financeiro',
-    href: '/area/financeiro',
+    href: '/financeiro',
     icon: Wallet,
-    description: 'Vendas, compras e faturamento',
+    description: 'Saldo, lucro dos projetos e gastos com tradutores',
   },
   {
     title: 'Relatórios',
@@ -91,7 +91,7 @@ export const modules: WorkspaceModule[] = [
 export function modulesFor(role: UserRole) {
   if (role === 'admin') return modules;
   if (role === 'employee')
-    return modules.filter((item) => !['/usuarios', '/area/administracao'].includes(item.href));
+    return modules.filter((item) => !['/usuarios', '/financeiro', '/area/administracao'].includes(item.href));
   if (role === 'hr')
     return modules.filter((item) => ['/dashboard', '/area/cadastros'].includes(item.href));
   return [...modules.filter((item) => ['/dashboard', '/operacao', '/entregas', '/workflows'].includes(item.href)),

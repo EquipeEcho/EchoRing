@@ -142,13 +142,13 @@ export function WorkspaceShell() {
                 badge={pending}
               />
               {visibleModules.some(
-                (item) => item.href === '/usuarios' || item.href.startsWith('/area/'),
+                (item) => ['/usuarios', '/financeiro'].includes(item.href) || item.href.startsWith('/area/'),
               ) && (
                 <>
                   <View style={styles.separator} />
                   <Txt style={styles.navSection}>Gestão</Txt>
                   {visibleModules
-                    .filter((item) => item.href === '/usuarios' || item.href.startsWith('/area/'))
+                    .filter((item) => ['/usuarios', '/financeiro'].includes(item.href) || item.href.startsWith('/area/'))
                     .map((item) => (
                       <NavItem key={item.href} {...item} active={pathname === item.href} />
                     ))}
