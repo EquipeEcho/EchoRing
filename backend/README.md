@@ -121,6 +121,19 @@ Para outros módulos (ex.: o orquestrador), a função de entrada é
 `responder(pergunta)` em `app/services/statistics_agent.py`, que devolve o texto
 da resposta.
 
+## Financeiro do administrador
+
+A aba Financeiro do app (somente administrador geral) consome
+`GET /finance/overview`, que devolve num único JSON:
+
+- `revenue`, `cost` e `balance`: receita aprovada, gasto com tradutores e saldo da empresa
+- `averageProfit` e `approvedProjects`: lucro médio por projeto aprovado e quantidade
+- `projects`: projetos aprovados com receita, custo e lucro, do mais lucrativo para o menos
+- `translators` e `topTranslator`: total pago a cada tradutor, do maior para o menor, e o mais caro
+
+Usa as mesmas regras do agente de estatística: receita é o valor aprovado do
+orçamento e custo é a soma de `translator_compensation` das tarefas.
+
 ## Endpoints
 
 | Método | Rota | Acesso |
@@ -150,6 +163,7 @@ da resposta.
 | GET | `/deliveries` | Funcionário/admin; fila e histórico de versões |
 | POST | `/deliveries/{id}/review` | Funcionário/admin; aprova ou solicita revisão |
 | POST | `/statistics/agent` | Somente administrador geral; pergunta ao agente de estatística |
+| GET | `/finance/overview` | Somente administrador geral; resumo da aba Financeiro |
 
 ### Listagem de solicitações
 
