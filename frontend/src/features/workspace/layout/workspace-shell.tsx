@@ -14,11 +14,9 @@ import { Platform, Pressable, ScrollView, useWindowDimensions, View } from 'reac
 import { TextInput } from '@/components/ui/text-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Badge } from '@/components/ui/badge';
 import { Brand } from '@/components/ui/brand';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
-import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { Txt } from '@/components/ui/text';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -27,8 +25,12 @@ import { useSession } from '@/features/auth/contexts/session-context';
 import { useOfferNotifications } from '@/features/offers/hooks/use-offer-notifications';
 import { useInbox } from '@/features/requests/contexts/inbox-context';
 import { AccountDialog } from '@/features/workspace/components/account-dialog';
+import { NotificationCenter } from '@/features/workspace/components/notification-center';
+import { SearchResults } from '@/features/workspace/components/search-results';
 import { useWorkspace } from '@/features/workspace/contexts/workspace-context';
+import { useGlobalSearch } from '@/features/workspace/hooks/use-global-search';
 import { NavItem } from '@/features/workspace/layout/nav-item';
+import { notificationItems } from '@/features/workspace/utils/notification-items';
 import {
   mobileMoreModulesFor,
   mobilePrimaryModulesFor,
@@ -57,6 +59,30 @@ export function WorkspaceShell() {
   const [read, setRead] = useState(false);
   const [help, setHelp] = useState(false);
   const searchInput = useRef<TextInput>(null);
+  const desktopSearch = useRef<View>(null);
+  const mobileSearch = useRef<View>(null);
+  const [searchDismissed, setSearchDismissed] = useState(false);
+  const globalSearch = useGlobalSearch(search);
+  const showResults = !searchDismissed && search.trim().length >= 2;
+  // Only staff search requests; translators look for their projects and tasks.
+  const searchPlaceholder = role === 'admin' || role === 'employee' || session?.demo
+    ? 'Buscar solicitação ou projeto...' : 'Buscar projeto ou tarefa...';
+  const typeSearch = (value: string) => { setSearch(value); setSearchDismissed(false); };
+  const closeSearch = () => { setSearchDismissed(true); searchInput.current?.blur(); };
+  const dismissOnEscape = (event: { nativeEvent: { key: string } }) => {
+    if (event.nativeEvent.key === 'Escape') setSearchDismissed(true);
+  };
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !showResults) return;
+    // Close the results when the pointer goes down outside the search field and its panel.
+    const closeOutside = (event: MouseEvent) => {
+      const inside = [desktopSearch.current, mobileSearch.current]
+        .some(node => node instanceof Node && node.contains(event.target as Node));
+      if (!inside) setSearchDismissed(true);
+    };
+    document.addEventListener('mousedown', closeOutside);
+    return () => document.removeEventListener('mousedown', closeOutside);
+  }, [showResults]);
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const focusSearch = (event: KeyboardEvent) => {
@@ -76,6 +102,9 @@ export function WorkspaceShell() {
   const offerNotifications = useOfferNotifications();
   const offerUnread = offerNotifications.items.filter(item => !item.readAt).length;
   const pending = tasks.filter((task) => !task.done).length;
+  const notificationList = notificationItems({
+    role, demo: !!session?.demo, received, attention: needsAttention, tasks, offers: offerNotifications.items,
+  });
   function logout() {
     setProfile(false);
     signOut();
@@ -183,15 +212,17 @@ export function WorkspaceShell() {
             )}
             <View style={[styles.headerActions, !desktop && { gap: 8 }]}>
               {desktop && (
-                <View testID="search-field" style={styles.search}>
+                <View ref={desktopSearch} testID="search-field" style={styles.search}>
                   <Search size={17} color={colors.muted} />
                   <TextInput
                     ref={searchInput}
-                    accessibilityLabel="Buscar projetos"
-                    placeholder={pathname === '/tarefas' ? 'Buscar tarefas...' : 'Buscar projeto ou cliente...'}
+                    accessibilityLabel="Buscar no portal"
+                    placeholder={searchPlaceholder}
                     placeholderTextColor={colors.muted}
                     value={search}
-                    onChangeText={setSearch}
+                    onChangeText={typeSearch}
+                    onFocus={() => setSearchDismissed(false)}
+                    onKeyPress={dismissOnEscape}
                     onSubmitEditing={() => router.push(pathname === '/tarefas' ? '/tarefas' : '/operacao')}
                     style={styles.searchInput}
                   />
@@ -205,6 +236,9 @@ export function WorkspaceShell() {
                     >
                       <X size={14} color={colors.muted} />
                     </Pressable>
+                  )}
+                  {showResults && (
+                    <SearchResults query={search} {...globalSearch} onSelect={closeSearch} style={styles.searchResultsDesktop} />
                   )}
                 </View>
               )}
@@ -232,10 +266,10 @@ export function WorkspaceShell() {
             </View>
           </View>
           {!desktop && (
-            <View testID="search-field" style={styles.mobileSearch}>
+            <View ref={mobileSearch} testID="search-field" style={styles.mobileSearch}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Buscar projetos"
+                accessibilityLabel="Buscar no portal"
                 onPress={() => searchInput.current?.focus()}
                 style={styles.searchGlyph}
               >
@@ -243,11 +277,13 @@ export function WorkspaceShell() {
               </Pressable>
               <TextInput
                 ref={searchInput}
-                accessibilityLabel="Buscar projetos"
-                placeholder="Buscar projetos, tarefas..."
+                accessibilityLabel="Buscar no portal"
+                placeholder={searchPlaceholder}
                 placeholderTextColor={colors.muted}
                 value={search}
-                onChangeText={setSearch}
+                onChangeText={typeSearch}
+                onFocus={() => setSearchDismissed(false)}
+                onKeyPress={dismissOnEscape}
                 style={styles.searchInput}
                 onSubmitEditing={() => router.push(pathname === '/tarefas' ? '/tarefas' : '/operacao')}
               />
@@ -261,6 +297,7 @@ export function WorkspaceShell() {
                   <X size={17} color={colors.muted} />
                 </Pressable>
               )}
+              {showResults && <SearchResults query={search} {...globalSearch} onSelect={closeSearch} />}
             </View>
           )}
           <View style={styles.content}>
@@ -317,56 +354,16 @@ export function WorkspaceShell() {
         </View>
       </View>
       <AccountDialog open={profile} session={session} initials={initials} onClose={() => setProfile(false)} onSignOut={logout} />
-      <Dialog
+      <NotificationCenter
         open={notifications}
         onClose={() => setNotifications(false)}
-        mobileSheet
-        eyebrow="CENTRAL DE ATUALIZAÇÕES"
-        title="Notificações"
-        description="Acompanhe prazos, entregas e movimentações recentes."
-      >
-        {session?.demo && <Badge tone="neutral">Dados demonstrativos</Badge>}
-        {!!offerNotifications.error && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{offerNotifications.error}</Txt>}
-        {offerNotifications.items.map(item => <View key={item.id} style={{ gap: 8, borderBottomWidth: 1, borderBottomColor: colors.line, paddingBottom: 16 }}>
-          <Txt style={{ fontWeight: item.readAt ? '400' : '600' }}>{item.message}</Txt>
-          <Txt style={common.caption}>{new Date(item.createdAt).toLocaleString('pt-BR')}{item.readAt ? ' · Lida' : ' · Nova'}</Txt>
-          <Button variant="secondary" onPress={() => { void offerNotifications.markRead(item.id); setNotifications(false); router.push(item.href as Href); }}>Ver {role === 'translator' ? 'oportunidades' : 'solicitações'}</Button>
-        </View>)}
-        {(session?.demo ? [
-          [
-            'Tradução pronta para revisão',
-            'Lucas enviou o contrato de Almeida & Associados.',
-            'Há 15 minutos',
-          ],
-          [
-            'Prazo de entrega próximo',
-            'O manual da Vértice Engenharia tem entrega hoje.',
-            'Há 40 minutos',
-          ],
-        ] : [
-          ...(received > 0 && (role === 'admin' || role === 'employee') ? [[`${received} solicitações aguardando análise`, 'Abra Solicitações para analisar os documentos e preparar propostas.', 'Situação atual']] : []),
-          ...(needsAttention > 0 && (role === 'admin' || role === 'employee') ? [[`${needsAttention} ${needsAttention === 1 ? 'solicitação precisa' : 'solicitações precisam'} de atenção`, 'Há orçamentos sem resposta, links perto de expirar ou prazos próximos. Use o filtro “Precisa de atenção” em Solicitações.', 'Situação atual']] : []),
-          ...tasks.filter(task => !task.done).slice(0, 5).map(task => [task.title, `${task.project} · ${task.due}`, 'Tarefa pendente']),
-        ]).map(([title, text, time]) => (
-          <View
-            key={title}
-            style={{
-              gap: 5,
-              borderBottomWidth: 1,
-              borderBottomColor: colors.line,
-              paddingBottom: 16,
-            }}
-          >
-            <Txt style={{ fontWeight: '600', fontSize: 13 }}>{title}</Txt>
-            <Txt style={common.caption}>{text}</Txt>
-            <Txt style={{ fontSize: 12, color: colors.muted }}>{time}</Txt>
-          </View>
-        ))}
-        {!session?.demo && pending === 0 && received === 0 && needsAttention === 0 && offerNotifications.items.length === 0 && !offerNotifications.error && <EmptyState icon={Bell} title="Tudo em dia" text="Não há novas pendências nos dados carregados. Consulte Projetos e Tarefas para acompanhar sua rotina." />}
-        <Button variant="secondary" onPress={() => { setRead(true); void Promise.all(offerNotifications.items.filter(item => !item.readAt).map(item => offerNotifications.markRead(item.id))); }} disabled={read && offerUnread === 0}>
-          {read && offerUnread === 0 ? 'Todas as notificações lidas' : 'Marcar todas como lidas'}
-        </Button>
-      </Dialog>
+        items={notificationList}
+        demo={!!session?.demo}
+        error={offerNotifications.error}
+        allRead={read}
+        onRead={(item) => { if (item.offerId) void offerNotifications.markRead(item.offerId); }}
+        onMarkAllRead={() => { setRead(true); void Promise.all(offerNotifications.items.filter(item => !item.readAt).map(item => offerNotifications.markRead(item.id))); }}
+      />
       <Dialog
         open={help}
         onClose={() => setHelp(false)}

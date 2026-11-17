@@ -105,7 +105,7 @@ test('mobile navigation identifies project details and the compact header has no
     expect(bounds.width).toBeGreaterThanOrEqual(44);
     expect(bounds.height).toBeGreaterThanOrEqual(44);
   }
-  await page.getByRole('textbox', { name: 'Buscar projetos', exact: true }).fill('Manual');
+  await page.getByRole('textbox', { name: 'Buscar no portal', exact: true }).fill('Manual');
   await expectInsideViewport(page.getByRole('button', { name: 'Limpar busca', exact: true }), 320);
   await page.getByRole('button', { name: 'Limpar busca', exact: true }).click();
   await page.getByTestId('workspace-bottom-nav').getByRole('button', { name: 'Operação', exact: true }).click();
