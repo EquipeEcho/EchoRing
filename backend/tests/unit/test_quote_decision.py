@@ -25,6 +25,10 @@ class QuoteDecisionTests(unittest.TestCase):
         self.database.start().return_value.__enter__.return_value = self.connection
         self.reader = patch.object(requests_routes, '_request_for_quote', return_value=self.record)
         self.reader.start()
+        # The confirmation email is covered by the tracking integration tests.
+        self.tracking = patch.object(requests_routes, 'send_tracking_link')
+        self.tracking.start()
+        self.addCleanup(self.tracking.stop)
         self.client = TestClient(app)
         self.addCleanup(self.client.close)
         self.addCleanup(self.reader.stop)

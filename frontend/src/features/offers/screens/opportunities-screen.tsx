@@ -13,6 +13,7 @@ import { PageHeading } from '@/components/ui/page-heading';
 import { Txt } from '@/components/ui/text';
 import { useSession } from '@/features/auth/contexts/session-context';
 import { OfferSummary } from '@/features/offers/components/offer-summary';
+import { byResponseUrgency } from '@/features/offers/utils/offer-deadlines';
 import { decideOpportunity, getOpportunity, listOpportunities } from '@/features/offers/services/offer-service';
 import { useOfferStyles } from '@/features/offers/styles/offers.styles';
 import { type Offer, type OfferStatus, offerLabels } from '@/features/offers/types';
@@ -91,7 +92,8 @@ export function OpportunitiesScreen() {
   }
   const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const visible = offers.filter(item => (filter === 'all' || item.status === filter) &&
-    normalize(`${item.title} ${item.source} ${item.target} ${item.service} ${item.id} ${item.volume}`).includes(normalize(search)));
+    normalize(`${item.title} ${item.source} ${item.target} ${item.service} ${item.id} ${item.volume}`).includes(normalize(search)))
+    .sort(byResponseUrgency);
   function close() { if (!busy) router.replace(listHref); }
   if (offerId) return <RecordPage key={offerId} title={confirm ? 'Confirmar decisão' : 'Detalhes da oportunidade'}
     eyebrow={offerId} backLabel="Voltar às oportunidades" backHref={listHref} onBack={close} busy={busy}

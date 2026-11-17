@@ -201,9 +201,8 @@ def event_history(session, request_id=None, service_id=None):
 
 def sanitized_request(data, session=None, include_content=False):
     """Prepara a solicitação para resposta sem vazar tokens ou anexos desnecessários."""
-    result = {
-        key: value for key, value in data.items() if key not in ('quoteResponseTokenDigest', 'quoteResponseExpiresAt')
-    }
+    hidden = ('quoteResponseTokenDigest', 'quoteResponseExpiresAt', 'trackingTokenDigest')
+    result = {key: value for key, value in data.items() if key not in hidden}
     if data.get('quoteResponseExpiresAt'):
         result['quoteExpiresAt'] = data['quoteResponseExpiresAt']
     result['targets'] = request_targets(data)

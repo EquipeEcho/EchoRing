@@ -3,12 +3,16 @@ import { useWindowDimensions, View } from 'react-native';
 import { router } from 'expo-router';
 import { WorkflowMap } from '@/features/workflows/components/workflow-map';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { formatSelectedDate } from '@/components/ui/fields/date-utils';
 import { Txt } from '@/components/ui/text';
 import { TaskFeedback } from '@/features/deliveries/components/task-feedback';
 import { downloadOriginal } from '@/features/deliveries/services/delivery-service';
 import { useStyles } from '@/features/deliveries/styles/deliveries.styles';
 import { type TranslationService } from '@/features/deliveries/types';
+import { taskDeadline, taskDeadlineAlert } from '@/features/deliveries/utils/task-deadlines';
+import { isIsoDate } from '@/utils/deadlines';
 import { useCommonStyles } from '@/theme/common.styles';
 import { formatBytes, money } from '@/utils/formatters';
 import { useTheme } from '@/theme/theme-context';
@@ -18,13 +22,17 @@ export function TaskDetails({ task, token }: { task: TranslationService; token: 
   const styles = useStyles();
   const common = useCommonStyles();
   const { width } = useWindowDimensions();
+  const due = taskDeadlineAlert(task);
   return (
     <>
       <View style={styles.metadata}>
         {task.compensation != null && <Txt style={{ color: colors.green, fontWeight: '600' }}>Remuneração: {money(task.compensation)}</Txt>}
         <View style={common.row}>
           <Clock3 size={15} color={colors.muted} />
-          <Txt style={common.caption}>Prazo: {task.deadline || 'Não informado'}</Txt>
+          <Txt style={common.caption}>
+            Prazo: {!task.deadline ? 'Não informado' : isIsoDate(taskDeadline(task)) ? formatSelectedDate(taskDeadline(task)!) : task.deadline}
+          </Txt>
+          {!!due && <Badge dot tone={due.tone}>{due.label}</Badge>}
         </View>
         <Txt style={common.caption}>
           {task.source} → {task.target}

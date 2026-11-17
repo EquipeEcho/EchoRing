@@ -1,5 +1,4 @@
 import { type RequestStatus, type TranslationRequest } from '@/features/requests/types';
-import { requestTasks } from '@/features/requests/utils/quote-scope';
 
 export type ProgressState = 'done' | 'current' | 'pending' | 'refused';
 export type ProgressStep = { key: string; label: string; state: ProgressState; at?: string };
@@ -28,18 +27,27 @@ const completedSteps: Record<RequestStatus, number> = {
   Entregue: 5,
 };
 
+const isDate = (value: string | null | undefined): value is string => !!value;
+
+/** The fields the tracker reads; staff requests and the client's public tracking both provide them. */
+export type ProgressSource = Pick<TranslationRequest, 'status' | 'createdAt' | 'emailSentAt' | 'quoteRespondedAt' | 'assignedAt'> & {
+  history?: { status: string; createdAt: string }[];
+  tasks?: { startedAt?: string; deliveredAt?: string | null }[];
+  task?: { startedAt?: string; deliveredAt?: string | null };
+};
+
 /** Builds the five-step tracker from the status and the timestamps already recorded in the history. */
-export function requestProgress(request: TranslationRequest): ProgressStep[] {
+export function requestProgress(request: ProgressSource): ProgressStep[] {
   const completed = completedSteps[request.status] ?? 1;
   const refused = request.status === 'Orçamento recusado';
-  const tasks = requestTasks(request);
+  const tasks = request.tasks ?? (request.task ? [request.task] : []);
   const eventAt = (statuses: string[]) => request.history?.find(event => statuses.includes(event.status))?.createdAt;
   const fallback: Record<string, string | undefined> = {
     solicitado: request.createdAt,
     orcamento: request.emailSentAt,
     aprovado: request.quoteRespondedAt,
-    traducao: request.assignedAt ?? tasks.map(task => task.startedAt).filter(Boolean).sort()[0],
-    entregue: tasks.map(task => task.deliveredAt).filter(Boolean).sort().at(-1),
+    traducao: request.assignedAt ?? tasks.map(task => task.startedAt).filter(isDate).sort()[0],
+    entregue: tasks.map(task => task.deliveredAt).filter(isDate).sort().at(-1),
   };
   return steps.map((step, index) => {
     const state: ProgressState = index < completed ? 'done'

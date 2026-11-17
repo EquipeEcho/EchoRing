@@ -9,6 +9,7 @@ from app.routes.offers_routes import router as offers_router
 from app.routes.requests_routes import router as requests_router
 from app.routes.statistics_routes import router as statistics_router
 from app.routes.tasks_routes import router as tasks_router
+from app.routes.tracking_routes import router as tracking_router
 from app.routes.translation_workflows_routes import router as workflows_router
 from app.routes.translator_profiles_routes import router as profiles_router
 from app.routes.users_routes import router as users_router

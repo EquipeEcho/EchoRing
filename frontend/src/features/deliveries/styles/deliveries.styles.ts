@@ -40,6 +40,18 @@ export const useStyles = createThemedStyles((colors) => ({
   card: { flexDirection: 'row', borderWidth: 1, borderColor: colors.line, borderRadius: radius.card, backgroundColor: colors.surface, overflow: 'hidden', boxShadow: colors.cardShadow },
   cardSmall: { flexDirection: 'column' },
   highlight: { borderColor: colors.accent },
+  deadlineSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+    padding: 14,
+    backgroundColor: colors.amberSoft,
+    borderWidth: 1,
+    borderColor: colors.amber,
+    borderRadius: radius.md,
+  },
+  deadlineSummaryUrgent: { backgroundColor: colors.redSoft, borderColor: colors.red },
   sequence: { width: 52, alignItems: 'center', paddingTop: 27, backgroundColor: colors.canvas, borderRightWidth: 1, borderRightColor: colors.line },
   sequenceSmall: { width: '100%', paddingTop: 0, paddingHorizontal: 18, paddingVertical: 10, flexDirection: 'row', gap: spacing.md, borderRightWidth: 0, borderBottomWidth: 1, borderBottomColor: colors.line },
   sequenceText: {

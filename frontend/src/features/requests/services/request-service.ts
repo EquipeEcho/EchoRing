@@ -2,6 +2,7 @@ import { apiMode } from '@/features/requests/constants/request-mode';
 import { localRequests, saveLocal } from '@/features/requests/services/request-storage';
 import {
   type Intake,
+  type PublicTracking,
   type Quote,
   type QuotePreview,
   type RequestPage,
@@ -118,6 +119,15 @@ export function submitQuoteDecision(
     method: 'POST',
     body: JSON.stringify({ token, decision, ...(targets ? { targets } : {}) }),
   });
+}
+
+export function getTracking(requestId: string, token: string) {
+  return api<PublicTracking>(`/tracking/${encodeURIComponent(requestId)}`, { method: 'POST', body: JSON.stringify({ token }) });
+}
+
+/** Sends the client a new tracking link; the previous one stops working. */
+export async function sendTrackingLink(id: string, token: string): Promise<TranslationRequest> {
+  return normalizeRequest(await api('/requests/' + encodeURIComponent(id) + '/send-tracking', { method: 'POST' }, token));
 }
 
 export function previewQuote(quoteId: string, token: string) {

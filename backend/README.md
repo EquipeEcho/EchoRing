@@ -153,6 +153,8 @@ orçamento e custo é a soma de `translator_compensation` das tarefas.
 | POST | `/requests/{id}/send-quote` | Bearer token; envio da proposta salva |
 | POST | `/requests/{id}/resend-quote` | Bearer token; reenvia orçamento sem resposta com link novo |
 | POST | `/quotes/{quote_id}/decision` | Público; exige token pessoal válido e decisão única |
+| POST | `/tracking/{id}` | Público; exige o token pessoal de acompanhamento |
+| POST | `/requests/{id}/send-tracking` | Bearer token; envia um link de acompanhamento novo |
 | GET | `/translators` | Funcionário/admin; lista tradutores ativos |
 | POST | `/requests/{id}/assign` | Funcionário/admin; cria tarefa após aprovação |
 | GET | `/tasks` | Tradutor vê somente as próprias; funcionário/admin vê a operação |
@@ -215,6 +217,26 @@ As regras ficam em `app/core/request_alerts.py` e são repetidas em
 link pessoal novo e validade renovada (`QUOTE_RESPONSE_DAYS`). O link anterior
 só deixa de valer depois que o provedor confirma o envio; se o envio falhar, ele
 continua válido. O reenvio fica registrado no histórico como `Orçamento reenviado`.
+
+### Acompanhamento do pedido pelo cliente
+
+Quando o cliente aprova o orçamento, a API gera um token pessoal de
+acompanhamento, salva só o hash e envia o e-mail "Pedido confirmado" com o link
+`/acompanhar/{id}#token`. O token fica no fragmento da URL para não aparecer em
+logs, e a página o retira da barra de endereço depois de ler. Uma falha nesse
+e-mail fica só no log e não desfaz a aprovação.
+
+`POST /tracking/{id}` recebe `{ "token": "..." }` e devolve apenas o que o
+cliente pode ver: etapa atual, histórico das etapas públicas, previsão, valor
+aprovado e situação de cada idioma. Tradutores, notas, documentos e etapas
+internas ficam de fora; `Aguardando avaliação` e `Revisão solicitada` aparecem
+como `Em andamento`, e o idioma correspondente como `Em revisão`. Token errado e
+solicitação inexistente recebem a mesma resposta 403.
+
+`POST /requests/{id}/send-tracking` envia um link novo (por exemplo, quando o
+cliente perdeu o e-mail). O link anterior só deixa de valer depois que o
+provedor confirma o envio. O envio fica no histórico como
+`Link de acompanhamento enviado`.
 
 ## Fluxo operacional
 
