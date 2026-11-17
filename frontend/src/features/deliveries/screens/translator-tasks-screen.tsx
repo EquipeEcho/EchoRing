@@ -1,6 +1,6 @@
 import { type DocumentPickerAsset } from 'expo-document-picker';
 import { useLocalSearchParams } from 'expo-router';
-import { CheckCircle2, FileText, Play, RefreshCw, UploadCloud } from 'lucide-react-native';
+import { AlarmClock, CheckCircle2, FileText, Play, RefreshCw, UploadCloud } from 'lucide-react-native';
 import { useState } from 'react';
 import { ScrollView, useWindowDimensions, View } from 'react-native';
 
@@ -16,6 +16,7 @@ import { TaskHeader } from '@/features/deliveries/components/task-header';
 import { useTasks } from '@/features/deliveries/hooks/use-tasks';
 import { startTask, uploadTranslation } from '@/features/deliveries/services/delivery-service';
 import { selectTranslationDocument } from '@/features/deliveries/services/document-picker';
+import { byTaskUrgency, taskDeadlineAlert } from '@/features/deliveries/utils/task-deadlines';
 import { useStyles } from '@/features/deliveries/styles/deliveries.styles';
 import { useCommonStyles } from '@/theme/common.styles';
 import { formatBytes } from '@/utils/formatters';
@@ -37,7 +38,9 @@ export function TranslatorTasksScreen() {
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState('');
   const finished = tasks.filter((task) => ['Pronta', 'Entregue'].includes(task.status));
-  const active = tasks.filter((task) => !['Pronta', 'Entregue'].includes(task.status));
+  const active = tasks.filter((task) => !['Pronta', 'Entregue'].includes(task.status)).sort(byTaskUrgency);
+  const dueAlerts = active.map((task) => taskDeadlineAlert(task)).filter((alert) => alert !== null);
+  const overdue = dueAlerts.some((alert) => alert.tone === 'red');
   const requestedTask = tasks.find((task) => task.id === params.task);
   const effectiveView =
     view === 'auto' && requestedTask && ['Pronta', 'Entregue'].includes(requestedTask.status)
@@ -116,6 +119,15 @@ export function TranslatorTasksScreen() {
           }
         />
         <Messages notice={notice} error={error} />
+        {effectiveView === 'active' && dueAlerts.length > 0 && (
+          <View accessibilityRole="alert" style={[styles.deadlineSummary, overdue && styles.deadlineSummaryUrgent]}>
+            <AlarmClock size={20} color={overdue ? colors.red : colors.amber} />
+            <Txt style={[common.caption, { flex: 1, color: colors.ink }]}>
+              {dueAlerts.length === 1 ? '1 tarefa precisa' : `${dueAlerts.length} tarefas precisam`} de prioridade:
+              {overdue ? ' há prazo vencido.' : ' o prazo vence até amanhã.'} A lista começa pelas mais urgentes.
+            </Txt>
+          </View>
+        )}
         <SegmentedTabs
           label="Etapas das tarefas"
           style={styles.workflowTabs}

@@ -1,5 +1,8 @@
 import { type RequestStatus, type TranslationRequest } from '@/features/requests/types';
 import { requestTasks } from '@/features/requests/utils/quote-scope';
+import { deadlineAlert, isIsoDate } from '@/utils/deadlines';
+
+export { saoPauloToday } from '@/utils/deadlines';
 
 /** Same thresholds as `backend/app/core/request_alerts.py`; keep both in sync. */
 export const alertRules = {
@@ -14,17 +17,7 @@ export type RequestAlert = { kind: 'analise' | 'resposta' | 'link' | 'prazo'; to
 const day = 86400000;
 const closedStatuses: RequestStatus[] = ['Pronta', 'Entregue', 'Orçamento recusado'];
 const preQuoteStatuses: RequestStatus[] = ['Recebido', 'Em análise'];
-const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 const days = (count: number) => `${count} ${count === 1 ? 'dia' : 'dias'}`;
-
-/** Today's date in São Paulo as `YYYY-MM-DD`, the format used by date-only deadlines. */
-export function saoPauloToday(now: number) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(now);
-}
-
-function daysFrom(from: string, to: string) {
-  return Math.round((Date.parse(to + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / day);
-}
 
 function elapsedDays(value: string | undefined, now: number) {
   const time = value ? Date.parse(value) : NaN;
@@ -34,14 +27,14 @@ function elapsedDays(value: string | undefined, now: number) {
 /** Earliest open task deadline, then the promised delivery, then the date the client asked for. */
 export function nextDeadline(request: TranslationRequest) {
   const task = requestTasks(request)
-    .filter(item => item.status !== 'Entregue' && isoDate.test(item.deadline ?? ''))
+    .filter(item => item.status !== 'Entregue' && isIsoDate(item.deadline))
     .map(item => item.deadline)
     .sort()[0];
   if (task) return task;
   const beforeQuote = preQuoteStatuses.includes(request.status);
   const delivery = request.quote?.delivery ?? '';
-  if (!beforeQuote && isoDate.test(delivery)) return delivery;
-  if (beforeQuote && isoDate.test(request.deadline)) return request.deadline;
+  if (!beforeQuote && isIsoDate(delivery)) return delivery;
+  if (beforeQuote && isIsoDate(request.deadline)) return request.deadline;
   return undefined;
 }
 
@@ -65,11 +58,7 @@ export function requestAlerts(request: TranslationRequest, now = Date.now()): Re
     }
   }
   const deadline = closedStatuses.includes(request.status) ? undefined : nextDeadline(request);
-  if (deadline) {
-    const left = daysFrom(saoPauloToday(now), deadline);
-    if (left < 0) alerts.push({ kind: 'prazo', tone: 'red', label: `Atrasado há ${days(-left)}` });
-    else if (left === 0) alerts.push({ kind: 'prazo', tone: 'amber', label: 'Prazo vence hoje' });
-    else if (left <= alertRules.deadlineWarningDays) alerts.push({ kind: 'prazo', tone: 'amber', label: 'Prazo vence amanhã' });
-  }
+  const due = deadlineAlert(deadline, now, alertRules.deadlineWarningDays);
+  if (due) alerts.push({ kind: 'prazo', ...due });
   return alerts;
 }
