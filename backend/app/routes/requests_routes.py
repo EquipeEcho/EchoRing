@@ -42,6 +42,8 @@ from app.repositories.translation_store import (
     update_request_status,
 )
 from app.services.email.quote_service import deliver_quote
+from app.services.email.tracking_service import send_tracking_link
+from app.services.tracking import issue_tracking_token
 from app.services.email.workflow_service import notify_translator_assigned
 
 router = APIRouter()
@@ -193,6 +195,7 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
             approvedTargets=request_targets(data),
             approvedAmount=data['quote']['amount'],
         )
+        tracking_token = issue_tracking_token(data)
         with database() as session:
             session.execute(
                 update(TranslationRequest).values(data=data, sending=False).where(TranslationRequest.id == request_id)
@@ -205,7 +208,9 @@ def send_quote(request_id: str, user: dict = Depends(staff)):
                 note='Aprovação automática habilitada para testes.',
                 created_at=approved_at,
             )
-            return sanitized_request(data, session, include_content=True)
+            response = sanitized_request(data, session, include_content=True)
+        send_tracking_link(data, tracking_token)
+        return response
     try:
         deliver_quote(data, response_token)
     except Exception as error:
@@ -309,7 +314,7 @@ def preview_quote(quote_id: str, access: QuoteAccess, request: Request):
 
 
 @router.post('/quotes/{quote_id}/decision')
-def decide_quote(quote_id: str, decision: QuoteDecision, request: Request):
+def decide_quote(quote_id: str, decision: QuoteDecision, request: Request, background_tasks: BackgroundTasks):
     """One atomic decision may approve a subset of the priced languages."""
     throttle(request, 'quote-decision', 20)
     with database() as session:
@@ -336,6 +341,7 @@ def decide_quote(quote_id: str, decision: QuoteDecision, request: Request):
             approvedTargets=targets,
             approvedAmount=str(amount),
         )
+        tracking_token = issue_tracking_token(data) if decision.decision == 'approve' else None
         session.execute(update(TranslationRequest).values(data=data).where(TranslationRequest.id == data['id']))
         add_event(
             session,
@@ -344,6 +350,8 @@ def decide_quote(quote_id: str, decision: QuoteDecision, request: Request):
             created_at=responded_at,
             note='Idiomas aprovados: ' + ', '.join(targets) if targets else 'Proposta recusada.',
         )
+    if tracking_token:
+        send_tracking_link(data, tracking_token, background_tasks=background_tasks)
     return {
         'requestId': data['id'],
         'quoteId': quote_id,

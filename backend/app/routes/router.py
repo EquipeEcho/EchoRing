@@ -8,6 +8,7 @@ from app.routes.offers_routes import router as offers_router
 from app.routes.requests_routes import router as requests_router
 from app.routes.statistics_routes import router as statistics_router
 from app.routes.tasks_routes import router as tasks_router
+from app.routes.tracking_routes import router as tracking_router
 from app.routes.translation_workflows_routes import router as workflows_router
 from app.routes.translator_profiles_routes import router as profiles_router
 from app.routes.users_routes import router as users_router
@@ -15,6 +16,6 @@ from app.routes.users_routes import router as users_router
 router = APIRouter()
 for feature_router in (
     auth_router, users_router, clients_router, profiles_router, requests_router,
-    tasks_router, offers_router, workflows_router, statistics_router,
+    tasks_router, offers_router, workflows_router, statistics_router, tracking_router,
 ):
     router.include_router(feature_router)

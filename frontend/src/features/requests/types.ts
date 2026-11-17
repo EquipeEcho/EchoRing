@@ -58,6 +58,8 @@ export type TranslationRequest = Intake & {
   /** When the client's personal quote link stops working. */
   quoteExpiresAt?: string;
   quoteRespondedAt?: string;
+  /** Last time the client received the personal tracking link. */
+  trackingSentAt?: string;
   assignedAt?: string;
   history?: WorkflowEvent[];
   demo?: boolean;
@@ -66,6 +68,24 @@ export type TranslationRequest = Intake & {
   approvedAmount?: string;
   tasks?: RequestTask[];
   task?: RequestTask;
+};
+
+export type TrackingLanguageStatus = 'Aguardando início' | 'Em tradução' | 'Em revisão' | 'Pronta' | 'Entregue';
+/** What `POST /tracking/{id}` shows the client: no translators, notes or internal review steps. */
+export type PublicTracking = {
+  id: string;
+  title: string;
+  service: string;
+  source: string;
+  targets: string[];
+  status: RequestStatus;
+  createdAt: string;
+  emailSentAt?: string;
+  quoteRespondedAt?: string;
+  approvedAmount?: string;
+  delivery: string;
+  languages: { target: string; status: TrackingLanguageStatus; delivery: string; deliveredAt: string | null }[];
+  history: { status: string; createdAt: string }[];
 };
 
 export type RequestGroup = 'pendente' | 'orcamento' | 'traducao' | 'concluido' | 'cancelado';

@@ -11,6 +11,7 @@ import {
   getRequest,
   resendQuote,
   sendQuote,
+  sendTrackingLink,
   updateRequest,
 } from '@/features/requests/services/request-service';
 import {
@@ -170,6 +171,20 @@ export function useRequestWorkflow() {
       setBusy(false);
     }
   }
+  async function sendTracking() {
+    if (!selected || busy || !token) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      setSelected(await sendTrackingLink(selected.id, token));
+      setNotice('Link de acompanhamento enviado. O link anterior deixou de valer.');
+    } catch (failure) {
+      setError((failure as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   function close() {
     if (!busy) router.replace(listHref);
   }
@@ -204,5 +219,6 @@ export function useRequestWorkflow() {
     prepare,
     send,
     resend,
+    sendTracking,
   };
 }
