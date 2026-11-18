@@ -1,0 +1,1 @@
+Especialista em estatística e finanças da Aliança Traduções. Use para lucro, receita, custos, margem, tendência do lucro, previsão do próximo mês, chance de aprovação de orçamentos, valor esperado e gastos com tradutores.

@@ -100,9 +100,9 @@ a aprovação. Com `EMAIL_DRY_RUN=true`, os e-mails aparecem no log em vez de se
 ## Agente de estatística
 
 O administrador pergunta em linguagem natural (ex.: "como está o lucro?") e o
-agente responde usando o Gemini (Google AI Studio). Os números são calculados
-em Python a partir do banco; o Gemini só escolhe qual cálculo usar e explica o
-resultado, sem inventar valores. Cálculos disponíveis:
+agente responde usando o Google ADK com o Gemini (Google AI Studio). Os números
+são calculados em Python a partir do banco; o modelo só escolhe qual cálculo
+usar e explica o resultado, sem inventar valores. Cálculos disponíveis:
 
 - Estatística descritiva do lucro: total, média, mediana e margem ponderada pela receita
 - Tendência do lucro mensal por regressão linear e previsão do próximo mês
@@ -117,9 +117,18 @@ https://aistudio.google.com/app/api-keys) e, opcionalmente, `GEMINI_MODEL`
 (`gemini-3.1-flash-lite` por padrão). Nunca commite a chave. Sem chave, ou se o
 Gemini não responder em 30 segundos, a rota retorna 503 com uma mensagem clara.
 
-Para outros módulos (ex.: o orquestrador), a função de entrada é
-`responder(pergunta)` em `app/services/statistics_agent.py`, que devolve o texto
-da resposta.
+O agente segue a estrutura do Google ADK em `app/agents/`:
+
+- `config.py`: modelo usado pelos agentes (`GEMINI_MODEL`)
+- `utils/prompts.py`: `load_prompt()` lê os prompts em Markdown
+- `sub_agents/statistics/agent.py`: `statistics_agent`, um `Agent` do ADK
+- `sub_agents/statistics/tools.py`: as tools, que devolvem um `dict` com `status`
+- `sub_agents/statistics/prompts/`: `description.md` e `instruction.md`
+
+O orquestrador (#73) usa o sub-agente com
+`from app.agents.sub_agents import statistics_agent` e
+`sub_agents=[statistics_agent]`. A rota `POST /statistics/agent` executa o mesmo
+sub-agente pelo `InMemoryRunner` do ADK (`app/services/statistics_agent.py`).
 
 ## Financeiro do administrador
 
