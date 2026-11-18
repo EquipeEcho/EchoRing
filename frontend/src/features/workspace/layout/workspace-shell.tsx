@@ -20,6 +20,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { IconButton } from '@/components/ui/icon-button';
 import { Txt } from '@/components/ui/text';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { AIChat } from '@/features/ai-chat/components/ai-chat';
 import { roleLabel } from '@/features/auth/constants';
 import { useSession } from '@/features/auth/contexts/session-context';
 import { useOfferNotifications } from '@/features/offers/hooks/use-offer-notifications';
@@ -353,6 +354,7 @@ export function WorkspaceShell() {
           )}
         </View>
       </View>
+      {session?.role === 'admin' && <AIChat key={session.email} />}
       <AccountDialog open={profile} session={session} initials={initials} onClose={() => setProfile(false)} onSignOut={logout} />
       <NotificationCenter
         open={notifications}
