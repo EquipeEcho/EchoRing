@@ -95,6 +95,11 @@ o foco ao controle de origem. Campos de texto possuem foco visivel e os campos
 longos do perfil mostram a quantidade de caracteres utilizada.
 O administrador geral possui a aba **Usuarios** para criar contas de funcionario,
 tradutor e RH. Novos tradutores entram em `/completar-cadastro` no primeiro acesso.
+O assistente de IA aparece apenas para administradores no espaco de trabalho.
+Ainda nao esta conectado: nenhuma mensagem e enviada e nenhuma resposta e simulada.
+O historico visual permanece em memoria durante a navegacao e ao minimizar o chat;
+ele e descartado ao recarregar a pagina ou sair da conta. A integracao futura deve
+usar a autenticacao existente e validar a permissao de administrador no backend.
 O formulario exige nome, telefone, localizacao, idiomas e pares de traducao,
 formacao, experiencia e especializacoes. Biografia, servicos, ferramentas,
 certificacoes, portfolio e disponibilidade complementam o perfil opcionalmente.
