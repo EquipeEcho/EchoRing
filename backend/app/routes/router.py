@@ -19,6 +19,6 @@ router = APIRouter()
 for feature_router in (
     auth_router, users_router, clients_router, profiles_router, requests_router,
     tasks_router, offers_router, workflows_router, statistics_router,
-    finance_router, workflow_agent_router,
+    finance_router, tracking_router, workflow_agent_router,
 ):
     router.include_router(feature_router)
