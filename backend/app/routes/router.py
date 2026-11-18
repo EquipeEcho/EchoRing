@@ -13,11 +13,12 @@ from app.routes.tracking_routes import router as tracking_router
 from app.routes.translation_workflows_routes import router as workflows_router
 from app.routes.translator_profiles_routes import router as profiles_router
 from app.routes.users_routes import router as users_router
+from app.routes.workflow_agent_routes import router as workflow_agent_router
 
 router = APIRouter()
 for feature_router in (
     auth_router, users_router, clients_router, profiles_router, requests_router,
     tasks_router, offers_router, workflows_router, statistics_router,
-    finance_router,
+    finance_router, workflow_agent_router,
 ):
     router.include_router(feature_router)
