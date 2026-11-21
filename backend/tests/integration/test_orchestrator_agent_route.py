@@ -10,10 +10,10 @@ from tests.support.portal_test_case import PortalTestCase
 from tests.unit.test_orchestrator_agent import FakeRouter, FakeToolModel, UnexpectedModel
 
 
+@patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'})
 class OrchestratorAgentRouteTests(PortalTestCase):
     def setUp(self):
         super().setUp()
-        self.enterContext(patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}))
         self.enterContext(patch.object(root_agent, 'model', FakeRouter()))
         for agent in root_agent.sub_agents:
             self.enterContext(patch.object(agent, 'model', UnexpectedModel()))
