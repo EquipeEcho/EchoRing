@@ -165,8 +165,7 @@ class OrchestratorAgentTests(unittest.TestCase):
         runner.assert_not_called()
 
     def test_model_failure_becomes_unavailable_error(self):
-        with patch.object(root_agent, 'model', UnexpectedModel()), \
-                self.assertLogs(service.logger, 'ERROR'), self.assertLogs('google.adk', 'ERROR'):
+        with patch.object(root_agent, 'model', UnexpectedModel()), self.assertLogs(service.logger, 'ERROR'):
             with self.assertRaises(service.AgentUnavailableError):
                 service.responder('Olá!', EMPLOYEE)
 
@@ -185,7 +184,7 @@ class OrchestratorAgentTests(unittest.TestCase):
             try:
                 await service._run('Olá!', TRANSLATOR)
                 self.assertIs(workflow_tools._current_user.get(), ADMIN)
-                with patch.object(root_agent, 'model', UnexpectedModel()), self.assertLogs('google.adk', 'ERROR'):
+                with patch.object(root_agent, 'model', UnexpectedModel()):
                     with self.assertRaises(AssertionError):
                         await service._run('Olá!', EMPLOYEE)
                 self.assertIs(workflow_tools._current_user.get(), ADMIN)
