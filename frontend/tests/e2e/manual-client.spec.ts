@@ -138,6 +138,14 @@ test('employee sees landing-page projects and their current statuses in the clie
             },
           ],
         },
+        ...Array.from({ length: 7 }, (_, index) => ({
+          id: `CLI-SCROLL-${index}`,
+          name: `Cliente de teste ${index + 1}`,
+          email: `cliente${index + 1}@example.test`,
+          company: '',
+          createdAt: `2026-10-${String(20 - index).padStart(2, '0')}T12:00:00+00:00`,
+          projects: [],
+        })),
       ]),
     });
   });
@@ -148,4 +156,25 @@ test('employee sees landing-page projects and their current statuses in the clie
   await expect(page.getByText('Projetos (1)')).toBeVisible();
   await expect(page.getByText('Tradução do contrato')).toBeVisible();
   await expect(page.getByText('Em andamento', { exact: true })).toBeVisible();
+  await expect(page.getByText('Clientes cadastrados', { exact: true })).toBeVisible();
+  await expect(page.getByText('Projetos cadastrados', { exact: true })).toBeVisible();
+  await expect(page.getByText('Projetos ativos', { exact: true })).toBeVisible();
+
+  const scroller = page.getByTestId('clients-scroll');
+  await expect.poll(() => scroller.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  await scroller.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect(page.getByText('Cliente de teste 7')).toBeVisible();
+
+  const search = page.getByRole('textbox', { name: 'Buscar clientes por nome ou e-mail' });
+  await search.fill('landing@example.test');
+  await expect(page.getByText('Cliente da landing')).toBeVisible();
+  await search.fill('cliente-inexistente@example.test');
+  await expect(page.getByText('Nenhum resultado encontrado')).toBeVisible();
+  await search.fill('');
+
+  await page.getByRole('button', { name: 'Projetos dos clientes: Todos os clientes (8)' }).click();
+  await page.getByRole('radio', { name: 'Projetos dos clientes: Projetos ativos (1)' }).click();
+  await expect(page.getByText('Cliente da landing')).toBeVisible();
 });
