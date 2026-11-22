@@ -31,7 +31,6 @@ export async function api<T>(
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const multipart = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const response = await fetch(baseURL + path, {

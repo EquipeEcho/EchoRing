@@ -20,7 +20,6 @@ import { Txt } from '@/components/ui/text';
 import { useSession } from '@/features/auth/contexts/session-context';
 import { sendAIChatMessage, type AIChatMessage } from '@/features/ai-chat/services/ai-chat-service';
 import { useStyles } from '@/features/ai-chat/styles/ai-chat.styles';
-import { useSession } from '@/features/auth/contexts/session-context';
 import { desktopWidth, fonts } from '@/theme/tokens';
 import { useTheme } from '@/theme/theme-context';
 
@@ -47,7 +46,6 @@ export function AIChat() {
   const buttonRef = useRef<View>(null);
   const windowRef = useRef<View>(null);
   const wasOpen = useRef(false);
-  const { session } = useSession();
 
   useEffect(() => {
     let active = true;
@@ -171,7 +169,6 @@ function AIChatButton({ buttonRef, onPress }: { buttonRef: React.RefObject<View 
 }
 
 function AIChatHeader({ status, onMinimize }: { status: string; onMinimize: () => void }) {
-function AIChatHeader({ status, onMinimize }: { status: string; onMinimize: () => void }) {
   const styles = useStyles();
   const { colors } = useTheme();
   return (
@@ -190,7 +187,6 @@ function AIChatHeader({ status, onMinimize }: { status: string; onMinimize: () =
 
 function AIChatMessages({ messages, error, sending, onSuggestion }: {
   messages: AIChatMessage[];
-  sending: boolean;
   error: string;
   sending: boolean;
   onSuggestion: (value: string) => void;
@@ -275,11 +271,9 @@ function AIChatInput({ inputRef, value, sending, onChange, onSend }: {
   sending: boolean;
   onChange: (value: string) => void;
   onSend: () => void;
-  disabled: boolean;
 }) {
   const styles = useStyles();
   const { colors } = useTheme();
-  const canSend = !disabled && value.trim().length >= 3 && value.trim().length <= 500;
   const onKeyPress = (event: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
     if (Platform.OS !== 'web') return;
     const nativeEvent = event.nativeEvent as TextInputKeyPressEventData & { shiftKey?: boolean; isComposing?: boolean };
@@ -298,8 +292,6 @@ function AIChatInput({ inputRef, value, sending, onChange, onSend }: {
         placeholderTextColor={colors.muted}
         maxLength={500}
         multiline
-        editable={!disabled}
-        maxLength={500}
         value={value}
         onChangeText={onChange}
         onKeyPress={onKeyPress}
