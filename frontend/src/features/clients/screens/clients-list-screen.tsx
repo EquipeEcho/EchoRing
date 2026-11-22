@@ -58,6 +58,7 @@ function initials(name: string) {
 }
 
 export function ClientsListScreen() {
+  const { colors } = useTheme();
   const styles = useStyles();
   const common = useCommonStyles();
   const { colors } = useTheme();
@@ -149,7 +150,9 @@ export function ClientsListScreen() {
         action={registerButton}
       />
       {loading ? (
-        <SkeletonList label="Carregando clientes" variant="card" />
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.accent} />
+        </View>
       ) : error ? (
         <View style={styles.center}>
           <Txt accessibilityRole="alert" style={styles.error}>
@@ -352,7 +355,7 @@ const useStyles = createThemedStyles((colors) => ({
     padding: 18,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: colors.surface,
     boxShadow: colors.cardShadow,
   },

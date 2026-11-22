@@ -158,8 +158,8 @@ test('tasks, search, mobile navigation and notifications are usable', async ({ p
   await task.click();
   await expect(task).toHaveCount(0);
   await page.goto('/dashboard');
-  if (testInfo.project.name === 'mobile') await page.getByRole('button', { name: 'Buscar no portal', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Buscar no portal' }).fill('nada-encontrado');
+  if (testInfo.project.name === 'mobile') await page.getByRole('button', { name: 'Buscar projetos', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Buscar projetos' }).fill('nada-encontrado');
   await expect(page.getByText('Nenhum projeto encontrado')).toBeVisible();
   await page.getByRole('button', { name: 'Limpar busca', exact: true }).last().click();
   await page.getByRole('button', { name: 'Notificações', exact: true }).click();

@@ -20,7 +20,7 @@ export function TaskHeader({ task }: { task: TranslationService }) {
   return (
     <View style={styles.cardHeader}>
       <View style={styles.fileIcon}>
-        <FileCheck2 size={24} color={colors.ink} />
+        <FileCheck2 size={24} color={colors.accent} />
       </View>
       <View style={[{ flex: 1, minWidth: 0, gap: 5 }, width < 600 && styles.headerCopySmall]}>
         <Txt style={styles.title}>{task.title}</Txt>
@@ -28,17 +28,11 @@ export function TaskHeader({ task }: { task: TranslationService }) {
           {task.id}
           {task.requestId ? ` · ${task.requestId}` : ''}
         </Txt>
-        <Txt style={common.caption}>{task.source} → {task.target}</Txt>
-        {task.requestId && session?.role !== 'translator' && !session?.demo && <Pressable accessibilityRole="link"
-          accessibilityLabel={`Ver ordem de serviço ${task.requestId}`}
-          onPress={() => router.push({ pathname: '/solicitacoes/[id]', params: { id: task.requestId! } })}>
-          <Txt style={{ color: colors.accent, fontSize: 12, lineHeight: 20 }}>Ver ordem de serviço</Txt>
-        </Pressable>}
         {task.translator && session?.role !== 'translator' && <Pressable accessibilityRole="link" accessibilityLabel={`Ver perfil de ${task.translator.name}`} onPress={() => router.push({ pathname: '/tradutores/[id]', params: { id: task.translator!.id } })}>
           <Txt style={{ color: colors.accent, fontSize: 12, lineHeight: 20 }}>{task.translator.name} · Ver perfil</Txt>
         </Pressable>}
       </View>
-      <Badge dot tone={statusTone[task.status]}>{task.status}</Badge>
+      <Badge tone={statusTone[task.status]}>{task.status}</Badge>
     </View>
   );
 }

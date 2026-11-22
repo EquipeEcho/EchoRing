@@ -54,7 +54,6 @@ function Routes() {
         <Stack.Screen name="recuperar-senha" />
         <Stack.Screen name="completar-cadastro" />
         <Stack.Screen name="orcamento/[id]" />
-        <Stack.Screen name="acompanhar/[id]" />
         <Stack.Screen name="(workspace)" />
       </Stack>
     </>

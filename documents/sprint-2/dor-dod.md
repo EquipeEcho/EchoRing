@@ -29,21 +29,22 @@ Validado ao final de cada história, antes da Sprint Review:
 
 | Critério | US10 | US11 | US12 | US13 | US14 | US15 |
 | ---------------------------------------- | :-----: | :-----: | :-----: | :-----: | :-----: | :-----: |
-| Código implementado e funcional |  |  |  |  |  |  |
-| PR aprovado por ao menos 1 membro |  |  |  |  |  |  |
-| Sem conflitos com `develop` |  |  |  |  |  |  |
-| Testado (fluxo feliz e cenários de erro) |  |  |  |  |  |  |
-| Lógica de negócio validada no back-end |  |  |  |  |  |  |
-| Dados persistidos no PostgreSQL |  |  |  |  |  |  |
-| Sem exposição de dados sensíveis |  |  |  |  |  |  |
-| Critérios de aceite verificados pelo PO |  |  |  |  |  |  |
-| Branch de feature excluída após merge |  |  |  |  |  |  |
+| Código implementado e funcional | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| PR aprovado por ao menos 1 membro | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Sem conflitos com `develop` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Testado (fluxo feliz e cenários de erro) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Lógica de negócio validada no back-end | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Dados persistidos no PostgreSQL | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Sem exposição de dados sensíveis | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Critérios de aceite verificados pelo PO | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Branch de feature excluída após merge | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ## Resultado da Sprint
 
 **Histórias entregues (DoD completo):**  
+US10, US11, US12, US13, US14 e US15
 
-**Histórias não entregues:**  
+**Histórias não entregues:** Nenhuma
 
 **Observações:**  
 

@@ -1,1 +1,0 @@
-Agente especialista em fluxo de projetos (workflows) da Aliança Traduções. Explica modelos de fluxo por inteiro ou por etapas (TEP, MTPE, localização, legendagem e tradução juramentada), consulta o andamento de tarefas e executa ações permitidas nas etapas.

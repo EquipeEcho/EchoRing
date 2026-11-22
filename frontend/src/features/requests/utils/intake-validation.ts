@@ -1,6 +1,4 @@
 import { type Intake } from '@/features/requests/types';
-import { languageCode } from '@/data/language-options';
-import { requestTargets } from '@/features/requests/utils/quote-scope';
 
 export type IntakeFieldError = Partial<Record<keyof Intake, string>>;
 
@@ -36,28 +34,28 @@ export function validateIntake(data: Intake, stage: 'project' | 'complete' = 'co
   }
 
   const hasOtherErrors = invalid.length > 0;
-  const codes = requestTargets(data).map(languageCode);
-  const sameLanguages = Boolean(data.source.trim()) && codes.includes(languageCode(data.source));
-  const invalidTargets = codes.some(code => !code) || new Set(codes).size !== codes.length;
-  const targetError = sameLanguages && requestTargets(data).length === 1
-    ? 'Escolha um idioma de destino diferente do idioma de origem.'
-    : sameLanguages || invalidTargets ? 'Selecione idiomas de destino diferentes entre si e do idioma de origem.' : '';
-  if (targetError) {
+  const sameLanguages = Boolean(
+    data.source.trim() &&
+      data.target.trim() &&
+      data.source.trim().toLowerCase() === data.target.trim().toLowerCase(),
+  );
+  if (sameLanguages) {
     if (!invalid.includes('target')) invalid.push('target');
-    fieldErrors.target = targetError;
+    fieldErrors.target = 'Escolha um idioma de destino diferente do idioma de origem.';
   }
 
   const error = hasOtherErrors
     ? stage === 'project'
       ? 'Preencha os campos obrigatórios para continuar.'
       : 'Preencha os campos obrigatórios, confira seu e-mail e autorize o contato para receber o orçamento.'
-    : targetError;
+    : sameLanguages
+      ? 'Escolha um idioma de destino diferente do idioma de origem.'
+      : '';
 
   return { invalid, fieldErrors, error };
 }
 
 export function normalizeIntake(data: Intake): Intake {
-  const targets = requestTargets(data).map(target => target.trim());
   return {
     ...data,
     name: data.name.trim(),
@@ -66,8 +64,7 @@ export function normalizeIntake(data: Intake): Intake {
     title: data.title.trim(),
     service: data.service.trim(),
     source: data.source.trim(),
-    target: targets[0] || '',
-    targets,
+    target: data.target.trim(),
     deadline: data.deadline.trim(),
     message: data.message.trim(),
   };
