@@ -14,7 +14,7 @@ import { WorkflowMap } from './workflow-map';
 
 export function WorkflowStatusBadge({ job, now }: { job: WorkflowJob; now: number }) {
   const status = trackingStatus(job, now);
-  return <Badge tone={status === 'Concluído' ? 'green' : ['Bloqueado', 'Atrasado'].includes(status) ? 'red' : status === 'Requer atenção' ? 'amber' : status === 'Em andamento' ? 'blue' : 'neutral'}>{status}</Badge>;
+  return <Badge dot tone={status === 'Concluído' ? 'green' : ['Bloqueado', 'Atrasado'].includes(status) ? 'red' : status === 'Requer atenção' ? 'amber' : status === 'Em andamento' ? 'blue' : 'neutral'}>{status}</Badge>;
 }
 
 export function WorkflowJobCard({ job, now, compact, onOpen }: { job: WorkflowJob; now: number; compact: boolean; onOpen: () => void }) {

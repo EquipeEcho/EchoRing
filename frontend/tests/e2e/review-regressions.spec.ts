@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { requestPage } from './support/request-page';
 
 import { type ServiceStatus, type TranslationService } from '../../src/features/deliveries/types';
 
@@ -26,7 +27,10 @@ async function mockAccount(page: Page, role: 'employee' | 'admin' | 'translator'
     }));
   }, role);
   await page.route('**/tasks', async route => { await route.fulfill({ json: tasks }); });
-  await page.route('**/requests**', async route => { await route.fulfill({ json: [] }); });
+  await page.route('**/requests**', async route => {
+    const url = route.request().url();
+    await route.fulfill({ json: new URL(url).pathname === '/requests' ? requestPage([], url) : [] });
+  });
 }
 
 for (const role of ['employee', 'admin'] as const) {
@@ -112,7 +116,8 @@ test('a malformed attachment shows a download error without an unhandled rejecti
     message: '', consent: true, attachments: [{ name: 'corrompido.txt', size: 3, content: '%%%' }],
   };
   await page.route('**/requests**', async route => {
-    await route.fulfill({ json: new URL(route.request().url()).pathname === '/requests' ? [request] : request });
+    const url = route.request().url();
+    await route.fulfill({ json: new URL(url).pathname === '/requests' ? requestPage([request], url) : request });
   });
   const errors: string[] = [];
   const messages: string[] = [];

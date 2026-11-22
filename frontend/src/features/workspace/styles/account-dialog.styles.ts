@@ -3,8 +3,8 @@ import { createThemedStyles } from '@/theme/create-themed-styles';
 export const useStyles = createThemedStyles(colors => ({
   body: { gap: 12 },
   identity: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
-  initials: { fontSize: 17, lineHeight: 23, color: colors.accent, fontWeight: '600' },
+  avatar: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.elevated, alignItems: 'center', justifyContent: 'center' },
+  initials: { fontSize: 17, lineHeight: 23, color: colors.ink, fontWeight: '600' },
   identityCopy: { flex: 1, minWidth: 0, gap: 2 },
   name: { fontSize: 16, lineHeight: 23, letterSpacing: -0.2, fontWeight: '600' },
   email: { fontSize: 13, lineHeight: 20, color: colors.muted },

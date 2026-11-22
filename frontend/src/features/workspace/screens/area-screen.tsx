@@ -58,7 +58,7 @@ export function AreaScreen() {
       />
       <View style={styles.areaIntro}>
         <View style={styles.areaSymbol}>
-          <area.icon size={28} color={colors.accent} />
+          <area.icon size={28} color={colors.ink} />
         </View>
         <View style={{ flex: 1, gap: 5 }}>
           <Txt style={styles.areaStatus}>

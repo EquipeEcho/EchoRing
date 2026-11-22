@@ -1,19 +1,19 @@
 import { router } from 'expo-router';
 import { UserPlus, Users } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeading } from '@/components/ui/page-heading';
+import { SkeletonList } from '@/components/ui/skeleton';
 import { Txt } from '@/components/ui/text';
 import { useSession } from '@/features/auth/contexts/session-context';
 import { listClients } from '@/features/clients/services/client-service';
 import { type Client } from '@/features/clients/types';
 import { useCommonStyles } from '@/theme/common.styles';
 import { createThemedStyles } from '@/theme/create-themed-styles';
-import { useTheme } from '@/theme/theme-context';
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -29,7 +29,6 @@ function statusTone(status: string): 'green' | 'amber' | 'red' | 'blue' | 'neutr
 }
 
 export function ClientsListScreen() {
-  const { colors } = useTheme();
   const styles = useStyles();
   const common = useCommonStyles();
   const { session } = useSession();
@@ -69,9 +68,7 @@ export function ClientsListScreen() {
         action={registerButton}
       />
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
-        </View>
+        <SkeletonList label="Carregando clientes" variant="card" />
       ) : error ? (
         <View style={styles.center}>
           <Txt accessibilityRole="alert" style={styles.error}>
@@ -115,7 +112,7 @@ export function ClientsListScreen() {
                             {project.service} · {formatDate(project.createdAt)}
                           </Txt>
                         </View>
-                        <Badge tone={statusTone(project.status)}>{project.status}</Badge>
+                        <Badge dot tone={statusTone(project.status)}>{project.status}</Badge>
                       </View>
                     ))
                   ) : (
@@ -141,6 +138,7 @@ const useStyles = createThemedStyles((colors) => ({
     borderColor: colors.line,
     borderRadius: 14,
     backgroundColor: colors.surface,
+    boxShadow: colors.cardShadow,
   },
   clientCard: { gap: 16 },
   clientHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },

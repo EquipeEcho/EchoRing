@@ -25,8 +25,8 @@ export function TaskRow({ task }: { task: Task }) {
       }
       style={({ hovered }) => [styles.task, hovered && { backgroundColor: colors.elevated }]}
     >
-      <View style={[styles.checkbox, task.done && styles.checked, !!task.realTaskId && { borderWidth: 0, backgroundColor: colors.accentSoft }]}>
-        {task.realTaskId ? <FileText size={16} color={colors.accent} /> : task.done && <Check size={14} color={colors.onAccent} strokeWidth={3} />}
+      <View style={[styles.checkbox, task.done && styles.checked, !!task.realTaskId && { borderWidth: 0, backgroundColor: colors.elevated }]}>
+        {task.realTaskId ? <FileText size={16} color={colors.muted} /> : task.done && <Check size={14} color={colors.onAccent} strokeWidth={3} />}
       </View>
       {!!task.realTaskId && <ChevronRight size={16} color={colors.muted} />}
       <View style={{ flex: 1, gap: 4 }}>

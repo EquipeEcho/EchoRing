@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { requestPage } from './support/request-page';
 
 import { type Offer } from '../../src/features/offers/types';
 
@@ -8,7 +9,7 @@ async function account(page: Page, role: 'translator' | 'employee') {
     token: 'record-test-token', expires: Date.now() / 1000 + 3600,
   })), role);
   await page.route('**/tasks', route => route.fulfill({ json: [] }));
-  await page.route('**/requests', route => route.fulfill({ json: [] }));
+  await page.route('**/requests?*', route => route.fulfill({ json: requestPage([], route.request().url()) }));
   await page.route('**/offer-notifications', route => route.fulfill({ json: [] }));
 }
 

@@ -17,7 +17,7 @@ export function WorkflowTimeline({ template, records = [] }: { template: Workflo
   return <View style={s.timeline} testID="workflow-timeline">
     {template.stages.map((stage, index) => {
       const record = records.find(item => item.stageId === stage.id);
-      const color = record?.status === 'completed' ? colors.green : record?.status === 'current' ? colors.accent : record?.status === 'blocked' ? colors.amber : colors.muted;
+      const color = record?.status === 'completed' ? colors.green : record?.status === 'current' ? colors.accent : record?.status === 'blocked' ? colors.red : colors.muted;
       return <View key={stage.id} style={s.timelineRow} testID={`workflow-stage-${stage.id}`}>
         <View style={s.rail}>
           <View style={[s.marker, { borderColor: color, backgroundColor: record?.status === 'completed' ? colors.greenSoft : colors.surface }]}>

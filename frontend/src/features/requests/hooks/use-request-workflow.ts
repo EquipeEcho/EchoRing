@@ -1,13 +1,17 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { currencyInputFromDecimal, currencyToDecimal } from '@/utils/input-formatters';
+import { requestTargets } from '@/features/requests/utils/quote-scope';
 
 import { useSession } from '@/features/auth/contexts/session-context';
 import { emptyQuote } from '@/features/requests/constants/quote';
 import { useInbox } from '@/features/requests/contexts/inbox-context';
+import { useRequestList } from '@/features/requests/hooks/use-request-list';
 import {
   getRequest,
+  resendQuote,
   sendQuote,
+  sendTrackingLink,
   updateRequest,
 } from '@/features/requests/services/request-service';
 import {
@@ -22,13 +26,14 @@ export function useRequestWorkflow() {
   const reloadDetail = () => setDetailRevision(current => current + 1);
   const { session } = useSession();
   const token = session?.token;
-  const { requests, loading, error: loadError, refresh } = useInbox();
-  const view = params.view === 'completed' ? 'completed' : 'active';
+  const { received } = useInbox();
+  const view: 'active' | 'completed' = params.view === 'completed' ? 'completed' : 'active';
   const setView = (view: 'active' | 'completed') => router.setParams({ view, status: 'Todos' });
-  const filter = params.status || 'Todos';
   const setFilter = (status: string) => router.setParams({ status });
   const search = params.search || '';
   const setSearch = (search: string) => router.setParams({ search });
+  const list = useRequestList({ view, filter: params.status || 'Todos', search, token, enabled: !requestId });
+  const { filter, refresh } = list;
   const [record, setSelected] = useState<TranslationRequest | null>(null);
   const selected = record?.id === requestId ? record : null;
   const [detailLoading, setDetailLoading] = useState(!!requestId);
@@ -38,30 +43,6 @@ export function useRequestWorkflow() {
   const [notice, setNotice] = useState('');
   const [confirm, setConfirm] = useState(false);
   const locked = !!selected && !['Recebido', 'Em análise'].includes(selected.status);
-  const normalize = (value: string) =>
-    value
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-  const completedStatuses = ['Pronta', 'Entregue', 'Orçamento recusado'];
-  const activeRequests = requests.filter((item) => !completedStatuses.includes(item.status));
-  const completedRequests = requests.filter((item) => completedStatuses.includes(item.status));
-  const scopedRequests = view === 'active' ? activeRequests : completedRequests;
-  const visible = scopedRequests.filter(
-    (item) =>
-      (filter === 'Todos' || item.status === filter) &&
-      normalize(item.title + item.name + item.email + item.id).includes(normalize(search)),
-  );
-  const statusFilters =
-    view === 'completed'
-      ? ['Todos', 'Pronta', 'Entregue', 'Orçamento recusado']
-      : [
-          'Todos',
-          'Recebido',
-          'Em análise',
-          token ? 'Orçamento enviado' : 'Orçamento simulado',
-          ...(token ? ['Orçamento aprovado', 'Tradutor atribuído', 'Aguardando avaliação'] : []),
-        ];
   const listHref = { pathname: '/solicitacoes' as const, params: { view, status: filter, search } };
   function open(request: TranslationRequest) {
     router.push({ pathname: '/solicitacoes/[id]', params: { id: request.id, view, status: filter, search } });
@@ -75,7 +56,14 @@ export function useRequestWorkflow() {
         const detail = await getRequest(requestId, token);
         if (!active) return;
         setSelected(detail);
-        setQuote(detail.quote ? { ...detail.quote, amount: currencyInputFromDecimal(detail.quote.amount) } : { ...emptyQuote });
+        const proposal = detail.quote ? { ...detail.quote, amount: currencyInputFromDecimal(detail.quote.amount) } : { ...emptyQuote };
+        if (proposal.items?.length || (requestTargets(detail).length > 1 && ['Recebido', 'Em análise'].includes(detail.status))) {
+          proposal.items = requestTargets(detail).map(target => {
+            const item = proposal.items?.find(item => item.target === target);
+            return { target, amount: item ? currencyInputFromDecimal(item.amount) : '', delivery: item?.delivery || '' };
+          });
+        }
+        setQuote(proposal);
       } catch (failure) {
         if (active) setError((failure as Error).message);
       } finally {
@@ -99,6 +87,10 @@ export function useRequestWorkflow() {
   }
   async function save(): Promise<boolean> {
     if (!selected || busy) return false;
+    if (quote.items?.some(item => !currencyToDecimal(item.amount) || Number(currencyToDecimal(item.amount)) <= 0 || !item.delivery.trim())) {
+      setError('Informe um valor positivo e o prazo de cada idioma.');
+      return false;
+    }
     if (
       !currencyToDecimal(quote.amount) ||
       Number(currencyToDecimal(quote.amount)) <= 0 ||
@@ -120,6 +112,7 @@ export function useRequestWorkflow() {
               amount: currencyToDecimal(quote.amount),
               delivery: quote.delivery.trim(),
               message: quote.message.trim(),
+              ...(quote.items?.length ? { items: quote.items.map(item => ({ ...item, amount: currencyToDecimal(item.amount), delivery: item.delivery.trim() })) } : {}),
             },
           },
           token,
@@ -163,31 +156,56 @@ export function useRequestWorkflow() {
       setBusy(false);
     }
   }
+  async function resend() {
+    if (!selected || busy || !token) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      setSelected(await resendQuote(selected.id, token));
+      setNotice('Orçamento reenviado com um novo link. O link anterior deixou de valer.');
+      await refresh();
+    } catch (failure) {
+      setError((failure as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function sendTracking() {
+    if (!selected || busy || !token) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      setSelected(await sendTrackingLink(selected.id, token));
+      setNotice('Link de acompanhamento enviado. O link anterior deixou de valer.');
+    } catch (failure) {
+      setError((failure as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   function close() {
     if (!busy) router.replace(listHref);
   }
   return {
     requestId, detailLoading, reloadDetail, listHref,
-    loading,
+    list,
+    received,
+    loading: list.loading,
     refresh,
-    requests,
+    loadError: list.error,
     token,
     view,
     setView,
     setFilter,
-    activeRequests,
-    completedRequests,
     search,
     setSearch,
-    statusFilters,
     filter,
-    loadError,
     error,
     selected,
-    visible,
     busy,
     open,
-    scopedRequests,
     confirm,
     setConfirm,
     close,
@@ -200,5 +218,7 @@ export function useRequestWorkflow() {
     save,
     prepare,
     send,
+    resend,
+    sendTracking,
   };
 }

@@ -2,7 +2,7 @@ import { type ReactNode } from 'react';
 import { useWindowDimensions, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { typeScale } from '@/theme/tokens';
+import { breakpoints, typeScale } from '@/theme/tokens';
 import { createThemedStyles } from '@/theme/create-themed-styles';
 
 export function PageHeading({
@@ -23,7 +23,7 @@ export function PageHeading({
       <View style={styles.headingCopy}>
         <Txt
           accessibilityRole="header"
-          style={[styles.title, width < 700 && { fontSize: 28, lineHeight: 36, letterSpacing: -0.8 }]}
+          style={[styles.title, width < breakpoints.compact && { fontSize: 28, lineHeight: 36, letterSpacing: -0.8 }]}
         >
           {title}
         </Txt>

@@ -6,7 +6,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { PageHeading } from '@/components/ui/page-heading';
 import { Txt } from '@/components/ui/text';
-import { FilterTab } from '@/features/workspace/components/filter-tab';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { TaskRow } from '@/features/workspace/components/task-row';
 import { WorkspacePage } from '@/features/workspace/components/workspace-page';
 import { useWorkspace } from '@/features/workspace/contexts/workspace-context';
@@ -27,16 +27,13 @@ export function TasksScreen() {
         title="Minhas tarefas"
         subtitle={`${tasks.filter((task) => !task.done).length} tarefas pendentes`}
       />
-      <View style={styles.tabs}>
-        {['Pendentes', 'Concluídas', 'Todas'].map((value) => (
-          <FilterTab
-            key={value}
-            label={value}
-            active={filter === value}
-            onPress={() => setFilter(value)}
-          />
-        ))}
-      </View>
+      <SegmentedTabs
+        label="Situação das tarefas"
+        value={filter}
+        onChange={setFilter}
+        items={['Pendentes', 'Concluídas', 'Todas'].map((value) => ({ value, label: value }))}
+        style={styles.panelTabs}
+      />
       <View style={styles.taskAgenda}>
         <View style={styles.agendaHead}>
           <Txt style={styles.listEyebrow}>AGENDA OPERACIONAL</Txt>

@@ -1,9 +1,10 @@
 import { Redirect, router } from 'expo-router';
 import { Save, UserRound, ArrowLeft } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, useWindowDimensions, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeading } from '@/components/ui/page-heading';
@@ -71,9 +72,14 @@ function ProfileEditor({ record }: { record: TranslatorProfileRecord }) {
     <ScrollView contentContainerStyle={[styles.page, width < 700 && styles.pageSmall]} keyboardShouldPersistTaps="handled">
       <View style={styles.editor}>
         <PageHeading spacing="flush" title="Editar meu perfil" subtitle="Mantenha suas informações profissionais e de contato atualizadas." />
-        <View accessibilityRole="tablist" style={styles.tabs}>
-          {['Contato', 'Idiomas', 'Trajetória', 'Perfil profissional'].map((label, index) => <Pressable key={label} accessibilityRole="tab" aria-selected={step === index} accessibilityState={{ selected: step === index, disabled: busy }} disabled={busy} onPress={() => setStep(index)} style={[styles.tab, step === index && styles.tabActive]}><Txt style={[styles.tabText, step === index && styles.tabTextActive]}>{label}</Txt></Pressable>)}
-        </View>
+        <SegmentedTabs
+          fill
+          label="Seções do perfil"
+          value={String(step)}
+          onChange={(value) => setStep(Number(value))}
+          disabled={busy}
+          items={['Contato', 'Idiomas', 'Trajetória', 'Perfil profissional'].map((label, index) => ({ value: String(index), label }))}
+        />
         <View testID="translator-profile-editor" style={[styles.card, width < 600 && styles.cardSmall]}>
           <View style={styles.editorHeading}>
             <Txt style={styles.eyebrow}>INFORMAÇÕES PROFISSIONAIS</Txt>

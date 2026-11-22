@@ -1,13 +1,13 @@
 export const statusTone = {
   'Em tradução': 'blue',
-  'Em revisão': 'green',
+  'Em revisão': 'blue',
   'Aguardando aprovação': 'amber',
-  Concluído: 'neutral',
-  'Nova requisição': 'green',
+  Concluído: 'green',
+  'Nova requisição': 'amber',
   'Tradutor atribuído': 'blue',
   'Em andamento': 'blue',
-  'Aguardando avaliação': 'green',
+  'Aguardando avaliação': 'amber',
   'Revisão solicitada': 'amber',
   Pronta: 'green',
-  Entregue: 'neutral',
+  Entregue: 'green',
 } as const;
