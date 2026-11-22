@@ -1,5 +1,4 @@
 import { expect, test, type Page } from '@playwright/test';
-import { requestPage } from './support/request-page';
 
 async function openCadastrosAsEmployee(page: Page) {
   await page.addInitScript(() => {
@@ -15,8 +14,8 @@ async function openCadastrosAsEmployee(page: Page) {
       }),
     );
   });
-  await page.route('**/requests?*', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(requestPage([], route.request().url())) });
+  await page.route('**/requests', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
   });
   await page.goto('/area/cadastros');
 }

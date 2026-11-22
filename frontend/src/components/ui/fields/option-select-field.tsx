@@ -9,7 +9,6 @@ import { Txt } from '@/components/ui/text';
 import { TextInput } from '@/components/ui/text-input';
 import { normalizeLanguageSearch } from '@/data/language-options';
 import { useTheme } from '@/theme/theme-context';
-import { breakpoints } from '@/theme/tokens';
 
 export function OptionSelectField({
   label,
@@ -81,13 +80,13 @@ export function OptionSelectField({
         eyebrow="SELEÇÃO"
         title={dialogTitle}
         description={description}
-        headerContent={searchable && <>
+      >
+        {searchable && <>
           <TextInput accessibilityLabel={`Buscar em ${dialogTitle}`} value={query} onChangeText={text => { setQuery(text); setLimit(40); }}
             placeholder="Buscar por nome ou código..." placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false}
             style={[styles.search, { color: colors.ink, borderColor: colors.controlLine }]} />
           <Txt style={styles.placeholder} accessibilityLiveRegion="polite">{matches.length} opções{matches.length > visible.length ? ` · exibindo ${visible.length}. Refine sua busca.` : ''}</Txt>
         </>}
-      >
         <View style={styles.optionList}>
           {visible.map((option) => {
             const selected = value === option;
@@ -106,7 +105,7 @@ export function OptionSelectField({
                 }}
                 style={({ hovered, pressed }) => [
                   styles.option,
-                  width < breakpoints.phone && styles.optionMobile,
+                  width < 600 && styles.optionMobile,
                   selected && styles.optionSelected,
                   hovered && styles.optionHover,
                   pressed && { opacity: 0.78 },

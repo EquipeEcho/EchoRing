@@ -3,13 +3,10 @@ import { Platform } from 'react-native';
 export const darkColors = {
   ink: '#F3F5F7',
   muted: '#A4AFBD',
-  line: '#29313C',
+  line: '#303945',
   canvas: '#101318',
-  surface: '#191F27',
-  elevated: '#222A35',
-  // Recessed tracks (segmented controls) and the lifted element inside them.
-  sunken: '#12161C',
-  raised: '#28303C',
+  surface: '#171C23',
+  elevated: '#202732',
   white: '#FFFFFF',
   accent: '#FF7185',
   accentStrong: '#FF8FA0',
@@ -32,8 +29,6 @@ export const darkColors = {
   disabled: '#7D8998',
   overlay: 'rgba(6,10,16,0.72)',
   controlLine: '#566374',
-  cardShadow: '0 1px 2px rgba(0,0,0,0.28), 0 10px 28px rgba(0,0,0,0.20)',
-  raisedShadow: '0 1px 2px rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.25)',
 };
 
 export type ThemeColors = { [Key in keyof typeof darkColors]: string };
@@ -42,12 +37,10 @@ export type ThemeMode = 'dark' | 'light';
 export const lightColors: ThemeColors = {
   ink: '#202936',
   muted: '#5E6B7C',
-  line: '#E1E6EC',
+  line: '#DAE1E8',
   canvas: '#F4F6F8',
   surface: '#FFFFFF',
   elevated: '#EDF1F5',
-  sunken: '#ECEFF3',
-  raised: '#FFFFFF',
   white: '#FFFFFF',
   accent: '#B83250',
   accentStrong: '#98213C',
@@ -70,8 +63,6 @@ export const lightColors: ThemeColors = {
   disabled: '#717E8F',
   overlay: 'rgba(16,25,40,0.38)',
   controlLine: '#8A98A9',
-  cardShadow: '0 1px 2px rgba(16,25,40,0.05), 0 8px 24px rgba(16,25,40,0.06)',
-  raisedShadow: '0 1px 2px rgba(16,25,40,0.10), 0 2px 6px rgba(16,25,40,0.06)',
 };
 
 export const palettes = { dark: darkColors, light: lightColors };
@@ -94,16 +85,11 @@ export const typeScale = {
   body: { fontSize: 16, lineHeight: 24 },
   label: { fontSize: 14, lineHeight: 20 },
   caption: { fontSize: 13, lineHeight: 19 },
-  cardTitle: { fontSize: 17, lineHeight: 24 },
-  eyebrow: { fontSize: 11, lineHeight: 16, letterSpacing: 1.2 },
-  metric: { fontSize: 32, lineHeight: 38 },
 };
 
 // Shared rhythm across the public site, portal and native layouts.
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, section: 48 };
-export const radius = { sm: 8, control: 10, md: 12, card: 16, large: 24, pill: 999 };
+export const radius = { sm: 8, control: 10, card: 16, large: 24, pill: 999 };
 export const layout = { content: 1400, form: 880 };
 
-// Layout widths: phone stacks forms, compact tightens cards, desktop shows the sidebar, wide adds side panels.
-export const breakpoints = { phone: 600, compact: 700, desktop: 1000, wide: 1280 };
-export const desktopWidth = breakpoints.desktop;
+export const desktopWidth = 1000;

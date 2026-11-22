@@ -2,17 +2,12 @@ import { apiMode } from '@/features/requests/constants/request-mode';
 import { localRequests, saveLocal } from '@/features/requests/services/request-storage';
 import {
   type Intake,
-  type PublicTracking,
   type Quote,
-  type QuotePreview,
-  type RequestPage,
-  type RequestQuery,
   type TranslationRequest,
   type TranslatorOption,
 } from '@/features/requests/types';
-import { queryRequests } from '@/features/requests/utils/request-query';
 import { api } from '@/lib/api/client';
-import { normalizeRequest, normalizeRequestPage } from './normalize-request';
+import { normalizeRequest, normalizeRequests } from './normalize-request';
 
 export async function submitIntake(data: Intake): Promise<TranslationRequest> {
   if (apiMode) return normalizeRequest(await api('/requests', { method: 'POST', body: JSON.stringify(data) }));
@@ -39,11 +34,8 @@ export async function submitManualIntake(
   return api('/requests/manual', { method: 'POST', body: JSON.stringify(data) }, token);
 }
 
-export async function listRequests(query: RequestQuery, token?: string): Promise<RequestPage> {
-  if (!token) return queryRequests(localRequests(), query);
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== '' && value !== false) params.set(key, String(value));
-  return normalizeRequestPage(await api('/requests?' + params.toString(), {}, token));
+export async function getRequests(token?: string): Promise<TranslationRequest[]> {
+  return token ? normalizeRequests(await api('/requests', {}, token)) : localRequests();
 }
 
 export async function getRequest(id: string, token?: string): Promise<TranslationRequest> {
@@ -77,11 +69,6 @@ export async function sendQuote(id: string, token: string): Promise<TranslationR
   return normalizeRequest(await api('/requests/' + encodeURIComponent(id) + '/send-quote', { method: 'POST' }, token));
 }
 
-/** Sends the unanswered quote again with a new personal link; the previous link stops working. */
-export async function resendQuote(id: string, token: string): Promise<TranslationRequest> {
-  return normalizeRequest(await api('/requests/' + encodeURIComponent(id) + '/resend-quote', { method: 'POST' }, token));
-}
-
 export function getTranslators(token: string) {
   return api<TranslatorOption[]>('/translators', {}, token);
 }
@@ -105,7 +92,6 @@ export function submitQuoteDecision(
   quoteId: string,
   token: string,
   decision: 'approve' | 'decline',
-  targets?: string[],
 ) {
   return api<{
     requestId: string;
@@ -113,23 +99,8 @@ export function submitQuoteDecision(
     title: string;
     status: 'Orçamento aprovado' | 'Orçamento recusado';
     respondedAt: string;
-    approvedTargets: string[];
-    approvedAmount: string;
   }>(`/quotes/${encodeURIComponent(quoteId)}/decision`, {
     method: 'POST',
-    body: JSON.stringify({ token, decision, ...(targets ? { targets } : {}) }),
+    body: JSON.stringify({ token, decision }),
   });
-}
-
-export function getTracking(requestId: string, token: string) {
-  return api<PublicTracking>(`/tracking/${encodeURIComponent(requestId)}`, { method: 'POST', body: JSON.stringify({ token }) });
-}
-
-/** Sends the client a new tracking link; the previous one stops working. */
-export async function sendTrackingLink(id: string, token: string): Promise<TranslationRequest> {
-  return normalizeRequest(await api('/requests/' + encodeURIComponent(id) + '/send-tracking', { method: 'POST' }, token));
-}
-
-export function previewQuote(quoteId: string, token: string) {
-  return api<QuotePreview>(`/quotes/${encodeURIComponent(quoteId)}/preview`, { method: 'POST', body: JSON.stringify({ token }) });
 }

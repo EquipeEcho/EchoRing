@@ -8,7 +8,6 @@ export type Intake = {
   service: string;
   source: string;
   target: string;
-  targets?: string[];
   deadline: string;
   message: string;
   consent: boolean;
@@ -17,14 +16,7 @@ export type Intake = {
 
 export type IntakeTextField = 'name' | 'email' | 'company' | 'title' | 'message';
 
-export type QuoteItem = { target: string; amount: string; delivery: string };
-export type Quote = { id?: string; amount: string; delivery: string; message: string; items?: QuoteItem[] };
-export type RequestTask = {
-  id: string; status: string; deadline: string; source?: string; target?: string;
-  startedAt?: string; deliveredAt?: string;
-  translator: { id: string; name: string; email: string };
-};
-export type QuotePreview = Pick<Intake, 'title' | 'service' | 'source'> & { id: string; targets: string[]; quote: Quote };
+export type Quote = { id?: string; amount: string; delivery: string; message: string };
 
 export type RequestStatus =
   | 'Recebido'
@@ -54,52 +46,15 @@ export type TranslationRequest = Intake & {
   status: RequestStatus;
   quote?: Quote;
   emailSentAt?: string;
-  quoteResentAt?: string;
-  /** When the client's personal quote link stops working. */
-  quoteExpiresAt?: string;
   quoteRespondedAt?: string;
-  /** Last time the client received the personal tracking link. */
-  trackingSentAt?: string;
   assignedAt?: string;
   history?: WorkflowEvent[];
   demo?: boolean;
   autoApproved?: boolean;
-  approvedTargets?: string[];
-  approvedAmount?: string;
-  tasks?: RequestTask[];
-  task?: RequestTask;
-};
-
-export type TrackingLanguageStatus = 'Aguardando início' | 'Em tradução' | 'Em revisão' | 'Pronta' | 'Entregue';
-/** What `POST /tracking/{id}` shows the client: no translators, notes or internal review steps. */
-export type PublicTracking = {
-  id: string;
-  title: string;
-  service: string;
-  source: string;
-  targets: string[];
-  status: RequestStatus;
-  createdAt: string;
-  emailSentAt?: string;
-  quoteRespondedAt?: string;
-  approvedAmount?: string;
-  delivery: string;
-  languages: { target: string; status: TrackingLanguageStatus; delivery: string; deliveredAt: string | null }[];
-  history: { status: string; createdAt: string }[];
-};
-
-export type RequestGroup = 'pendente' | 'orcamento' | 'traducao' | 'concluido' | 'cancelado';
-export type RequestCounts = {
-  groups: Record<RequestGroup, number>;
-  statuses: Partial<Record<RequestStatus, number>>;
-  attention: number;
-};
-/** `status` takes group keys or exact statuses separated by commas, like `GET /requests`. */
-export type RequestQuery = { status?: string; search?: string; limit?: number; offset?: number; attention?: boolean };
-export type RequestPage = {
-  items: TranslationRequest[];
-  total: number;
-  limit: number;
-  offset: number;
-  counts: RequestCounts;
+  task?: {
+    id: string;
+    status: string;
+    deadline: string;
+    translator: { id: string; name: string; email: string };
+  };
 };

@@ -53,8 +53,8 @@ A plataforma também incluirá ferramentas comerciais, permitindo a criação de
 
 ## 📚 <span id="documents">Manuais e Documentação</span>
 
-- 📖 [Manual de Instalação]()  
-- 👨‍💻 [Manual do Usuário]()
+- 📖 [Manual de Instalação](./documents/InstalationGuide.md)
+- ✅ [Checklist DoR e DoD — Sprint 3](./documents/sprint-3/dor-dod.md)
 
 ---
 
@@ -83,20 +83,16 @@ A plataforma também incluirá ferramentas comerciais, permitindo a criação de
 
 ## 🚀 MVP - Mínimo Produto Viável
 
-### 🟢 Sprint 1 - Fundação da Plataforma e Solicitações
+### 🟢 Sprint 3 - Agente de IA para Gestão
 
-**Objetivo:** disponibilizar a base da aplicação, autenticação e o fluxo inicial de solicitação de serviços.
+**Objetivo:** disponibilizar um agente de IA e uma área dedicada para apoiar os funcionários em consultas e na gestão das traduções.
 
-### 📈 Backlog da Sprint 2
+### 📈 Backlog da Sprint 3
 
 | Rank | Prioridade | User Story | Como usuário | Estimativa | Sprint |
 |---|---|---|---|---:|---|
-| 10 | Média | **US10 — Notificações para tradutor** | Como **tradutor**, quero receber notificações por e-mail sobre novas traduções e atualizações dos meus serviços | 5 | Sprint 2 |
-| 11 | Média | **US11 — Área de notificações do tradutor** | Como **tradutor**, quero visualizar minhas notificações dentro da plataforma para acompanhar as atualizações dos meus serviços | 3 | Sprint 2 |
-| 12 | Média | **US12 — Notificações para cliente** | Como **cliente**, quero receber notificações sobre minhas traduções e visualizar essas notificações na plataforma para acompanhar o andamento do serviço | 5 | Sprint 2 |
-| 13 | Média | **US13 — Notificações para funcionário** | Como **funcionário**, quero receber notificações sobre novas requisições, conclusão de traduções e conclusão de etapas para acompanhar os serviços | 5 | Sprint 2 |
-| 14 | Média | **US14 — Workflow de etapas da tradução** | Como **funcionário**, quero dividir uma tradução em diferentes etapas e alocar tradutores diferentes para cada etapa para organizar o fluxo de trabalho | 8 | Sprint 2 |
-| 15 | Média | **US15 — Conclusão de etapas pelo tradutor** | Como **tradutor**, quero enviar a conclusão da etapa pela qual sou responsável para que o funcionário possa acompanhar o progresso da tradução | 5 | Sprint 2 |
+| 16 | Média | **US16 — Agente para funcionário** | Como **funcionário**, quero utilizar um agente para consultar informações e obter auxílio na gestão das traduções | 8 | Sprint 3 |
+| 17 | Média | **US17 — Área do agente** | Como **funcionário**, quero acessar uma área dedicada ao agente para interagir com ele e utilizar seus recursos de apoio à gestão | 5 | Sprint 3 |
 ---
 ## 🏃‍ DoR - Definition of Ready
 

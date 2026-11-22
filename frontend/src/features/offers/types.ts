@@ -2,9 +2,6 @@ export type OfferStatus = 'pending' | 'accepted' | 'declined' | 'expired' | 'can
 export const offerLabels: Record<OfferStatus, string> = {
   pending: 'Pendente', accepted: 'Aceita', declined: 'Recusada', expired: 'Expirada', cancelled: 'Cancelada',
 };
-export const offerStatusTone: Record<OfferStatus, import('@/components/ui/badge').BadgeTone> = {
-  pending: 'amber', accepted: 'green', declined: 'red', expired: 'neutral', cancelled: 'neutral',
-};
 export type Offer = {
   audience?: 'selected' | 'all';
   workflowTemplateId?: import('@/features/workflows/types').WorkflowType | null;
@@ -20,7 +17,6 @@ export type Offer = {
 export type CompatibleTranslator = { id: string; name: string; email: string;
   languages?: { name: string; level: string }[] };
 export type OfferTerms = {
-  target?: string;
   audience?: 'selected' | 'all';
   workflowTemplateId?: import('@/features/workflows/types').WorkflowType;
   translatorIds: string[]; compensation: string; deadline: string; expiresAt: string;

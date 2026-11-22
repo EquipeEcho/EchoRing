@@ -105,7 +105,7 @@ for (const theme of ['dark', 'light'] as const) {
     const routes = [
       ['/dashboard', 'Visão geral'], ['/operacao', 'Operação'], ['/entregas', 'Avaliações e entregas'],
       ['/solicitacoes', 'Solicitações'], ['/tarefas', 'Minhas tarefas'], ['/usuarios', 'Usuários'],
-      ['/mais', 'Mais'], ['/area/cadastros', 'Cadastros'], ['/financeiro', 'Financeiro'],
+      ['/mais', 'Mais'], ['/area/cadastros', 'Cadastros'], ['/area/financeiro', 'Financeiro'],
       ['/area/relatorios', 'Relatórios'], ['/area/administracao', 'Administração'],
     ];
     for (const [route, title] of routes) {
