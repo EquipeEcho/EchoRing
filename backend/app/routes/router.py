@@ -6,6 +6,7 @@ from app.routes.clients_routes import router as clients_router
 from app.routes.auth import router as auth_router
 from app.routes.finance_routes import router as finance_router
 from app.routes.offers_routes import router as offers_router
+from app.routes.orchestrator_agent_routes import router as orchestrator_agent_router
 from app.routes.requests_routes import router as requests_router
 from app.routes.statistics_routes import router as statistics_router
 from app.routes.tasks_routes import router as tasks_router
@@ -19,6 +20,6 @@ router = APIRouter()
 for feature_router in (
     auth_router, users_router, clients_router, profiles_router, requests_router,
     tasks_router, offers_router, workflows_router, statistics_router,
-    finance_router, tracking_router, workflow_agent_router,
+    finance_router, tracking_router, workflow_agent_router, orchestrator_agent_router,
 ):
     router.include_router(feature_router)

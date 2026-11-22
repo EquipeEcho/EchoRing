@@ -1,3 +1,5 @@
+import { api } from '@/lib/api/client';
+
 export type AIChatMessage = {
   id: string;
   role: 'user' | 'assistant';
@@ -7,17 +9,41 @@ export type AIChatMessage = {
 
 export type AIChatRequest = {
   message: string;
-  conversationId?: string;
 };
 
 export type AIChatResult =
-  | { status: 'unavailable'; message: string }
-  | { status: 'success'; message: string; conversationId?: string };
+  | { status: 'unavailable' | 'error'; message: string }
+  | { status: 'success'; message: string };
 
-// Replace this implementation with the authenticated agent API when it exists.
-export function sendAIChatMessage(_request: AIChatRequest): AIChatResult {
-  return {
-    status: 'unavailable',
-    message: 'O assistente ainda não está conectado. Sua mensagem não foi enviada.',
-  };
+type OrchestratorResponse = {
+  resposta: string;
+};
+
+export async function sendAIChatMessage(
+  request: AIChatRequest,
+  token?: string,
+): Promise<AIChatResult> {
+  if (!token) {
+    return {
+      status: 'unavailable',
+      message: 'Entre com uma conta de administrador autenticada para usar o assistente.',
+    };
+  }
+
+  try {
+    const response = await api<OrchestratorResponse>('/agent', {
+      method: 'POST',
+      body: JSON.stringify({ pergunta: request.message }),
+    }, token, 35000);
+    if (typeof response?.resposta !== 'string' || !response.resposta.trim()) {
+      throw new Error('O assistente retornou uma resposta inválida.');
+    }
+    return { status: 'success', message: response.resposta };
+  } catch (error) {
+    const message = error instanceof Error
+      ? error.message
+      : 'Não foi possível concluir a solicitação ao assistente.';
+    const unavailable = /indisponível|conectar|configurado/i.test(message);
+    return { status: unavailable ? 'unavailable' : 'error', message };
+  }
 }

@@ -2,6 +2,7 @@ import { AlertCircle, Bot, ChevronDown, Send, Sparkles } from 'lucide-react-nati
 import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
+  ActivityIndicator,
   Animated,
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +17,7 @@ import Markdown from 'react-native-markdown-display';
 
 import { TextInput } from '@/components/ui/text-input';
 import { Txt } from '@/components/ui/text';
+import { useSession } from '@/features/auth/contexts/session-context';
 import { sendAIChatMessage, type AIChatMessage } from '@/features/ai-chat/services/ai-chat-service';
 import { useStyles } from '@/features/ai-chat/styles/ai-chat.styles';
 import { desktopWidth, fonts } from '@/theme/tokens';
@@ -28,13 +30,15 @@ const suggestions = [
 
 export function AIChat() {
   const styles = useStyles();
+  const { session } = useSession();
   const { width, height } = useWindowDimensions();
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
-  const [conversationId, setConversationId] = useState<string>();
+  const [sending, setSending] = useState(false);
+  const [status, setStatus] = useState('Aguardando mensagem');
   const [reduceMotion, setReduceMotion] = useState(false);
   const [opacity] = useState(() => new Animated.Value(0));
   const nextId = useRef(0);
@@ -87,24 +91,28 @@ export function AIChat() {
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [open]);
 
-  const send = () => {
+  const send = async () => {
     const content = draft.trim();
-    if (!content) return;
+    if (sending || content.length < 3 || content.length > 500) return;
     const userMessage: AIChatMessage = {
       id: String(nextId.current++), role: 'user', content, createdAt: Date.now(),
     };
     setMessages(previous => [...previous, userMessage]);
     setDraft('');
-    const result = sendAIChatMessage({ message: content, conversationId });
-    if (result.status === 'unavailable') {
-      setError(result.message);
-      return;
-    }
     setError('');
-    setConversationId(result.conversationId);
-    setMessages(previous => [...previous, {
-      id: String(nextId.current++), role: 'assistant', content: result.message, createdAt: Date.now(),
-    }]);
+    setSending(true);
+    setStatus('Processando solicitação...');
+    const result = await sendAIChatMessage({ message: content }, session?.token);
+    if (result.status === 'success') {
+      setMessages(previous => [...previous, {
+        id: String(nextId.current++), role: 'assistant', content: result.message, createdAt: Date.now(),
+      }]);
+      setStatus('Resposta recebida');
+    } else {
+      setError(result.message);
+      setStatus(result.status === 'unavailable' ? 'Serviço indisponível' : 'Erro na solicitação');
+    }
+    setSending(false);
   };
 
   const bottom = width >= desktopWidth ? 24 : 96;
@@ -122,12 +130,12 @@ export function AIChat() {
           }]}
         >
           <KeyboardAvoidingView style={styles.windowContent} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <AIChatHeader onMinimize={() => setOpen(false)} />
-            <AIChatMessages messages={messages} error={error} onSuggestion={value => {
+            <AIChatHeader status={status} onMinimize={() => setOpen(false)} />
+            <AIChatMessages messages={messages} error={error} sending={sending} onSuggestion={value => {
               setDraft(value);
               inputRef.current?.focus();
             }} />
-            <AIChatInput inputRef={inputRef} value={draft} onChange={setDraft} onSend={send} />
+            <AIChatInput inputRef={inputRef} value={draft} sending={sending} onChange={setDraft} onSend={send} />
           </KeyboardAvoidingView>
         </Animated.View>
       )}
@@ -160,7 +168,7 @@ function AIChatButton({ buttonRef, onPress }: { buttonRef: React.RefObject<View 
   );
 }
 
-function AIChatHeader({ onMinimize }: { onMinimize: () => void }) {
+function AIChatHeader({ status, onMinimize }: { status: string; onMinimize: () => void }) {
   const styles = useStyles();
   const { colors } = useTheme();
   return (
@@ -168,7 +176,7 @@ function AIChatHeader({ onMinimize }: { onMinimize: () => void }) {
       <View style={styles.agentIcon}><Bot size={22} color={colors.accent} /></View>
       <View style={styles.headerText}>
         <Txt style={styles.title}>Assistente IA</Txt>
-        <Txt style={styles.status}>Não conectado</Txt>
+        <Txt style={styles.status}>{status}</Txt>
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="Minimizar assistente" onPress={onMinimize} style={styles.iconButton}>
         <ChevronDown size={22} color={colors.muted} />
@@ -177,9 +185,10 @@ function AIChatHeader({ onMinimize }: { onMinimize: () => void }) {
   );
 }
 
-function AIChatMessages({ messages, error, onSuggestion }: {
+function AIChatMessages({ messages, error, sending, onSuggestion }: {
   messages: AIChatMessage[];
   error: string;
+  sending: boolean;
   onSuggestion: (value: string) => void;
 }) {
   const styles = useStyles();
@@ -207,6 +216,12 @@ function AIChatMessages({ messages, error, onSuggestion }: {
         </View>
       )}
       {messages.map(message => <AIChatMessageView key={message.id} message={message} />)}
+      {sending && (
+        <View accessibilityLiveRegion="polite" style={styles.processing}>
+          <ActivityIndicator size="small" color={colors.accent} />
+          <Txt style={styles.processingText}>O assistente está processando sua solicitação...</Txt>
+        </View>
+      )}
       {!!error && (
         <View accessibilityRole="alert" style={styles.error}>
           <AlertCircle size={17} color={colors.red} />
@@ -227,9 +242,15 @@ function AIChatMessageView({ message }: { message: AIChatMessage }) {
         {user ? <Txt style={styles.userText}>{message.content}</Txt> : (
           <Markdown style={{
             body: { color: colors.ink, fontFamily: fonts.regular, fontSize: 14 },
-            code_inline: { backgroundColor: colors.elevated, color: colors.ink },
-            fence: { backgroundColor: colors.elevated, color: colors.ink },
-            code_block: { backgroundColor: colors.elevated, color: colors.ink },
+            code_inline: {
+              backgroundColor: 'transparent', borderWidth: 0, padding: 0, borderRadius: 0, color: colors.ink,
+            },
+            fence: {
+              backgroundColor: 'transparent', borderWidth: 0, padding: 0, borderRadius: 0, color: colors.ink,
+            },
+            code_block: {
+              backgroundColor: 'transparent', borderWidth: 0, padding: 0, borderRadius: 0, color: colors.ink,
+            },
             table: { borderColor: colors.line },
             th: { borderColor: colors.line },
             tr: { borderColor: colors.line },
@@ -244,9 +265,10 @@ function AIChatMessageView({ message }: { message: AIChatMessage }) {
   );
 }
 
-function AIChatInput({ inputRef, value, onChange, onSend }: {
+function AIChatInput({ inputRef, value, sending, onChange, onSend }: {
   inputRef: React.RefObject<TextInput | null>;
   value: string;
+  sending: boolean;
   onChange: (value: string) => void;
   onSend: () => void;
 }) {
@@ -265,8 +287,10 @@ function AIChatInput({ inputRef, value, onChange, onSend }: {
       <TextInput
         ref={inputRef}
         accessibilityLabel="Mensagem para o assistente"
+        accessibilityHint="Digite de 3 a 500 caracteres."
         placeholder="Escreva sua mensagem..."
         placeholderTextColor={colors.muted}
+        maxLength={500}
         multiline
         value={value}
         onChangeText={onChange}
@@ -276,10 +300,10 @@ function AIChatInput({ inputRef, value, onChange, onSend }: {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Enviar mensagem"
-        accessibilityState={{ disabled: !value.trim() }}
-        disabled={!value.trim()}
+        accessibilityState={{ disabled: sending || value.trim().length < 3 || value.trim().length > 500 }}
+        disabled={sending || value.trim().length < 3 || value.trim().length > 500}
         onPress={onSend}
-        style={[styles.send, !value.trim() && styles.sendDisabled]}
+        style={[styles.send, (sending || value.trim().length < 3 || value.trim().length > 500) && styles.sendDisabled]}
       >
         <Send size={19} color={colors.onAccent} />
       </Pressable>

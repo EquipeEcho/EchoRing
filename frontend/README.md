@@ -96,10 +96,16 @@ longos do perfil mostram a quantidade de caracteres utilizada.
 O administrador geral possui a aba **Usuarios** para criar contas de funcionario,
 tradutor e RH. Novos tradutores entram em `/completar-cadastro` no primeiro acesso.
 O assistente de IA aparece apenas para administradores no espaco de trabalho.
-Ainda nao esta conectado: nenhuma mensagem e enviada e nenhuma resposta e simulada.
+Envia perguntas para `POST /agent` usando o token da sessao e exibe a resposta
+do orquestrador. Configure `EXPO_PUBLIC_API_URL` para apontar ao backend;
+`GEMINI_API_KEY` fica somente no `.env` do backend, nunca no frontend.
+Durante a consulta, o chat bloqueia novos envios e informa que esta respondendo.
+Erros da API sao apresentados na conversa. O modo demonstracao exige entrar
+com uma conta real antes de conversar com o assistente.
 O historico visual permanece em memoria durante a navegacao e ao minimizar o chat;
-ele e descartado ao recarregar a pagina ou sair da conta. A integracao futura deve
-usar a autenticacao existente e validar a permissao de administrador no backend.
+ele e descartado ao recarregar a pagina ou sair da conta. Cada pergunta e processada
+separadamente pelo backend. As permissoes das tarefas e o acesso financeiro
+exclusivo de administradores continuam sendo verificados no servidor.
 O formulario exige nome, telefone, localizacao, idiomas e pares de traducao,
 formacao, experiencia e especializacoes. Biografia, servicos, ferramentas,
 certificacoes, portfolio e disponibilidade complementam o perfil opcionalmente.

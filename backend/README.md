@@ -97,6 +97,46 @@ ele, e o cliente recebe a tradução em anexo quando a equipe aprova a entrega.
 Falhas nesses envios ficam registradas no log e não bloqueiam a atribuição nem
 a aprovação. Com `EMAIL_DRY_RUN=true`, os e-mails aparecem no log em vez de serem enviados.
 
+## Assistente orquestrador
+
+`POST /agent` é a entrada unificada dos agentes. Envie um Bearer token válido e
+`{"pergunta": "Explique o fluxo TEP"}`; a resposta é `{"resposta": "..."}`.
+A pergunta deve ter entre 3 e 500 caracteres após remover espaços nas bordas.
+
+O `root_agent`, exportado por `app/agents/agent.py`, delega estatística e finanças
+ao `statistics_agent` e fluxos de projetos ao `workflow_agent`. Cumprimentos e
+perguntas fora do escopo recebem resposta direta. Os prompts ficam em
+`app/agents/orchestrator/prompts/`.
+
+A rota exige `workspace_user`, incluindo a conclusão do cadastro de tradutores.
+O service repassa a identidade do servidor pelo estado da sessão ADK e pelo
+contexto de usuário já utilizado pelas tools do workflow. Estatística continua
+exclusiva de administrador: um callback bloqueia outros papéis antes de executar
+o especialista financeiro. As regras das tarefas continuam nas tools existentes.
+
+O orquestrador usa cópias ADK dos especialistas para preservar a execução direta
+das rotas `POST /statistics/agent` e `POST /workflow/agent`. Cada requisição cria
+uma sessão em memória; o histórico não é compartilhado entre requisições.
+Sem `GEMINI_API_KEY` ou com indisponibilidade/timeout de 30 segundos, retorna 503.
+
+A janela flutuante de chat do workspace, exibida somente para a role `admin`,
+usa o serviço autenticado do frontend para enviar cada mensagem a `POST /agent`
+como `{"pergunta": "..."}` e renderiza a string `resposta` em Markdown. O token
+Bearer da sessão existente é enviado pelo cliente HTTP comum; não há chave Gemini
+no frontend. O histórico é mantido na janela para leitura, mas o endpoint não
+recebe um ID de conversa e não mantém contexto entre chamadas. Conversas com
+contexto exigem suporte futuro de sessão no serviço do orquestrador. A rota atual
+também não expõe eventos de progresso, ferramentas em execução nem origem de
+respostas; a interface mostra somente o estado da solicitação HTTP e a resposta
+final recebida.
+
+Os testes do orquestrador usam modelos falsos (`BaseLlm`), sem consumir Gemini:
+
+```bash
+docker compose exec -e EMAIL_DRY_RUN=false api-python python -m unittest tests.unit.test_orchestrator_agent tests.integration.test_orchestrator_agent_route
+docker compose exec -e EMAIL_DRY_RUN=false api-python python -m unittest discover -s tests
+```
+
 ## Agente de estatística
 
 O administrador pergunta em linguagem natural (ex.: "como está o lucro?") e o
@@ -125,10 +165,10 @@ O agente segue a estrutura do Google ADK em `app/agents/`:
 - `sub_agents/statistics/tools.py`: as tools, que devolvem um `dict` com `status`
 - `sub_agents/statistics/prompts/`: `description.md` e `instruction.md`
 
-O orquestrador (#73) usa o sub-agente com
-`from app.agents.sub_agents import statistics_agent` e
-`sub_agents=[statistics_agent]`. A rota `POST /statistics/agent` executa o mesmo
-sub-agente pelo `InMemoryRunner` do ADK (`app/services/statistics_agent.py`).
+O orquestrador (#73) importa os especialistas de `app.agents.sub_agents` e
+registra cópias em `sub_agents=[statistics_agent, workflow_agent]`.
+A rota `POST /statistics/agent` continua executando o sub-agente original pelo
+`InMemoryRunner` do ADK (`app/services/statistics_agent.py`).
 
 ## Financeiro do administrador
 
@@ -174,6 +214,8 @@ orçamento e custo é a soma de `translator_compensation` das tarefas.
 | GET | `/deliveries` | Funcionário/admin; fila e histórico de versões |
 | POST | `/deliveries/{id}/review` | Funcionário/admin; aprova ou solicita revisão |
 | POST | `/statistics/agent` | Somente administrador geral; pergunta ao agente de estatística |
+| POST | `/workflow/agent` | Workspace autenticado; permissões das tarefas verificadas nas tools |
+| POST | `/agent` | Workspace autenticado; orquestra os especialistas, com finanças exclusivas de administrador |
 | GET | `/finance/overview` | Somente administrador geral; resumo da aba Financeiro |
 
 ### Listagem de solicitações

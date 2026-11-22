@@ -23,9 +23,14 @@ function resolveBaseURL() {
 
 export const baseURL = resolveBaseURL();
 
-export async function api<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
+export async function api<T>(
+  path: string,
+  options: RequestInit = {},
+  token?: string,
+  timeoutMs = 20000,
+): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const multipart = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const response = await fetch(baseURL + path, {
