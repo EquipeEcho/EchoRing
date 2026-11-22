@@ -1,5 +1,7 @@
 import { api } from '@/lib/api/client';
 
+import { api } from '@/lib/api/client';
+
 export type AIChatMessage = {
   id: string;
   role: 'user' | 'assistant';
