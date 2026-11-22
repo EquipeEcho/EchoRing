@@ -48,6 +48,8 @@ export const useStyles = createThemedStyles(colors => ({
   suggestionText: { color: colors.accent, fontSize: 13, lineHeight: 19 },
   messageRow: { alignItems: 'flex-start' },
   userRow: { alignItems: 'flex-end' },
+  processing: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  processingText: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   bubble: { maxWidth: '90%', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 9 },
   userBubble: { backgroundColor: colors.accent },
   agentBubble: { backgroundColor: colors.elevated },

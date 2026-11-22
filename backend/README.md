@@ -119,6 +119,17 @@ das rotas `POST /statistics/agent` e `POST /workflow/agent`. Cada requisição c
 uma sessão em memória; o histórico não é compartilhado entre requisições.
 Sem `GEMINI_API_KEY` ou com indisponibilidade/timeout de 30 segundos, retorna 503.
 
+A janela flutuante de chat do workspace, exibida somente para a role `admin`,
+usa o serviço autenticado do frontend para enviar cada mensagem a `POST /agent`
+como `{"pergunta": "..."}` e renderiza a string `resposta` em Markdown. O token
+Bearer da sessão existente é enviado pelo cliente HTTP comum; não há chave Gemini
+no frontend. O histórico é mantido na janela para leitura, mas o endpoint não
+recebe um ID de conversa e não mantém contexto entre chamadas. Conversas com
+contexto exigem suporte futuro de sessão no serviço do orquestrador. A rota atual
+também não expõe eventos de progresso, ferramentas em execução nem origem de
+respostas; a interface mostra somente o estado da solicitação HTTP e a resposta
+final recebida.
+
 Os testes do orquestrador usam modelos falsos (`BaseLlm`), sem consumir Gemini:
 
 ```bash
