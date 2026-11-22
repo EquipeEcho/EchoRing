@@ -87,7 +87,6 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
   breadcrumb: { fontSize: 14, lineHeight: 20, color: colors.muted },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   search: {
-    zIndex: 20,
     width: 320,
     minHeight: 46,
     flexDirection: 'row',
@@ -118,10 +117,7 @@ export const useStyles = createThemedStyles((colors, selectColor) => ({
     backgroundColor: colors.accent,
   },
   mobileAction: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  searchResultsDesktop: { left: 'auto', width: 440 },
   mobileSearch: {
-    // Keeps the absolute results panel above the page content that follows.
-    zIndex: 20,
     minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',

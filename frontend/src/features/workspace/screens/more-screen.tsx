@@ -30,7 +30,7 @@ export function MoreScreen() {
           style={styles.moduleRow}
         >
           <View style={styles.moduleIcon}>
-            <item.icon size={22} color={colors.ink} />
+            <item.icon size={22} color={colors.accent} />
           </View>
           <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
             <Txt style={{ fontWeight: '600' }}>{item.title}</Txt>

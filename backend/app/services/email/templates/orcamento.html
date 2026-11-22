@@ -1,21 +1,13 @@
 {% extends 'base.html' %}
 {% block conteudo %}
   <h2>Orçamento para {{ titulo }}</h2>
-  <p>Olá, {{ nome }}! {% if lembrete %}Ainda aguardamos sua resposta sobre a proposta abaixo. Os links anteriores deixaram de valer; use os desta mensagem.{% else %}Segue nossa proposta.{% endif %}</p>
+  <p>Olá, {{ nome }}! Segue nossa proposta.</p>
   <p>
     <strong>Serviço:</strong> {{ servico }}<br>
     <strong>Idiomas:</strong> {{ origem }} → {{ destino }}<br>
-    <strong>Valor total:</strong> R$ {{ valor }}<br>
+    <strong>Valor:</strong> R$ {{ valor }}<br>
     <strong>Prazo:</strong> {{ prazo }}
   </p>
-  {% if itens %}
-  <ul>
-    {% for item in itens %}
-    <li>{{ item.destino }}: R$ {{ item.valor }} · Prazo: {{ item.prazo }}</li>
-    {% endfor %}
-  </ul>
-  {% endif %}
-  <p>Na página da proposta você pode selecionar os idiomas que deseja aprovar e conferir o total antes de confirmar.</p>
   {% if mensagem %}<p><strong>Mensagem da equipe:</strong> {{ mensagem }}</p>{% endif %}
   <p>
     <a href="{{ aprovar_url }}" style="display:inline-block;background:#FF365B;color:#fff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:8px;">Aprovar orçamento</a>

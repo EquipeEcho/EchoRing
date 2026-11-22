@@ -3,16 +3,12 @@ import { useWindowDimensions, View } from 'react-native';
 import { router } from 'expo-router';
 import { WorkflowMap } from '@/features/workflows/components/workflow-map';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatSelectedDate } from '@/components/ui/fields/date-utils';
 import { Txt } from '@/components/ui/text';
 import { TaskFeedback } from '@/features/deliveries/components/task-feedback';
 import { downloadOriginal } from '@/features/deliveries/services/delivery-service';
 import { useStyles } from '@/features/deliveries/styles/deliveries.styles';
 import { type TranslationService } from '@/features/deliveries/types';
-import { taskDeadline, taskDeadlineAlert } from '@/features/deliveries/utils/task-deadlines';
-import { isIsoDate } from '@/utils/deadlines';
 import { useCommonStyles } from '@/theme/common.styles';
 import { formatBytes, money } from '@/utils/formatters';
 import { useTheme } from '@/theme/theme-context';
@@ -22,17 +18,13 @@ export function TaskDetails({ task, token }: { task: TranslationService; token: 
   const styles = useStyles();
   const common = useCommonStyles();
   const { width } = useWindowDimensions();
-  const due = taskDeadlineAlert(task);
   return (
     <>
       <View style={styles.metadata}>
         {task.compensation != null && <Txt style={{ color: colors.green, fontWeight: '600' }}>Remuneração: {money(task.compensation)}</Txt>}
         <View style={common.row}>
           <Clock3 size={15} color={colors.muted} />
-          <Txt style={common.caption}>
-            Prazo: {!task.deadline ? 'Não informado' : isIsoDate(taskDeadline(task)) ? formatSelectedDate(taskDeadline(task)!) : task.deadline}
-          </Txt>
-          {!!due && <Badge dot tone={due.tone}>{due.label}</Badge>}
+          <Txt style={common.caption}>Prazo: {task.deadline || 'Não informado'}</Txt>
         </View>
         <Txt style={common.caption}>
           {task.source} → {task.target}
@@ -41,11 +33,6 @@ export function TaskDetails({ task, token }: { task: TranslationService; token: 
           {task.lastVersion ? `Última versão: ${task.lastVersion}` : 'Nenhuma versão enviada'}
         </Txt>
       </View>
-      {!!task.requestId && <Txt style={common.caption}>Ordem de serviço: {task.requestId} · Tradução para {task.target}</Txt>}
-      {!!task.briefing && <View style={styles.note}>
-        <Txt style={styles.eyebrow}>ESCOPO DO PEDIDO</Txt>
-        <Txt style={common.caption}>{task.briefing}</Txt>
-      </View>}
       {!!task.observations && (
         <View style={styles.note}>
           <Txt style={styles.eyebrow}>OBSERVAÇÕES</Txt>
@@ -57,7 +44,7 @@ export function TaskDetails({ task, token }: { task: TranslationService; token: 
           <Txt style={styles.eyebrow}>DOCUMENTOS ORIGINAIS</Txt>
           {task.attachments.map((file, index) => (
             <View key={`${file.name}-${index}`} style={[styles.document, width < 600 && styles.documentSmall]}>
-              <FileText size={18} color={colors.muted} />
+              <FileText size={18} color={colors.accent} />
               <View style={[styles.documentCopy, width < 600 && styles.documentCopySmall]}>
                 <Txt numberOfLines={1}>{file.name}</Txt>
                 <Txt style={common.caption}>{formatBytes(file.size)}</Txt>

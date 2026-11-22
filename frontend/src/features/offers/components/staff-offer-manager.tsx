@@ -11,25 +11,15 @@ import { OptionSelectField } from '@/components/ui/fields/option-select-field';
 import { Txt } from '@/components/ui/text';
 import { cancelOffer, compatibleTranslators, listRequestOffers, sendOffers } from '@/features/offers/services/offer-service';
 import { useOfferStyles } from '@/features/offers/styles/offers.styles';
-import { type CompatibleTranslator, type Offer, offerLabels, offerStatusTone } from '@/features/offers/types';
+import { type CompatibleTranslator, type Offer, offerLabels } from '@/features/offers/types';
 import { type TranslationRequest } from '@/features/requests/types';
 import { useTheme } from '@/theme/theme-context';
 import { money } from '@/utils/formatters';
 import { currencyInputFromDecimal, currencyToDecimal, formatCurrencyInput } from '@/utils/input-formatters';
 import { workflowTemplates } from '@/features/workflows/data/workflow-templates';
-import { requestTargets, requestTasks, workTargets } from '@/features/requests/utils/quote-scope';
-import { languageCode, languageMatches } from '@/data/language-options';
 
 export function StaffOfferManager({ request, token, onChanged }: {
   request: TranslationRequest; token: string; onChanged: () => void;
-}) {
-  const targets = workTargets(request);
-  const [target, setTarget] = useState(targets[0]);
-  return <TargetOffers key={target} request={request} target={target} token={token} onChanged={onChanged} onTargetChange={setTarget} />;
-}
-
-function TargetOffers({ request, target, token, onChanged, onTargetChange }: {
-  request: TranslationRequest; target: string; token: string; onChanged: () => void; onTargetChange: (target: string) => void;
 }) {
   const s = useOfferStyles();
   const { colors } = useTheme();
@@ -39,8 +29,7 @@ function TargetOffers({ request, target, token, onChanged, onTargetChange }: {
   const [audience, setAudience] = useState<'selected' | 'all'>('selected');
   const [workflowTitle, setWorkflowTitle] = useState(workflowTemplates[0].title);
   const [compensation, setCompensation] = useState('');
-  const proposedDeadline = request.quote?.items?.find(item => languageCode(item.target) === languageCode(target))?.delivery || request.quote?.delivery || '';
-  const [deadline, setDeadline] = useState(/^\d{4}-\d{2}-\d{2}$/.test(proposedDeadline) ? proposedDeadline : '');
+  const [deadline, setDeadline] = useState(/^\d{4}-\d{2}-\d{2}$/.test(request.quote?.delivery || '') ? request.quote!.delivery : '');
   const [hours, setHours] = useState('48');
   const [volume, setVolume] = useState('');
   const [description, setDescription] = useState(request.message);
@@ -52,28 +41,25 @@ function TargetOffers({ request, target, token, onChanged, onTargetChange }: {
   const [review, setReview] = useState(false);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const requestRef = useRef(request);
-  const multilingual = requestTargets(request).length > 1;
   const onChangedRef = useRef(onChanged);
   useEffect(() => { requestRef.current = request; onChangedRef.current = onChanged; }, [request, onChanged]);
   const refresh = useCallback(async () => {
     try {
       const [history, candidates] = await Promise.all([
-        listRequestOffers(request.id, token), compatibleTranslators(request.id, token, multilingual ? target : undefined),
+        listRequestOffers(request.id, token), compatibleTranslators(request.id, token),
       ]);
-      const scoped = history.filter(offer => languageCode(offer.target) === languageCode(target));
-      setOffers(scoped); setTranslators(candidates);
-      if (scoped.some(offer => offer.status === 'accepted' && !requestTasks(requestRef.current).some(task => task.id === offer.serviceId))) onChangedRef.current();
+      setOffers(history); setTranslators(candidates);
+      if (history.some(offer => offer.status === 'accepted') && !requestRef.current.task) onChangedRef.current();
     } catch (failure) { setError((failure as Error).message); }
     finally { setLoading(false); }
-  }, [request.id, multilingual, target, token]);
+  }, [request.id, token]);
   useEffect(() => {
     const initial = setTimeout(() => void refresh(), 0);
     const timer = setInterval(() => void refresh(), 30000);
     return () => { clearTimeout(initial); clearInterval(timer); };
   }, [refresh]);
-  const task = requestTasks(request).find(task => languageCode(task.target || request.target) === languageCode(target));
-  const assigned = !!task || offers.some(offer => offer.status === 'accepted');
-  const canSend = (request.status === 'Orçamento aprovado' || !!request.approvedTargets || requestTasks(request).length > 0) && !assigned;
+  const assigned = !!request.task || offers.some(offer => offer.status === 'accepted');
+  const canSend = request.status === 'Orçamento aprovado' && !assigned;
   const pendingIds = new Set(offers.filter(offer => offer.status === 'pending').map(offer => offer.translator!.id));
   function prepare() {
     setError(''); setNotice('');
@@ -89,7 +75,6 @@ function TargetOffers({ request, target, token, onChanged, onTargetChange }: {
     try {
       await sendOffers(request.id, {
         translatorIds: audience === 'all' ? [] : recipients, audience,
-        ...(requestTargets(request).length > 1 ? { target } : {}),
         workflowTemplateId: workflowTemplates.find(template => template.title === workflowTitle)!.id,
         compensation: currencyToDecimal(compensation), deadline,
         expiresAt: new Date(Date.now() + Number(hours) * 3600000).toISOString(),
@@ -123,22 +108,19 @@ function TargetOffers({ request, target, token, onChanged, onTargetChange }: {
       onBlur={currency ? () => change(currencyInputFromDecimal(value)) : undefined}
       keyboardType={numeric ? currency ? 'decimal-pad' : 'number-pad' : 'default'} /></View>;
   return <View style={s.divider}>
-    {multilingual && <OptionSelectField compact label="Idioma do trabalho" value={target}
-      options={workTargets(request)} onChange={onTargetChange} searchable matchOption={languageMatches} disabled={busy || review}
-      description="Distribua cada idioma aprovado de forma independente." />}
     <View style={s.row}><Txt style={[s.title, { flex: 1 }]}>Ofertas de trabalho</Txt>
       <Button variant="ghost" icon={RefreshCw} disabled={busy} onPress={() => void refresh()}>Atualizar ofertas</Button></View>
-    <Txt style={s.caption}>Defina a remuneração para {request.source} → {target}. O primeiro aceite válido cria a tarefa e encerra os demais convites deste idioma. Os outros idiomas continuam disponíveis.</Txt>
+    <Txt style={s.caption}>Defina a remuneração do profissional. O primeiro aceite válido cria a tarefa e encerra os demais convites.</Txt>
     {loading && <ActivityIndicator accessibilityLabel="Carregando ofertas" color={colors.accent} />}
     {!!error && <Txt accessibilityRole="alert" style={s.error}>{error}</Txt>}
     {!!notice && <Txt accessibilityLiveRegion="polite" style={s.notice}>{notice}</Txt>}
-    {task?.id && <Button variant="secondary" onPress={() => router.push({ pathname: '/workflows', params: { task: task.id } })}>Acompanhar workflow do trabalho</Button>}
+    {request.task?.id && <Button variant="secondary" onPress={() => router.push({ pathname: '/workflows', params: { task: request.task!.id } })}>Acompanhar workflow do trabalho</Button>}
     {canSend && !loading && <View style={s.stack}>
       <OptionSelectField compact label="Visibilidade da oportunidade" value={audience === 'all' ? 'Todos os tradutores' : 'Selecionar tradutores compatíveis'}
         options={['Selecionar tradutores compatíveis', 'Todos os tradutores']} disabled={busy || review}
         onChange={value => { setAudience(value === 'Todos os tradutores' ? 'all' : 'selected'); setRecipients([]); }} />
-      {audience === 'all' ? <Txt style={s.caption}>A oportunidade será enviada a todos os tradutores ativos com cadastro concluído neste momento. Quem já recebeu um convite pendente neste idioma não receberá outro. O aceite exige o par {request.source} → {target} no perfil.</Txt> : <>
-      <Txt style={s.label}>Tradutores compatíveis · {request.source} → {target}</Txt>
+      {audience === 'all' ? <Txt style={s.caption}>A oportunidade será enviada a todos os tradutores ativos com cadastro concluído neste momento. Quem já recebeu um convite pendente não receberá outro. O aceite exige o par {request.source} → {request.target} no perfil.</Txt> : <>
+      <Txt style={s.label}>Tradutores compatíveis · {request.source} → {request.target}</Txt>
       {!translators.length && <Txt style={s.caption}>Nenhum tradutor ativo possui os dois idiomas deste trabalho cadastrados. Atualize os cadastros profissionais para enviar ofertas.</Txt>}
       {translators.map(translator => <Pressable key={translator.id} accessibilityRole="checkbox" aria-checked={recipients.includes(translator.id)}
         accessibilityLabel={`Oferecer para ${translator.name}`} accessibilityState={{ checked: recipients.includes(translator.id), disabled: busy || review || pendingIds.has(translator.id) }}
@@ -162,7 +144,7 @@ function TargetOffers({ request, target, token, onChanged, onTargetChange }: {
         <Txt style={s.title}>Conferir envio</Txt>
         <Txt>{audience === 'all' ? 'Todos os tradutores ativos' : `${recipients.length} tradutor(es)`} · {money(compensation)} por trabalho</Txt>
         <Txt style={s.caption}>Workflow: {workflowTitle}</Txt>
-        <Txt style={s.caption}>Validade: {hours} horas. O aceite encerra somente os demais convites para {target}.</Txt>
+        <Txt style={s.caption}>Validade: {hours} horas. O aceite de um profissional encerra os demais convites.</Txt>
         <Button loading={busy} icon={Send} onPress={() => void send()}>Confirmar envio das ofertas</Button>
         <Button variant="ghost" disabled={busy} onPress={() => setReview(false)}>Editar condições</Button>
       </View> : <Button icon={Send} disabled={(audience === 'selected' && !translators.length) || busy} onPress={prepare}>Revisar ofertas</Button>}
@@ -170,7 +152,7 @@ function TargetOffers({ request, target, token, onChanged, onTargetChange }: {
     {!loading && !offers.length && <Txt style={s.caption}>Ainda não foram enviadas ofertas para este orçamento.</Txt>}
     {offers.map(offer => <View key={offer.id} style={s.card}>
       <View style={s.row}><Txt style={{ flex: 1, fontWeight: '600' }}>{offer.translator?.name}</Txt>
-        <Badge dot tone={offerStatusTone[offer.status]}>{offerLabels[offer.status]}</Badge></View>
+        <Badge tone={offer.status === 'accepted' ? 'green' : offer.status === 'pending' ? 'blue' : 'neutral'}>{offerLabels[offer.status]}</Badge></View>
       <Txt>{money(offer.compensation)} · {offer.volume}</Txt>
       {offer.audience === 'all' && <Txt style={s.caption}>Publicação para todos os tradutores</Txt>}
       {offer.workflowTemplateId && <Txt style={s.caption}>Workflow: {workflowTemplates.find(template => template.id === offer.workflowTemplateId)?.title}</Txt>}

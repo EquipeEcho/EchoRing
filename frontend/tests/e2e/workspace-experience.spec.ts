@@ -13,7 +13,7 @@ async function demo(page: Page) {
 test('search shortcut, task search and clearing project filters keep navigation predictable', async ({ page }) => {
   await demo(page);
   await page.keyboard.press('Control+k');
-  const search = page.getByRole('textbox', { name: 'Buscar no portal' });
+  const search = page.getByRole('textbox', { name: 'Buscar projetos' });
   await expect(search).toBeFocused();
   await search.fill('Vértice');
   await search.press('Enter');
