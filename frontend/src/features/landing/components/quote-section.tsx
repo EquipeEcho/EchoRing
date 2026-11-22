@@ -24,6 +24,8 @@ import { DateSelectField } from '@/components/ui/fields/date-select-field';
 import { OptionSelectField } from '@/components/ui/fields/option-select-field';
 import { Txt } from '@/components/ui/text';
 import { QuoteField } from '@/features/landing/components/quote-field';
+import { TargetFields } from '@/features/landing/components/target-fields';
+import { requestTargets } from '@/features/requests/utils/quote-scope';
 import { initialIntake, landingServices } from '@/features/landing/constants';
 import type { QuoteForm } from '@/features/landing/hooks/use-quote-form';
 import { useStyles } from '@/features/landing/styles/landing.styles';
@@ -307,6 +309,7 @@ export function QuoteSection({
                       value={data.source}
                       onChange={(value) => change('source', value)}
                       options={languageOptions}
+                      searchable
                       matchOption={languageMatches}
                       dialogTitle="Idioma de origem"
                       description="Selecione o idioma atual do material."
@@ -316,11 +319,13 @@ export function QuoteSection({
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Inverter idiomas"
+                      disabled={busy || requestTargets(data).length > 1}
                       onPress={() =>
                         setData((current) => ({
                           ...current,
                           source: current.target,
                           target: current.source,
+                          targets: [current.source],
                         }))
                       }
                       style={[
@@ -330,18 +335,7 @@ export function QuoteSection({
                     >
                       <ArrowLeftRight size={17} color={colors.accent} />
                     </Pressable>
-                    <OptionSelectField
-                      compact={width < 600}
-                      label="Idioma de destino *"
-                      value={data.target}
-                      onChange={(value) => change('target', value)}
-                      options={languageOptions}
-                      matchOption={languageMatches}
-                      dialogTitle="Idioma de destino"
-                      description="Selecione o idioma em que o conteúdo será entregue."
-                      disabled={busy}
-                      invalid={invalid.includes('target')}
-                    />
+                    <TargetFields form={form} />
                   </View>
                   {field(
                     'message',
@@ -431,7 +425,7 @@ export function QuoteSection({
                         {data.title}
                       </Txt>
                       <Txt style={common.caption}>
-                        {data.source} → {data.target} · {data.attachments.length}{' '}
+                        {data.source} → {requestTargets(data).join(', ')} · {data.attachments.length}{' '}
                         {data.attachments.length === 1 ? 'documento' : 'documentos'}
                       </Txt>
                     </View>

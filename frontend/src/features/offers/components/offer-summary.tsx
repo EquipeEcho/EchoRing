@@ -4,7 +4,8 @@ import { ArrowRight } from 'lucide-react-native';
 import { Badge } from '@/components/ui/badge';
 import { Txt } from '@/components/ui/text';
 import { useOfferStyles } from '@/features/offers/styles/offers.styles';
-import { type Offer, offerLabels } from '@/features/offers/types';
+import { type Offer, offerLabels, offerStatusTone } from '@/features/offers/types';
+import { offerDeadlineAlerts } from '@/features/offers/utils/offer-deadlines';
 import { money } from '@/utils/formatters';
 import { formatSelectedDate } from '@/components/ui/fields/date-utils';
 import { workflowTemplates } from '@/features/workflows/data/workflow-templates';
@@ -13,9 +14,10 @@ import { useTheme } from '@/theme/theme-context';
 export function OfferSummary({ offer }: { offer: Offer }) {
   const s = useOfferStyles();
   const { colors } = useTheme();
+  const { response, tight } = offerDeadlineAlerts(offer);
   return <View style={s.stack}>
     <View style={s.row}>
-      <Badge tone={offer.status === 'accepted' ? 'green' : offer.status === 'pending' ? 'blue' : 'neutral'}>{offerLabels[offer.status]}</Badge>
+      <Badge dot tone={offerStatusTone[offer.status]}>{offerLabels[offer.status]}</Badge>
       <Txt style={s.caption}>{offer.service}</Txt>
     </View>
     <View style={s.identity}>
@@ -31,12 +33,19 @@ export function OfferSummary({ offer }: { offer: Offer }) {
     {offer.eligible === false && offer.status === 'pending' && <Txt style={s.caption}>Para aceitar, seu perfil precisa incluir {offer.source} e {offer.target} entre os idiomas que você domina.</Txt>}
     <View style={s.terms}>
       <View style={s.term}><Txt style={s.caption}>Volume</Txt><Txt style={s.termValue}>{offer.volume}</Txt></View>
-      <View style={s.term}><Txt style={s.caption}>Prazo</Txt><Txt style={s.termValue}>{formatSelectedDate(offer.deadline)}</Txt></View>
+      <View style={s.term}>
+        <Txt style={s.caption}>Prazo</Txt>
+        <Txt style={s.termValue}>{formatSelectedDate(offer.deadline)}</Txt>
+        {!!tight && <Badge dot tone={tight.tone}>{tight.label}</Badge>}
+      </View>
     </View>
     <View style={s.payment}>
       <Txt style={s.caption}>Remuneração do tradutor</Txt>
       <Txt style={s.amount}>{money(offer.compensation)}</Txt>
     </View>
-    <Txt style={s.caption}>Responder até {new Date(offer.expiresAt).toLocaleString('pt-BR')}</Txt>
+    <View style={s.row}>
+      <Txt style={s.caption}>Responder até {new Date(offer.expiresAt).toLocaleString('pt-BR')}</Txt>
+      {!!response && <Badge dot tone={response.tone}>{response.label}</Badge>}
+    </View>
   </View>;
 }

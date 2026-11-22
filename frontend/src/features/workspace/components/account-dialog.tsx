@@ -47,7 +47,7 @@ export function AccountDialog({ open, session, initials, onClose, onSignOut }: {
               onPress={() => { onClose(); router.push('/perfil'); }}
               style={({ hovered, pressed }) => [s.action, hovered && s.actionHover, pressed && { opacity: 0.75 }]}
             >
-              <UserRound size={17} color={colors.accent} />
+              <UserRound size={17} color={colors.muted} />
               <Txt style={s.actionText}>Ver perfil profissional</Txt>
               <ChevronRight size={16} color={colors.muted} />
             </Pressable>

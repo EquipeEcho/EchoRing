@@ -11,6 +11,7 @@ from app.models.translation_workflow import WorkflowType
 class OfferSend(BaseModel):
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
     translatorIds: list[str] = Field(default_factory=list, max_length=100)
+    target: str | None = Field(default=None, min_length=1, max_length=160)
     audience: Literal['selected', 'all'] = 'selected'
     workflowTemplateId: WorkflowType | None = None
     compensation: Decimal = Field(gt=0, max_digits=12, decimal_places=2)

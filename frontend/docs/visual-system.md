@@ -42,12 +42,17 @@ e 26–28 px no celular; corpo e campos usam 14–16 px. Metadados têm contrast
 próprio, sem reduzir a opacidade de todo o componente.
 
 - Ritmo: 4, 8, 12, 16, 24, 32 e 48 px (`spacing`).
-- Raios: 8 px para detalhes, 10 px para controles, 16 px para cards e 24 px para grandes superfícies (`radius`).
+- Raios: 8 px para detalhes, 10 px para controles, 12 px para trilhos e blocos médios, 16 px para cards e 24 px para grandes superfícies (`radius`).
+- Tipografia: além de `title`, `section`, `body`, `label` e `caption`, use `cardTitle`, `eyebrow` e `metric` (`typeScale`); `useCommonStyles()` expõe `eyebrow` e `cardTitle` prontos.
+- Larguras: `breakpoints.phone` (600) empilha formulários, `compact` (700) compacta cards, `desktop` (1000) mostra o menu lateral e `wide` (1280) acrescenta painéis laterais. Evite números soltos nas telas novas.
 - Conteúdo: até 1400 px; formulários concentrados em até 880 px (`layout`).
 - Botões: ação principal preenchida; secundária neutra com borda; ação contextual discreta.
 - Campos: altura habitual de 48 px, rótulos persistentes, borda visível e foco explícito.
-- Cards: superfície e borda discretas; grupos de conteúdo separados por espaço e títulos.
-- Filtros: seleção perceptível, rótulo legível e adaptação à largura disponível.
+- Profundidade: cards usam `surface`, borda `line` suave e `boxShadow: colors.cardShadow`. Trilhos ficam em `sunken`; o item selecionado dentro deles usa `raised` com `raisedShadow`.
+- Destaque: o rosa (`accent`) fica restrito à ação principal, à navegação ativa, a links e a seleções. Eyebrows, ícones de listas e abas usam `ink` ou `muted`.
+- Abas e filtros de uma escolha: use `SegmentedTabs` (`src/components/ui/segmented-tabs.tsx`). Ele já aplica `tablist`, `aria-selected`, contagem no rótulo, rolagem horizontal (`scrollable`) e preenchimento da linha (`fill`).
+- Status: `Badge` com `dot` segue uma escala única. Neutro indica rascunho ou informação, azul indica andamento, âmbar indica espera por alguém, verde indica conclusão e vermelho indica bloqueio ou recusa. Os mapas ficam em `features/*/constants`.
+- Carregamento: listas sem dados usam `SkeletonList` (`src/components/ui/skeleton.tsx`) com um rótulo acessível. O spinner fica para atualizações de conteúdo já exibido.
 - Modais: cabeçalho, conteúdo rolável e controles de fechar; foco contido, Escape e retorno de foco preservados.
 - Feedback: estados vazios com orientação; erros visíveis e ações existentes de tentar novamente.
 

@@ -30,11 +30,11 @@ export function ProjectDetailsScreen() {
           <>
             <View style={styles.projectHero}>
               <View style={styles.projectIcon}>
-                <FileText size={25} color={colors.accent} />
+                <FileText size={25} color={colors.ink} />
               </View>
               <View style={{ flex: 1, minWidth: 0, gap: 7 }}>
                 <Txt style={styles.projectTitle}>{project.title}</Txt>
-                <Badge tone={statusTone[project.status]}>{project.status}</Badge>
+                <Badge dot tone={statusTone[project.status]}>{project.status}</Badge>
               </View>
             </View>
             <View style={styles.detailGrid}>

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { requestPage } from './support/request-page';
 
 import { emptyTranslatorProfile } from '../../src/features/translators/constants';
 import { type TranslatorProfile } from '../../src/features/translators/types';
@@ -23,7 +24,10 @@ async function mockProfile(page: Page, options: { role?: 'translator' | 'admin' 
     onboardingRequired: pending, token: 'profile-test-token', expires: Date.now() / 1000 + 3600,
   })), { role, pending: !!options.pending });
   await page.route('**/tasks', route => route.fulfill({ json: [] }));
-  await page.route('**/requests**', route => route.fulfill({ json: [] }));
+  await page.route('**/requests**', route => {
+    const url = route.request().url();
+    return route.fulfill({ json: new URL(url).pathname === '/requests' ? requestPage([], url) : [] });
+  });
   await page.route('**/users', route => route.fulfill({ json: [{ id: 'translator-1', name: 'Marina Costa', email: 'translator@example.test', role: 'translator', active: true }] }));
   await page.route('**/translator-profile/*', async route => {
     expect(route.request().headers().authorization).toBe('Bearer profile-test-token');

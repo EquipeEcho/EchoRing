@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Txt } from '@/components/ui/text';
 import { WorkspacePage } from '@/features/workspace/components/workspace-page';
+import { useCommonStyles } from '@/theme/common.styles';
 import { useTheme } from '@/theme/theme-context';
 
 type Props = {
@@ -26,6 +27,7 @@ type Props = {
 export function RecordPage({ title, eyebrow, description, backLabel, backHref, onBack,
   busy, loading, error, onRetry, children }: Props) {
   const { colors } = useTheme();
+  const common = useCommonStyles();
   const { width } = useWindowDimensions();
   return <WorkspacePage showProjectStatus={false}>
     <View testID="record-page" style={{ gap: 24, minWidth: 0 }}>
@@ -37,7 +39,7 @@ export function RecordPage({ title, eyebrow, description, backLabel, backHref, o
           {!loading && !error && onRetry && <Button variant="secondary" icon={RefreshCw} disabled={busy} onPress={onRetry}>Atualizar detalhes</Button>}
         </View>
         <View style={{ gap: 8, maxWidth: '100%' }}>
-          {!!eyebrow && <Txt style={{ fontSize: 12, letterSpacing: 1, fontWeight: '600', color: colors.accent }}>{eyebrow}</Txt>}
+          {!!eyebrow && <Txt style={common.eyebrow}>{eyebrow}</Txt>}
           <Txt accessibilityRole="header" style={{ fontSize: width < 700 ? 26 : 32, lineHeight: width < 700 ? 34 : 40, letterSpacing: -0.8, fontWeight: '700' }}>{title}</Txt>
           {!!description && <Txt style={{ fontSize: 14, lineHeight: 22, color: colors.muted }}>{description}</Txt>}
         </View>

@@ -1,5 +1,9 @@
 # Recebimento de solicitações e orçamentos
 
+O fluxo permite [vários idiomas no mesmo pedido](../frontend/docs/multilingual.md),
+com aprovação parcial e trabalhos independentes, preservando o cadastro de clientes
+e o serviço compartilhado de e-mails.
+
 O formulário público envia pedidos para a API; a caixa de entrada privada permite
 analisar documentos, salvar a proposta e enviar o orçamento pelo SMTP da empresa.
 A persistência fica no PostgreSQL (usuários, sessões, solicitações, orçamentos,
@@ -93,6 +97,92 @@ ele, e o cliente recebe a tradução em anexo quando a equipe aprova a entrega.
 Falhas nesses envios ficam registradas no log e não bloqueiam a atribuição nem
 a aprovação. Com `EMAIL_DRY_RUN=true`, os e-mails aparecem no log em vez de serem enviados.
 
+## Assistente orquestrador
+
+`POST /agent` é a entrada unificada dos agentes. Envie um Bearer token válido e
+`{"pergunta": "Explique o fluxo TEP"}`; a resposta é `{"resposta": "..."}`.
+A pergunta deve ter entre 3 e 500 caracteres após remover espaços nas bordas.
+
+O `root_agent`, exportado por `app/agents/agent.py`, delega estatística e finanças
+ao `statistics_agent` e fluxos de projetos ao `workflow_agent`. Cumprimentos e
+perguntas fora do escopo recebem resposta direta. Os prompts ficam em
+`app/agents/orchestrator/prompts/`.
+
+A rota exige `workspace_user`, incluindo a conclusão do cadastro de tradutores.
+O service repassa a identidade do servidor pelo estado da sessão ADK e pelo
+contexto de usuário já utilizado pelas tools do workflow. Estatística continua
+exclusiva de administrador: um callback bloqueia outros papéis antes de executar
+o especialista financeiro. As regras das tarefas continuam nas tools existentes.
+
+O orquestrador usa cópias ADK dos especialistas para preservar a execução direta
+das rotas `POST /statistics/agent` e `POST /workflow/agent`. Cada requisição cria
+uma sessão em memória; o histórico não é compartilhado entre requisições.
+Sem `GEMINI_API_KEY` ou com indisponibilidade/timeout de 30 segundos, retorna 503.
+
+A janela flutuante de chat do workspace, exibida somente para a role `admin`,
+usa o serviço autenticado do frontend para enviar cada mensagem a `POST /agent`
+como `{"pergunta": "..."}` e renderiza a string `resposta` em Markdown. O token
+Bearer da sessão existente é enviado pelo cliente HTTP comum; não há chave Gemini
+no frontend. O histórico é mantido na janela para leitura, mas o endpoint não
+recebe um ID de conversa e não mantém contexto entre chamadas. Conversas com
+contexto exigem suporte futuro de sessão no serviço do orquestrador. A rota atual
+também não expõe eventos de progresso, ferramentas em execução nem origem de
+respostas; a interface mostra somente o estado da solicitação HTTP e a resposta
+final recebida.
+
+Os testes do orquestrador usam modelos falsos (`BaseLlm`), sem consumir Gemini:
+
+```bash
+docker compose exec -e EMAIL_DRY_RUN=false api-python python -m unittest tests.unit.test_orchestrator_agent tests.integration.test_orchestrator_agent_route
+docker compose exec -e EMAIL_DRY_RUN=false api-python python -m unittest discover -s tests
+```
+
+## Agente de estatística
+
+O administrador pergunta em linguagem natural (ex.: "como está o lucro?") e o
+agente responde usando o Google ADK com o Gemini (Google AI Studio). Os números
+são calculados em Python a partir do banco; o modelo só escolhe qual cálculo
+usar e explica o resultado, sem inventar valores. Cálculos disponíveis:
+
+- Estatística descritiva do lucro: total, média, mediana e margem ponderada pela receita
+- Tendência do lucro mensal por regressão linear e previsão do próximo mês
+- Probabilidade de aprovação de um orçamento e valor esperado por orçamento enviado
+- Gasto com cada tradutor
+
+Receita é o valor aprovado do orçamento e custo é a soma de
+`translator_compensation` das tarefas do pedido.
+
+Configure no `backend/.env` a `GEMINI_API_KEY` (gerada em
+https://aistudio.google.com/app/api-keys) e, opcionalmente, `GEMINI_MODEL`
+(`gemini-3.1-flash-lite` por padrão). Nunca commite a chave. Sem chave, ou se o
+Gemini não responder em 30 segundos, a rota retorna 503 com uma mensagem clara.
+
+O agente segue a estrutura do Google ADK em `app/agents/`:
+
+- `config.py`: modelo usado pelos agentes (`GEMINI_MODEL`)
+- `utils/prompts.py`: `load_prompt()` lê os prompts em Markdown
+- `sub_agents/statistics/agent.py`: `statistics_agent`, um `Agent` do ADK
+- `sub_agents/statistics/tools.py`: as tools, que devolvem um `dict` com `status`
+- `sub_agents/statistics/prompts/`: `description.md` e `instruction.md`
+
+O orquestrador (#73) importa os especialistas de `app.agents.sub_agents` e
+registra cópias em `sub_agents=[statistics_agent, workflow_agent]`.
+A rota `POST /statistics/agent` continua executando o sub-agente original pelo
+`InMemoryRunner` do ADK (`app/services/statistics_agent.py`).
+
+## Financeiro do administrador
+
+A aba Financeiro do app (somente administrador geral) consome
+`GET /finance/overview`, que devolve num único JSON:
+
+- `revenue`, `cost` e `balance`: receita aprovada, gasto com tradutores e saldo da empresa
+- `averageProfit` e `approvedProjects`: lucro médio por projeto aprovado e quantidade
+- `projects`: projetos aprovados com receita, custo e lucro, do mais lucrativo para o menos
+- `translators` e `topTranslator`: total pago a cada tradutor, do maior para o menor, e o mais caro
+
+Usa as mesmas regras do agente de estatística: receita é o valor aprovado do
+orçamento e custo é a soma de `translator_compensation` das tarefas.
+
 ## Endpoints
 
 | Método | Rota | Acesso |
@@ -106,11 +196,14 @@ a aprovação. Com `EMAIL_DRY_RUN=true`, os e-mails aparecem no log em vez de se
 | GET | `/translator-profile/me` | Tradutor autenticado; lê somente seu próprio cadastro |
 | PATCH | `/translator-profile/me` | Tradutor com cadastro pendente; salva ou atualiza o rascunho |
 | PUT | `/translator-profile/me` | Tradutor autenticado; valida e persiste seu perfil completo |
-| GET | `/requests` | Bearer token; anexos sem conteúdo na listagem |
+| GET | `/requests` | Bearer token; filtros, busca e paginação; anexos sem conteúdo na listagem |
 | GET | `/requests/{id}` | Bearer token; detalhes e documentos |
 | PATCH | `/requests/{id}` | Bearer token; análise e rascunho |
 | POST | `/requests/{id}/send-quote` | Bearer token; envio da proposta salva |
+| POST | `/requests/{id}/resend-quote` | Bearer token; reenvia orçamento sem resposta com link novo |
 | POST | `/quotes/{quote_id}/decision` | Público; exige token pessoal válido e decisão única |
+| POST | `/tracking/{id}` | Público; exige o token pessoal de acompanhamento |
+| POST | `/requests/{id}/send-tracking` | Bearer token; envia um link de acompanhamento novo |
 | GET | `/translators` | Funcionário/admin; lista tradutores ativos |
 | POST | `/requests/{id}/assign` | Funcionário/admin; cria tarefa após aprovação |
 | GET | `/tasks` | Tradutor vê somente as próprias; funcionário/admin vê a operação |
@@ -120,6 +213,81 @@ a aprovação. Com `EMAIL_DRY_RUN=true`, os e-mails aparecem no log em vez de se
 | POST | `/tasks/{id}/deliveries` | Somente tradutor atribuído; envia nova versão |
 | GET | `/deliveries` | Funcionário/admin; fila e histórico de versões |
 | POST | `/deliveries/{id}/review` | Funcionário/admin; aprova ou solicita revisão |
+| POST | `/statistics/agent` | Somente administrador geral; pergunta ao agente de estatística |
+| POST | `/workflow/agent` | Workspace autenticado; permissões das tarefas verificadas nas tools |
+| POST | `/agent` | Workspace autenticado; orquestra os especialistas, com finanças exclusivas de administrador |
+| GET | `/finance/overview` | Somente administrador geral; resumo da aba Financeiro |
+
+### Listagem de solicitações
+
+`GET /requests` aceita os parâmetros abaixo, aplicados na consulta ao banco:
+
+- `status`: grupos ou status exatos separados por vírgula, como `traducao` ou
+  `pendente,Entregue`. Valores desconhecidos retornam 422.
+- `search`: busca por protocolo, título, cliente, e-mail, empresa e idiomas, sem
+  diferenciar maiúsculas nem acentos.
+- `limit` (1 a 100, padrão 20) e `offset` (padrão 0).
+- `attention=true`: somente solicitações que precisam de atenção (veja abaixo).
+
+A resposta traz `items`, `total` (quantidade que atende a todos os filtros),
+`limit`, `offset` e `counts`. As contagens consideram apenas a busca, para que as
+abas e o filtro de status mostrem quantas solicitações existem em cada grupo:
+
+| Grupo | Status |
+| --- | --- |
+| `pendente` | Recebido |
+| `orcamento` | Em análise, Orçamento enviado, Orçamento simulado, Orçamento aprovado |
+| `traducao` | Tradutor atribuído, Em andamento, Aguardando avaliação, Revisão solicitada |
+| `concluido` | Pronta, Entregue |
+| `cancelado` | Orçamento recusado |
+
+Os grupos ficam em `app/core/request_groups.py` e são repetidos em
+`frontend/src/features/requests/constants/status.ts`; altere os dois juntos.
+
+`counts.attention` traz quantas solicitações da busca atual precisam de atenção.
+Cada item inclui `quoteExpiresAt` quando há link de orçamento ativo; o hash do
+token nunca é retornado.
+
+### Solicitações que precisam de atenção
+
+Uma solicitação entra no filtro `attention` quando:
+
+- está em `Recebido` há 2 dias ou mais;
+- está em `Orçamento enviado` sem resposta há 3 dias ou mais, ou com o link do
+  cliente vencido ou vencendo em até 3 dias;
+- não está concluída nem recusada e o prazo mais urgente vence até amanhã
+  (horário de São Paulo) ou já passou. O prazo considerado é o da tarefa aberta
+  mais próxima; sem tarefas, o prazo prometido no orçamento; antes do orçamento,
+  o prazo pedido pelo cliente. Datas em texto livre, como "5 dias úteis", não
+  geram alerta.
+
+As regras ficam em `app/core/request_alerts.py` e são repetidas em
+`frontend/src/features/requests/utils/request-alerts.ts`; altere os dois juntos.
+
+`POST /requests/{id}/resend-quote` envia o mesmo orçamento como lembrete, com um
+link pessoal novo e validade renovada (`QUOTE_RESPONSE_DAYS`). O link anterior
+só deixa de valer depois que o provedor confirma o envio; se o envio falhar, ele
+continua válido. O reenvio fica registrado no histórico como `Orçamento reenviado`.
+
+### Acompanhamento do pedido pelo cliente
+
+Quando o cliente aprova o orçamento, a API gera um token pessoal de
+acompanhamento, salva só o hash e envia o e-mail "Pedido confirmado" com o link
+`/acompanhar/{id}#token`. O token fica no fragmento da URL para não aparecer em
+logs, e a página o retira da barra de endereço depois de ler. Uma falha nesse
+e-mail fica só no log e não desfaz a aprovação.
+
+`POST /tracking/{id}` recebe `{ "token": "..." }` e devolve apenas o que o
+cliente pode ver: etapa atual, histórico das etapas públicas, previsão, valor
+aprovado e situação de cada idioma. Tradutores, notas, documentos e etapas
+internas ficam de fora; `Aguardando avaliação` e `Revisão solicitada` aparecem
+como `Em andamento`, e o idioma correspondente como `Em revisão`. Token errado e
+solicitação inexistente recebem a mesma resposta 403.
+
+`POST /requests/{id}/send-tracking` envia um link novo (por exemplo, quando o
+cliente perdeu o e-mail). O link anterior só deixa de valer depois que o
+provedor confirma o envio. O envio fica no histórico como
+`Link de acompanhamento enviado`.
 
 ## Fluxo operacional
 

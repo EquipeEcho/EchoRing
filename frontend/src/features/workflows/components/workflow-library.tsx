@@ -27,7 +27,7 @@ export function WorkflowLibrary({ compact, onOpen }: { compact: boolean; onOpen:
       {workflowTemplates.map(template => {
         const Icon = icons[template.id];
         return <View key={template.id} testID={`workflow-template-${template.id}`} style={[s.card, compact && s.cardCompact]}>
-          <View style={s.between}><View style={s.templateIcon}><Icon size={22} color={colors.accent} /></View><Badge tone="neutral">5 etapas</Badge></View>
+          <View style={s.between}><View style={s.templateIcon}><Icon size={22} color={colors.ink} /></View><Badge tone="neutral">5 etapas</Badge></View>
           <View style={s.cardTop}><Txt accessibilityRole="header" style={s.title}>{template.title}</Txt><Txt style={s.muted}>{template.description}</Txt></View>
           <View style={{ gap: 5 }}><Txt style={s.detailLabel}>Quando utilizar</Txt><Txt style={s.muted}>{template.useWhen}</Txt></View>
           <View style={s.stagePreview}>

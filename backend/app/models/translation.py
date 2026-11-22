@@ -54,7 +54,8 @@ class Intake(BaseModel):
     title: str = Field(min_length=1, max_length=160)
     service: str = Field(min_length=1, max_length=160)
     source: str = Field(min_length=1, max_length=160)
-    target: str = Field(min_length=1, max_length=160)
+    target: str = Field(default='', max_length=160)
+    targets: list[str] = Field(default_factory=list, max_length=60)
     deadline: str = Field(default='', max_length=160)
     message: str = Field(min_length=1, max_length=3000)
     consent: bool
@@ -74,12 +75,35 @@ class Intake(BaseModel):
         if not re.fullmatch(r'[^\s@\r\n]+@[^\s@\r\n]+\.[^\s@\r\n]+', self.email):
             raise ValueError('E-mail inválido.')
         self.email = self.email.lower()
-        if any(language_key(value) not in SUPPORTED_CODES for value in (self.source, self.target)):
+        targets = self.targets or ([self.target] if self.target else [])
+        codes = [language_key(value) for value in targets]
+        if not targets or any(language_key(value) not in SUPPORTED_CODES for value in [self.source, *targets]):
             raise ValueError('Selecione apenas idiomas disponíveis na lista.')
-        if language_key(self.source) == language_key(self.target):
+        if len(codes) != len(set(codes)):
+            raise ValueError('Não repita idiomas de destino.')
+        if self.target and language_key(self.target) != codes[0]:
+            raise ValueError('O destino principal deve corresponder ao primeiro idioma solicitado.')
+        if language_key(self.source) in codes:
             raise ValueError('Informe idiomas diferentes.')
+        self.targets = [value.strip() for value in targets]
+        self.target = self.targets[0]
         if sum(file.size for file in self.attachments) > 5 * 1024 * 1024:
             raise ValueError('Limite total de documentos: 5 MB.')
+        return self
+
+
+class QuoteItem(BaseModel):
+    target: str = Field(min_length=1, max_length=160)
+    amount: str = Field(min_length=1, max_length=12)
+    delivery: str = Field(min_length=1, max_length=160)
+
+    @model_validator(mode='after')
+    def validate_item(self):
+        self.target = self.target.strip()
+        self.delivery = self.delivery.strip()
+        self.amount = self.amount.strip()
+        if not self.target or not self.delivery or not re.fullmatch(r'\d{1,8}([.,]\d{1,2})?', self.amount) or Decimal(self.amount.replace(',', '.')) <= 0:
+            raise ValueError('Informe idioma, valor positivo e prazo para cada tradução.')
         return self
 
 
@@ -88,6 +112,7 @@ class Quote(BaseModel):
     amount: str = Field(min_length=1, max_length=12)
     delivery: str = Field(min_length=1, max_length=160)
     message: str = Field(default='', max_length=3000)
+    items: list[QuoteItem] = Field(default_factory=list, max_length=60)
 
     @model_validator(mode='after')
     def validate_quote(self):
@@ -106,13 +131,18 @@ class Update(BaseModel):
     quote: Quote | None = None
 
 
-class QuoteDecision(BaseModel):
-    """Resposta do cliente acompanhada pelo token recebido no e-mail."""
+class QuoteAccess(BaseModel):
     token: str = Field(min_length=32, max_length=256)
+
+
+class QuoteDecision(QuoteAccess):
+    """Resposta do cliente acompanhada pelo token recebido no e-mail."""
     decision: Literal['approve', 'decline']
+    targets: list[str] | None = Field(default=None, max_length=60)
 
 
 class TranslatorAssignment(BaseModel):
+    target: str | None = Field(default=None, min_length=1, max_length=160)
     workflowTemplateId: WorkflowType | None = None
     """Dados necessários para transformar uma solicitação em tarefa."""
     translatorId: str = Field(min_length=1, max_length=160)

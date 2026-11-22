@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { requestPage } from './support/request-page';
 
 import { type TranslationService } from '../../src/features/deliveries/types';
 import { workflowTemplates } from '../../src/features/workflows/data/workflow-templates';
@@ -12,7 +13,7 @@ test('documentary approval returns to formalization without showing the service 
       stages: template.stages.map((stage, index) => ({ stageId: stage.id, status: index < 2 ? 'completed' : index === 2 ? 'current' : 'pending', assignee: stage.role === 'translator' ? 'Marina Costa' : 'Equipe de revisão' })) } };
   await page.addInitScript(() => sessionStorage.setItem('echoring.auth-session.v2', JSON.stringify({ role: 'employee', name: 'Equipe', email: 'employee@example.test', token: 'workflow-review-token', demo: false, expires: Date.now() / 1000 + 3600 })));
   await page.route('**/tasks', route => route.fulfill({ json: [task] }));
-  await page.route('**/requests', route => route.fulfill({ json: [] }));
+  await page.route('**/requests?*', route => route.fulfill({ json: requestPage([], route.request().url()) }));
   await page.route('**/offer-notifications', route => route.fulfill({ json: [] }));
   await page.route('**/deliveries/DEL-DOCUMENT/review', async route => {
     expect(route.request().postDataJSON()).toMatchObject({ decision: 'approve' });

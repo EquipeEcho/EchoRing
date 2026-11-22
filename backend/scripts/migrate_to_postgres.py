@@ -7,26 +7,59 @@ import sqlite3
 from pathlib import Path
 
 from dotenv import load_dotenv
-from psycopg.types.json import Jsonb
+from sqlalchemy import Boolean, DateTime, insert, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 load_dotenv(Path(__file__).resolve().parents[1] / '.env')
 
-from app.database_pg import database, now
-
+from app.database_pg import database, now, to_datetime
+from app.db_models import (
+    AuthSession,
+    Delivery,
+    LegacyMigration,
+    Service,
+    TranslationRequest,
+    User,
+    WorkflowEvent,
+)
 
 TABLE_COLUMNS = {
     'users': ('id', 'email', 'name', 'role', 'password_hash', 'active'),
     'sessions': ('digest', 'expires', 'user_id'),
     'services': (
-        'id', 'request_id', 'title', 'translator_id', 'status', 'deadline', 'created_at',
-        'observations', 'source', 'target', 'updated_at', 'started_at', 'ready_at',
-        'delivered_at', 'sending',
+        'id',
+        'request_id',
+        'title',
+        'translator_id',
+        'status',
+        'deadline',
+        'created_at',
+        'observations',
+        'source',
+        'target',
+        'updated_at',
+        'started_at',
+        'ready_at',
+        'delivered_at',
+        'sending',
     ),
     'deliveries': (
-        'id', 'service_id', 'version', 'translator_id', 'name', 'media_type', 'size',
-        'content', 'status', 'feedback', 'submitted_at', 'reviewed_at', 'reviewed_by',
+        'id',
+        'service_id',
+        'version',
+        'translator_id',
+        'name',
+        'media_type',
+        'size',
+        'content',
+        'status',
+        'feedback',
+        'submitted_at',
+        'reviewed_at',
+        'reviewed_by',
     ),
 }
+TABLE_MODELS = {'sessions': AuthSession, 'services': Service, 'deliveries': Delivery}
 
 
 def sqlite_columns(connection, table):
@@ -42,11 +75,30 @@ def sqlite_tables(connection):
 def values_for(row, columns, available):
     """Monta uma linha compatível e completa campos que não existiam em versões antigas."""
     defaults = {
-        'active': 1, 'sending': 0, 'observations': '', 'source': '', 'target': '',
-        'updated_at': None, 'started_at': None, 'ready_at': None, 'delivered_at': None,
+        'active': 1,
+        'sending': 0,
+        'observations': '',
+        'source': '',
+        'target': '',
+        'updated_at': None,
+        'started_at': None,
+        'ready_at': None,
+        'delivered_at': None,
         'user_id': None,
     }
     return tuple(row[column] if column in available else defaults.get(column) for column in columns)
+
+
+def postgres_values(model, row, columns, available):
+    """Converte os tipos do SQLite antes de gravar nas colunas PostgreSQL."""
+    values = dict(zip(columns, values_for(row, columns, available)))
+    for column, value in values.items():
+        column_type = model.__table__.c[column].type
+        if isinstance(column_type, DateTime):
+            values[column] = to_datetime(value)
+        elif isinstance(column_type, Boolean):
+            values[column] = bool(value)
+    return values
 
 
 def import_legacy(sqlite_path):
@@ -57,11 +109,13 @@ def import_legacy(sqlite_path):
     counts = {}
     try:
         tables = sqlite_tables(source)
-        with database() as target:
-            target.execute('''CREATE TABLE IF NOT EXISTS legacy_migrations (
-                source_key TEXT PRIMARY KEY, source_path TEXT NOT NULL, migrated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )''')
-            if target.execute('SELECT 1 FROM legacy_migrations WHERE source_key = ?', (source_key,)).fetchone():
+        with database() as session:
+            LegacyMigration.__table__.create(session.connection(), checkfirst=True)
+            if (
+                session.execute(select(LegacyMigration.source_key).where(LegacyMigration.source_key == source_key))
+                .mappings()
+                .first()
+            ):
                 return {'alreadyMigrated': True, 'counts': {}}
 
             # Usuários e solicitações precisam de ajustes próprios antes de entrar no PostgreSQL.
@@ -70,11 +124,10 @@ def import_legacy(sqlite_path):
                 available = sqlite_columns(source, 'users')
                 rows = source.execute('SELECT * FROM users').fetchall()
                 for row in rows:
-                    values = list(values_for(row, columns, available))
-                    values[-1] = bool(values[-1])
-                    target.execute(
-                        '''INSERT INTO users (id, email, name, role, password_hash, active)
-                           VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING''', tuple(values),
+                    session.execute(
+                        pg_insert(User)
+                        .values(**postgres_values(User, row, columns, available))
+                        .on_conflict_do_nothing(index_elements=[User.id])
                     )
                 counts['users'] = len(rows)
 
@@ -82,10 +135,15 @@ def import_legacy(sqlite_path):
                 rows = source.execute('SELECT * FROM requests').fetchall()
                 for row in rows:
                     data = json.loads(row['data'])
-                    target.execute(
-                        '''INSERT INTO requests (id, data, sending, created_at) VALUES (?, ?, ?, ?)
-                           ON CONFLICT (id) DO NOTHING''',
-                        (row['id'], Jsonb(data), bool(row['sending']), data.get('createdAt') or now()),
+                    session.execute(
+                        pg_insert(TranslationRequest)
+                        .values(
+                            id=row['id'],
+                            data=data,
+                            sending=bool(row['sending']),
+                            created_at=to_datetime(data.get('createdAt') or now()),
+                        )
+                        .on_conflict_do_nothing(index_elements=[TranslationRequest.id])
                     )
                 counts['requests'] = len(rows)
 
@@ -96,14 +154,12 @@ def import_legacy(sqlite_path):
                 columns = TABLE_COLUMNS[table]
                 available = sqlite_columns(source, table)
                 rows = source.execute(f'SELECT * FROM {table}').fetchall()
-                placeholders = ', '.join('?' for _ in columns)
+                model = TABLE_MODELS[table]
                 for row in rows:
-                    values = list(values_for(row, columns, available))
-                    if table == 'services':
-                        values[-1] = bool(values[-1])
-                    target.execute(
-                        f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders}) ON CONFLICT DO NOTHING",
-                        tuple(values),
+                    session.execute(
+                        pg_insert(model)
+                        .values(**postgres_values(model, row, columns, available))
+                        .on_conflict_do_nothing()
                     )
                 counts[table] = len(rows)
 
@@ -113,18 +169,14 @@ def import_legacy(sqlite_path):
                 available = sqlite_columns(source, 'workflow_events')
                 rows = source.execute('SELECT * FROM workflow_events ORDER BY id').fetchall()
                 for row in rows:
-                    target.execute(
-                        '''INSERT INTO workflow_events
-                           (request_id, service_id, status, note, actor_id, actor_name, created_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                        values_for(row, columns, available),
+                    session.execute(
+                        insert(WorkflowEvent).values(**postgres_values(WorkflowEvent, row, columns, available))
                     )
                 counts['workflow_events'] = len(rows)
 
             # O caminho vira uma chave estável para o mesmo arquivo não ser importado duas vezes.
-            target.execute(
-                'INSERT INTO legacy_migrations (source_key, source_path) VALUES (?, ?)',
-                (source_key, str(sqlite_path.resolve())),
+            session.execute(
+                insert(LegacyMigration).values(source_key=source_key, source_path=str(sqlite_path.resolve()))
             )
     finally:
         source.close()
@@ -143,7 +195,9 @@ def main():
     if result['alreadyMigrated']:
         print('Este arquivo SQLite já foi migrado; nenhuma alteração foi feita.')
     else:
-        summary = ', '.join(f'{table}={count}' for table, count in result['counts'].items()) or 'nenhuma tabela compatível'
+        summary = (
+            ', '.join(f'{table}={count}' for table, count in result['counts'].items()) or 'nenhuma tabela compatível'
+        )
         print(f'Migração concluída: {summary}.')
 
 

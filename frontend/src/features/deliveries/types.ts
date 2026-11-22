@@ -25,6 +25,7 @@ export type TranslationService = {
   lastVersion: number;
   lastFeedback?: string;
   observations: string;
+  briefing?: string;
   source: string;
   target: string;
   clientName?: string;

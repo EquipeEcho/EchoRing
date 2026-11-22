@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block conteudo %}
+  <h2>{% if reenvio %}Seu link de acompanhamento{% else %}Pedido confirmado{% endif %}</h2>
+  <p>Olá, {{ nome }}!</p>
+  {% if reenvio %}
+  <p>Este é o novo link para acompanhar <strong>{{ titulo }}</strong>. Os links enviados antes deixaram de valer.</p>
+  {% else %}
+  <p>Recebemos a aprovação de <strong>{{ titulo }}</strong>. Nossa equipe já está preparando a tradução.</p>
+  {% endif %}
+  <p>
+    <strong>Protocolo:</strong> {{ protocolo }}<br>
+    <strong>Idiomas:</strong> {{ origem }} → {{ destino }}<br>
+    {% if valor %}<strong>Valor aprovado:</strong> R$ {{ valor }}<br>{% endif %}
+    {% if prazo %}<strong>Prazo previsto:</strong> {{ prazo }}{% endif %}
+  </p>
+  <p>Acompanhe cada etapa do pedido, do início da tradução até a entrega, pelo link abaixo.</p>
+  <p>
+    <a href="{{ acompanhar_url }}" style="display:inline-block;background:#FF365B;color:#fff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:8px;">Acompanhar pedido</a>
+  </p>
+  <p style="font-size:13px;color:#60646C;">O link é pessoal; não o compartilhe. Os arquivos traduzidos chegam por e-mail quando cada idioma for entregue.</p>
+{% endblock %}
+{% block rodape %}Protocolo: {{ protocolo }} · {{ empresa }}{% endblock %}
