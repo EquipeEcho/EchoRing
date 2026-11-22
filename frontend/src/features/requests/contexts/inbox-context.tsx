@@ -2,18 +2,11 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useS
 import { Platform } from 'react-native';
 
 import { useSession } from '@/features/auth/contexts/session-context';
-import { listRequests } from '@/features/requests/services/request-service';
-import { type RequestCounts } from '@/features/requests/types';
-import { countRequests } from '@/features/requests/utils/request-query';
-
-const emptyCounts = countRequests([]);
+import { getRequests } from '@/features/requests/services/request-service';
+import { type TranslationRequest } from '@/features/requests/types';
 
 const InboxContext = createContext<{
-  /** Counts across every request, without the list filters. */
-  counts: RequestCounts;
-  received: number;
-  /** Changes on every refresh so lists can reload their current page. */
-  revision: number;
+  requests: TranslationRequest[];
   loading: boolean;
   error: string;
   refresh: () => Promise<void>;
@@ -21,27 +14,25 @@ const InboxContext = createContext<{
 
 export function InboxProvider({ children }: { children: ReactNode }) {
   const { session } = useSession();
-  const [counts, setCounts] = useState<RequestCounts>(emptyCounts);
-  const [revision, setRevision] = useState(0);
+  const [requests, setRequests] = useState<TranslationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const token = session?.token;
   const allowed = session?.demo || session?.role === 'employee' || session?.role === 'admin';
   const refresh = useCallback(async () => {
     if (!allowed) {
-      setCounts(emptyCounts);
+      setRequests([]);
       setError('');
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      setCounts((await listRequests({ limit: 1 }, token)).counts);
+      setRequests(await getRequests(token));
       setError('');
     } catch (failure) {
       setError((failure as Error).message);
     } finally {
-      setRevision(current => current + 1);
       setLoading(false);
     }
   }, [allowed, token]);
@@ -67,7 +58,7 @@ export function InboxProvider({ children }: { children: ReactNode }) {
     };
   }, [refresh]);
   return (
-    <InboxContext.Provider value={{ counts, received: counts.statuses.Recebido ?? 0, revision, loading, error, refresh }}>
+    <InboxContext.Provider value={{ requests, loading, error, refresh }}>
       {children}
     </InboxContext.Provider>
   );

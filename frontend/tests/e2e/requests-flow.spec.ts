@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { requestPage } from './support/request-page';
 
 type Intake = {
   name: string;
@@ -71,7 +70,7 @@ test('landing intake is saved in its configured mode and reaches the staff inbox
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(requestPage(summary ? [summary] : [], request.url())),
+        body: JSON.stringify(summary ? [summary] : []),
       });
       return;
     }
@@ -199,7 +198,7 @@ test('authenticated employee analyzes a request and sends its quote through the 
     calls.push({ method: request.method(), path: url.pathname, authorization: request.headers().authorization ?? null });
     if (request.method() === 'GET' && url.pathname === '/requests') {
       const summary = { ...record, attachments: record.attachments.map(file => ({ ...file, content: '' })) };
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(requestPage([summary], request.url())) });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([summary]) });
       return;
     }
     if (request.method() === 'GET' && url.pathname === `/requests/${record.id}`) {
@@ -281,7 +280,7 @@ test('automatic quote approval opens compatible offers without reloading the pag
       return;
     }
     if (request.method() === 'GET' && url.pathname === '/requests') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(requestPage([record], request.url())) });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([record]) });
       return;
     }
     if (request.method() === 'GET' && url.pathname === `/requests/${record.id}`) {
@@ -321,16 +320,11 @@ test('automatic quote approval opens compatible offers without reloading the pag
 
 test('client confirms a quote decision through the personal link', async ({ page }) => {
   let payload: { token: string; decision: string } | null = null;
-  await page.route('**/quotes/ORC-TEST-001/preview', route => route.fulfill({ json: {
-    id: 'SOL-TEST-001', title: 'Manual técnico', service: 'Tradução', source: 'Português', targets: ['Inglês'],
-    quote: { amount: '350.50', delivery: '2099-01-10', message: '' },
-  } }));
   await page.route('**/quotes/ORC-TEST-001/decision', async route => {
     payload = route.request().postDataJSON();
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
       requestId: 'SOL-TEST-001', quoteId: 'ORC-TEST-001', title: 'Manual técnico',
       status: 'Orçamento aprovado', respondedAt: '2026-09-21T12:00:00Z',
-      approvedTargets: ['Inglês'], approvedAmount: '350.50',
     }) });
   });
   const token = 'secure-personal-token-with-more-than-thirty-two-characters';
@@ -338,7 +332,7 @@ test('client confirms a quote decision through the personal link', async ({ page
   await expect(page.getByRole('heading', { name: 'Confirme sua decisão' })).toBeVisible();
   await page.getByRole('button', { name: 'Confirmar aprovação' }).click();
   await expect(page.getByRole('heading', { name: 'Orçamento aprovado' })).toBeVisible();
-  expect(payload).toEqual({ token, decision: 'approve', targets: ['Inglês'] });
+  expect(payload).toEqual({ token, decision: 'approve' });
   await expect.poll(() => page.evaluate(() => location.hash)).toBe('');
 });
 
@@ -348,11 +342,11 @@ test('completed requests are kept outside the active workflow', async ({ page })
     service: 'Tradução de documentos', source: 'Português', target: 'Inglês', deadline: '', message: 'Projeto de teste',
     consent: true, attachments: [],
   };
-  await page.route('**/requests?*', route => route.fulfill({
-    status: 200, contentType: 'application/json', body: JSON.stringify(requestPage([
+  await page.route('**/requests', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify([
       { ...base, id: 'SOL-ATIVA', title: 'Solicitação ativa', status: 'Em análise' },
       { ...base, id: 'SOL-CONCLUIDA', title: 'Solicitação concluída', status: 'Entregue' },
-    ], route.request().url())),
+    ]),
   }));
   await page.addInitScript(() => {
     sessionStorage.setItem('echoring.auth-session.v2', JSON.stringify({

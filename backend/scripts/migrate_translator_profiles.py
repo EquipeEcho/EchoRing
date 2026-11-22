@@ -1,5 +1,4 @@
 """Copy legacy MongoDB profiles into PostgreSQL without overwriting newer data."""
-
 import argparse
 import json
 import os
@@ -7,12 +6,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
+from psycopg.types.json import Jsonb
 from pydantic import ValidationError
 from pymongo import MongoClient
-from sqlalchemy import and_, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-
-from app.db_models import TranslatorProfile, User
 
 load_dotenv(Path(__file__).resolve().parents[1] / '.env')
 
@@ -29,24 +25,14 @@ def timestamp(value, default=None):
 
 def migrate_profiles(collection, *, apply=False):
     counts = {'imported': 0, 'wouldImport': 0, 'existing': 0, 'missingUser': 0, 'invalid': 0}
-    with database() as session:
+    with database() as connection:
         for document in collection.find({}):
             user_id = document.get('_id')
-            if (
-                not isinstance(user_id, str)
-                or not session.execute(
-                    select(1).select_from(User).where(and_(User.id == user_id, User.role == 'translator'))
-                )
-                .mappings()
-                .first()
-            ):
+            if not isinstance(user_id, str) or not connection.execute(
+                    "SELECT 1 FROM users WHERE id = ? AND role = 'translator'", (user_id,)).fetchone():
                 counts['missingUser'] += 1
                 continue
-            if (
-                session.execute(select(1).select_from(TranslatorProfile).where(TranslatorProfile.user_id == user_id))
-                .mappings()
-                .first()
-            ):
+            if connection.execute('SELECT 1 FROM translator_profiles WHERE user_id = ?', (user_id,)).fetchone():
                 counts['existing'] += 1
                 continue
             try:
@@ -59,16 +45,9 @@ def migrate_profiles(collection, *, apply=False):
             if not apply:
                 counts['wouldImport'] += 1
                 continue
-            result = (
-                session.execute(
-                    pg_insert(TranslatorProfile)
-                    .values(user_id=user_id, data=profile.model_dump(), completed_at=completed, updated_at=updated)
-                    .on_conflict_do_nothing(index_elements=[TranslatorProfile.user_id])
-                    .returning(TranslatorProfile.user_id)
-                )
-                .mappings()
-                .first()
-            )
+            result = connection.execute('''INSERT INTO translator_profiles (user_id, data, completed_at, updated_at)
+                VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO NOTHING RETURNING user_id''',
+                (user_id, Jsonb(profile.model_dump()), completed, updated)).fetchone()
             counts['imported' if result else 'existing'] += 1
     return {'dryRun': not apply, **counts}
 
