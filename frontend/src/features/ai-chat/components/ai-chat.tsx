@@ -18,6 +18,7 @@ import { TextInput } from '@/components/ui/text-input';
 import { Txt } from '@/components/ui/text';
 import { sendAIChatMessage, type AIChatMessage } from '@/features/ai-chat/services/ai-chat-service';
 import { useStyles } from '@/features/ai-chat/styles/ai-chat.styles';
+import { useSession } from '@/features/auth/contexts/session-context';
 import { desktopWidth, fonts } from '@/theme/tokens';
 import { useTheme } from '@/theme/theme-context';
 
@@ -28,13 +29,15 @@ const suggestions = [
 
 export function AIChat() {
   const styles = useStyles();
+  const { session } = useSession();
   const { width, height } = useWindowDimensions();
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
-  const [conversationId, setConversationId] = useState<string>();
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [opacity] = useState(() => new Animated.Value(0));
   const nextId = useRef(0);
@@ -87,24 +90,33 @@ export function AIChat() {
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [open]);
 
-  const send = () => {
+  const available = !!session?.token && !session.demo;
+  const availabilityError = session?.demo
+    ? 'O assistente não está disponível no modo demonstração. Entre com uma conta da empresa para conversar.'
+    : !available ? 'Entre com sua conta para conversar com o assistente.' : '';
+
+  const send = async () => {
     const content = draft.trim();
-    if (!content) return;
+    if (!available || !session?.token || sendingRef.current || content.length < 3 || content.length > 500) return;
+    sendingRef.current = true;
+    setSending(true);
+    setError('');
     const userMessage: AIChatMessage = {
       id: String(nextId.current++), role: 'user', content, createdAt: Date.now(),
     };
     setMessages(previous => [...previous, userMessage]);
     setDraft('');
-    const result = sendAIChatMessage({ message: content, conversationId });
-    if (result.status === 'unavailable') {
-      setError(result.message);
-      return;
+    try {
+      const result = await sendAIChatMessage({ message: content }, session.token);
+      setMessages(previous => [...previous, {
+        id: String(nextId.current++), role: 'assistant', content: result.message, createdAt: Date.now(),
+      }]);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Não foi possível consultar o assistente. Tente novamente.');
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
     }
-    setError('');
-    setConversationId(result.conversationId);
-    setMessages(previous => [...previous, {
-      id: String(nextId.current++), role: 'assistant', content: result.message, createdAt: Date.now(),
-    }]);
   };
 
   const bottom = width >= desktopWidth ? 24 : 96;
@@ -122,12 +134,16 @@ export function AIChat() {
           }]}
         >
           <KeyboardAvoidingView style={styles.windowContent} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <AIChatHeader onMinimize={() => setOpen(false)} />
-            <AIChatMessages messages={messages} error={error} onSuggestion={value => {
+            <AIChatHeader
+              status={session?.demo ? 'Modo demonstração' : !available ? 'Entre com sua conta'
+                : sending ? 'Respondendo...' : error ? 'Falha no envio' : 'Pronto para conversar'}
+              onMinimize={() => setOpen(false)}
+            />
+            <AIChatMessages messages={messages} sending={sending} error={availabilityError || error} onSuggestion={value => {
               setDraft(value);
               inputRef.current?.focus();
             }} />
-            <AIChatInput inputRef={inputRef} value={draft} onChange={setDraft} onSend={send} />
+            <AIChatInput inputRef={inputRef} value={draft} onChange={setDraft} onSend={send} disabled={!available || sending} />
           </KeyboardAvoidingView>
         </Animated.View>
       )}
@@ -160,7 +176,7 @@ function AIChatButton({ buttonRef, onPress }: { buttonRef: React.RefObject<View 
   );
 }
 
-function AIChatHeader({ onMinimize }: { onMinimize: () => void }) {
+function AIChatHeader({ status, onMinimize }: { status: string; onMinimize: () => void }) {
   const styles = useStyles();
   const { colors } = useTheme();
   return (
@@ -168,7 +184,7 @@ function AIChatHeader({ onMinimize }: { onMinimize: () => void }) {
       <View style={styles.agentIcon}><Bot size={22} color={colors.accent} /></View>
       <View style={styles.headerText}>
         <Txt style={styles.title}>Assistente IA</Txt>
-        <Txt style={styles.status}>Não conectado</Txt>
+        <Txt accessibilityLiveRegion="polite" style={styles.status}>{status}</Txt>
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="Minimizar assistente" onPress={onMinimize} style={styles.iconButton}>
         <ChevronDown size={22} color={colors.muted} />
@@ -177,8 +193,9 @@ function AIChatHeader({ onMinimize }: { onMinimize: () => void }) {
   );
 }
 
-function AIChatMessages({ messages, error, onSuggestion }: {
+function AIChatMessages({ messages, sending, error, onSuggestion }: {
   messages: AIChatMessage[];
+  sending: boolean;
   error: string;
   onSuggestion: (value: string) => void;
 }) {
@@ -207,6 +224,7 @@ function AIChatMessages({ messages, error, onSuggestion }: {
         </View>
       )}
       {messages.map(message => <AIChatMessageView key={message.id} message={message} />)}
+      {sending && <View style={styles.welcome}><Txt style={styles.messageText}>O assistente está respondendo...</Txt></View>}
       {!!error && (
         <View accessibilityRole="alert" style={styles.error}>
           <AlertCircle size={17} color={colors.red} />
@@ -244,14 +262,16 @@ function AIChatMessageView({ message }: { message: AIChatMessage }) {
   );
 }
 
-function AIChatInput({ inputRef, value, onChange, onSend }: {
+function AIChatInput({ inputRef, value, onChange, onSend, disabled }: {
   inputRef: React.RefObject<TextInput | null>;
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
+  disabled: boolean;
 }) {
   const styles = useStyles();
   const { colors } = useTheme();
+  const canSend = !disabled && value.trim().length >= 3 && value.trim().length <= 500;
   const onKeyPress = (event: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
     if (Platform.OS !== 'web') return;
     const nativeEvent = event.nativeEvent as TextInputKeyPressEventData & { shiftKey?: boolean; isComposing?: boolean };
@@ -265,9 +285,12 @@ function AIChatInput({ inputRef, value, onChange, onSend }: {
       <TextInput
         ref={inputRef}
         accessibilityLabel="Mensagem para o assistente"
+        accessibilityHint="Digite de 3 a 500 caracteres."
         placeholder="Escreva sua mensagem..."
         placeholderTextColor={colors.muted}
         multiline
+        editable={!disabled}
+        maxLength={500}
         value={value}
         onChangeText={onChange}
         onKeyPress={onKeyPress}
@@ -276,10 +299,10 @@ function AIChatInput({ inputRef, value, onChange, onSend }: {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Enviar mensagem"
-        accessibilityState={{ disabled: !value.trim() }}
-        disabled={!value.trim()}
+        accessibilityState={{ disabled: !canSend }}
+        disabled={!canSend}
         onPress={onSend}
-        style={[styles.send, !value.trim() && styles.sendDisabled]}
+        style={[styles.send, !canSend && styles.sendDisabled]}
       >
         <Send size={19} color={colors.onAccent} />
       </Pressable>
